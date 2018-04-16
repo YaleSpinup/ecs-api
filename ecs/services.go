@@ -28,16 +28,41 @@ type Service struct {
 	ClusterID    string
 	CreatedAt    string
 	Count        int64
+	Deployments  []*ServiceDeployment
 	DesiredCount int64
+	Events       []*ServiceEvent
 	ID           string
 	Name         string
-	Overrides    map[string]ContainerOverride
+	Overrides    map[string]*ContainerOverride
 	PendingCount int64
 	Public       bool
 	Sgs          []string
 	Status       string
 	Subnets      []string
 	TaskDef      string
+}
+
+// ServiceDeployment describes an ECS service deployment
+type ServiceDeployment struct {
+	Count           int64
+	CreatedAt       string
+	DesiredCount    int64
+	ID              string
+	Public          bool
+	Sgs             []string
+	Subnets         []string
+	PendingCount    int64
+	PlatformVersion string
+	Status          string
+	TaskDef         string
+	UpdatedAt       string
+}
+
+// ServiceEvent is an event entry for a service
+type ServiceEvent struct {
+	CreatedAt string
+	ID        string
+	Message   string
 }
 
 // GetService describes a service in a cluster
@@ -62,6 +87,30 @@ func (e ECS) GetService(ctx context.Context, cluster, service string) (*Service,
 	}
 
 	return newServiceFromECSService(out.Services[0]), nil
+}
+
+// GetServiceEvents returns a list of service events
+func (e ECS) GetServiceEvents(ctx context.Context, cluster, service string) ([]*ServiceEvent, error) {
+	log.Infof("getting events for service %s in cluster %s", service, cluster)
+
+	out, err := e.Service.DescribeServicesWithContext(ctx, &ecs.DescribeServicesInput{
+		Cluster:  aws.String(cluster),
+		Services: aws.StringSlice([]string{service}),
+	})
+
+	if err != nil {
+		log.Errorf("error describing service events: %s", err)
+		return nil, err
+	}
+
+	log.Debugf("output from get service %+v", out)
+
+	if len(out.Services) != 1 {
+		log.Errorf("unexpected service response (length: %d)", len(out.Services))
+		return nil, fmt.Errorf("unexpected service response (length: %d)", len(out.Services))
+	}
+
+	return newServiceFromECSService(out.Services[0]).Events, nil
 }
 
 // ListServices lists services in a cluster
@@ -216,6 +265,40 @@ func (e ECS) createService(ctx context.Context, cluster string, req ServiceReque
 }
 
 func newServiceFromECSService(s *ecs.Service) *Service {
+	var deployments []*ServiceDeployment
+	for _, d := range s.Deployments {
+		var p bool
+		if aws.StringValue(d.NetworkConfiguration.AwsvpcConfiguration.AssignPublicIp) == "ENABLED" {
+			p = true
+		}
+
+		deployment := ServiceDeployment{
+			Count:           aws.Int64Value(d.RunningCount),
+			CreatedAt:       aws.TimeValue(d.CreatedAt).Format("2006/01/02 15:04:05"),
+			DesiredCount:    aws.Int64Value(d.DesiredCount),
+			ID:              aws.StringValue(d.Id),
+			PendingCount:    aws.Int64Value(d.PendingCount),
+			PlatformVersion: aws.StringValue(d.PlatformVersion),
+			Public:          p,
+			Sgs:             aws.StringValueSlice(d.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups),
+			Status:          aws.StringValue(d.Status),
+			Subnets:         aws.StringValueSlice(d.NetworkConfiguration.AwsvpcConfiguration.Subnets),
+			TaskDef:         aws.StringValue(d.TaskDefinition),
+			UpdatedAt:       aws.TimeValue(d.UpdatedAt).Format("2006/01/02 15:04:05"),
+		}
+		deployments = append(deployments, &deployment)
+	}
+
+	var events []*ServiceEvent
+	for _, e := range s.Events {
+		event := ServiceEvent{
+			CreatedAt: aws.TimeValue(e.CreatedAt).Format("2006/01/02 15:04:05"),
+			ID:        aws.StringValue(e.Id),
+			Message:   aws.StringValue(e.Message),
+		}
+		events = append(events, &event)
+	}
+
 	var public bool
 	if aws.StringValue(s.NetworkConfiguration.AwsvpcConfiguration.AssignPublicIp) == "ENABLED" {
 		public = true
@@ -226,6 +309,8 @@ func newServiceFromECSService(s *ecs.Service) *Service {
 		CreatedAt:    aws.TimeValue(s.CreatedAt).Format("2006/01/02 15:04:05"),
 		Count:        aws.Int64Value(s.RunningCount),
 		DesiredCount: aws.Int64Value(s.DesiredCount),
+		Deployments:  deployments,
+		Events:       events,
 		ID:           aws.StringValue(s.ServiceArn),
 		Name:         aws.StringValue(s.ServiceName),
 		PendingCount: aws.Int64Value(s.PendingCount),

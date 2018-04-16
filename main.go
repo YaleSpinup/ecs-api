@@ -101,6 +101,7 @@ func main() {
 	api.HandleFunc("/{account}/clusters/{cluster}/services", ServiceCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", ServiceEventsHandler).Methods(http.MethodGet)
 
 	// Tasks handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/tasks", TaskListHandler).Methods(http.MethodGet)

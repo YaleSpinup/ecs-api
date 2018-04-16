@@ -106,13 +106,39 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if service == "" {
-		log.Errorf("service not found: %s", account)
+	resp, err := ecsService.GetService(r.Context(), cluster, service)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(resp)
+	if err != nil {
+		log.Errorf("Cannot marshal response (%v) into JSON: %s", resp, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+// ServiceEventsHandler gets the events for a service in a cluster
+func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+	service := vars["service"]
+	ecsService, ok := EcsServices[account]
+	if !ok {
+		log.Errorf("account not found: %s", account)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	resp, err := ecsService.GetService(r.Context(), cluster, service)
+	resp, err := ecsService.GetServiceEvents(r.Context(), cluster, service)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
