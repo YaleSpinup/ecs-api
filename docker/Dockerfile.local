@@ -1,0 +1,18 @@
+# build stage
+FROM golang:alpine AS build-env
+
+RUN apk add --no-cache git
+
+WORKDIR /go
+ENV GOPATH=/go
+ADD . /go/src/git.yale.edu/spinup/ecs-api/
+RUN go get github.com/golang/dep/cmd/dep && cd /go/src/git.yale.edu/spinup/ecs-api && dep ensure
+RUN go build -o api src/git.yale.edu/spinup/ecs-api/*.go
+
+# final stage
+FROM alpine
+RUN apk add --no-cache ca-certificates
+WORKDIR /app
+COPY --from=build-env /go/api /app/api
+EXPOSE 80
+ENTRYPOINT ["./api"]

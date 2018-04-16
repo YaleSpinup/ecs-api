@@ -1,0 +1,21 @@
+{ 
+  "listenAddress": ":8000",
+  "accounts": {
+    "nonprod": {
+      "region": "us-east-1",
+      "akid": "xxxxxxxx",
+      "secret": "xxxxxxxx",
+      "default_sgs": ["sg-xxxxxx", "sg-yyyyyy"],
+      "default_subnets": ["subnet-xxxxxxx", "subnet-yyyyyy"]
+    },
+    "spinup": {
+      "region": "us-east-1",
+      "akid": "xxxxxxxx",
+      "secret": "xxxxxxxx",
+      "default_sgs": ["sg-zzzzzz"],
+      "default_subnets": ["subnet-zzzzzz"]
+    }
+  },
+  "token": "xxxx",
+  "logLevel": "info"
+}
