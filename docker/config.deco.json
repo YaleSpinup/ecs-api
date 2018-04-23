@@ -1,12 +1,12 @@
 { 
-  "listenAddress": ":8000",
+  "listenAddress": ":8080",
   "accounts": {
     "spinup": {
       "region": "us-east-1",
       "akid": "{{ .spinup_akid }}",
-      "secret": "{{ .nonprod_secret }}",
-      "default_sgs": ["sg-zzzzzz"],
-      "default_subnets": ["subnet-zzzzzz"]
+      "secret": "{{ .spinup_secret }}",
+      "default_sgs": ["{{ .default_sg }}"],
+      "default_subnets": ["{{ .default_subnet }}"]
     }
   },
   "token": "{{ .api_token }}",
