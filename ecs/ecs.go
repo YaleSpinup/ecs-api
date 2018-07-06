@@ -29,3 +29,9 @@ func NewSession(account common.Account) ECS {
 
 	return e
 }
+
+// KeyValuePair maps a key to a value
+type KeyValuePair struct {
+	Key   string
+	Value string
+}

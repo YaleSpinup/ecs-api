@@ -28,9 +28,12 @@ type Task struct {
 	Containers    []*Container
 	CPU           string
 	DesiredStatus string
+	HealthStatus  string
+	LastStatus    string
 	Memory        string
 	Name          string
 	Overrides     map[string]*ContainerOverride
+	Reason        string
 	StartedBy     string
 	StartedAt     string
 	StoppedAt     string
@@ -62,22 +65,44 @@ func (e ECS) GetTask(ctx context.Context, cluster, task string) (*Task, error) {
 }
 
 // ListTasks lists the tasks in a cluster
-func (e ECS) ListTasks(ctx context.Context, cluster string) ([]string, error) {
+func (e ECS) ListTasks(ctx context.Context, cluster, service, family string) (map[string][]string, error) {
 	log.Infof("returning a list of tasks in cluster %s", cluster)
 
-	out, err := e.Service.ListTasksWithContext(ctx, &ecs.ListTasksInput{
+	input := &ecs.ListTasksInput{
 		Cluster:    aws.String(cluster),
 		LaunchType: aws.String("FARGATE"),
-	})
+	}
 
+	if family != "" {
+		log.Infof("filtering task response by family %s", family)
+		input.Family = aws.String(family)
+	}
+
+	if service != "" {
+		log.Infof("filtering task response by service %s", service)
+		input.ServiceName = aws.String(service)
+	}
+
+	outRunning, err := e.Service.ListTasksWithContext(ctx, input)
 	if err != nil {
-		log.Errorf("error listing tasks: %s", err)
-		return []string{}, err
+		log.Errorf("error listing running tasks: %s", err)
+		return map[string][]string{}, err
+	}
+
+	input.DesiredStatus = aws.String("STOPPED")
+	outStopped, err := e.Service.ListTasksWithContext(ctx, input)
+	if err != nil {
+		log.Errorf("error listing stopped tasks: %s", err)
+		return map[string][]string{}, err
+	}
+
+	out := map[string][]string{
+		"running": aws.StringValueSlice(outRunning.TaskArns),
+		"stopped": aws.StringValueSlice(outStopped.TaskArns),
 	}
 
 	log.Debugf("listing tasks output: %+v", out)
-
-	return aws.StringValueSlice(out.TaskArns), nil
+	return out, nil
 }
 
 // DeleteTask stops a task in a cluster
@@ -284,9 +309,12 @@ func newTaskFromECSTask(t *ecs.Task) *Task {
 		Containers:    containers,
 		CPU:           aws.StringValue(t.Cpu),
 		DesiredStatus: aws.StringValue(t.DesiredStatus),
+		HealthStatus:  aws.StringValue(t.HealthStatus),
+		LastStatus:    aws.StringValue(t.LastStatus),
 		Memory:        aws.StringValue(t.Memory),
 		Name:          aws.StringValue(t.Group),
 		Overrides:     overrides,
+		Reason:        aws.StringValue(t.StoppedReason),
 		StartedBy:     aws.StringValue(t.StartedBy),
 		StartedAt:     aws.TimeValue(t.StartedAt).Format("2006/01/02 15:04:05"),
 		StoppedAt:     aws.TimeValue(t.StoppedAt).Format("2006/01/02 15:04:05"),

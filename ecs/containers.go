@@ -31,3 +31,9 @@ type NetworkInterface struct {
 	PrivateIP    string
 	Subnet       string
 }
+
+// PortMapping is used to expose ports on a container
+type PortMapping struct {
+	Port     int64
+	Protocol string
+}

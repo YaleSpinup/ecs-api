@@ -16,11 +16,11 @@ import (
 type ContainerDef struct {
 	Command     []string
 	Entrypoint  []string
-	Environment map[string]string
+	Environment []KeyValuePair
 	Image       string
 	Labels      map[string]string
 	Name        string
-	Ports       []int64
+	Ports       []PortMapping
 }
 
 // TaskDefReq is a task definition request
@@ -61,8 +61,8 @@ func (e ECS) CreateTaskDef(ctx context.Context, t TaskDefReq) (*TaskDef, error) 
 
 	out, err := e.Service.RegisterTaskDefinitionWithContext(ctx, &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String(t.Name),
-		Cpu:                     aws.String(cpu),
-		Memory:                  aws.String(mem),
+		Cpu:                     aws.String(strconv.FormatInt(cpu, 10)),
+		Memory:                  aws.String(strconv.FormatInt(mem, 10)),
 		NetworkMode:             aws.String("awsvpc"),
 		RequiresCompatibilities: aws.StringSlice([]string{"FARGATE"}),
 		ContainerDefinitions:    containerdefs,
@@ -150,42 +150,31 @@ func (e ECS) DeleteTaskDef(ctx context.Context, name string) (*TaskDef, error) {
 //    (30 GB) in increments of 1024 (1 GB)
 //
 // TODO: validate combo?
-func resourcesfromSize(size string) (string, string, error) {
+func resourcesfromSize(size string) (int64, int64, error) {
 	resources := strings.SplitN(size, "-", 2)
 	if len(resources) < 2 {
-		return "", "", fmt.Errorf("incorrect size format '%s'", size)
+		return int64(0), int64(0), fmt.Errorf("incorrect size format '%s'", size)
 	}
 
-	c, err := strconv.ParseFloat(resources[0], 64)
+	c, err := strconv.ParseInt(resources[0], 10, 64)
 	if err != nil {
-		log.Errorf("Cannot parse cpu value %s as float: %s", resources[0], err)
-		return "", "", err
+		log.Errorf("Cannot parse cpu value %s as int64: %s", resources[0], err)
+		return int64(0), int64(0), err
 	}
 
 	m, err := strconv.ParseInt(resources[1], 10, 64)
 	if err != nil {
-		log.Errorf("Cannot parse mem value %s as float: %s", resources[1], err)
-		return "", "", err
+		log.Errorf("Cannot parse mem value %s as int64: %s", resources[1], err)
+		return int64(0), int64(0), err
 	}
 
-	return strconv.FormatInt(int64(c*1024), 10), strconv.FormatInt(m, 10), nil
+	return c, m, nil
 }
 
 // sizeFromResources converts cpu and memory values into a size string
+// TODO: make sure this returns the right units
 func sizeFromResources(cpu, mem string) (string, error) {
-	c, err := strconv.ParseFloat(cpu, 64)
-	if err != nil {
-		return "", err
-	}
-
-	m, err := strconv.ParseFloat(mem, 64)
-	if err != nil {
-		return "", err
-	}
-
-	cString := strconv.FormatFloat(c/1024, 'f', -1, 64)
-	mString := strconv.FormatFloat(m, 'f', -1, 64)
-	return fmt.Sprintf("%s-%s", cString, mString), nil
+	return fmt.Sprintf("%s-%s", cpu, mem), nil
 }
 
 // newTaskDefFromECSTaskDefinition converts from the ECS Task Definition to a TaskDef
@@ -198,15 +187,22 @@ func newTaskDefFromECSTaskDefinition(t *ecs.TaskDefinition) (*TaskDef, error) {
 			Image:      aws.StringValue(c.Image),
 		}
 
-		env := map[string]string{}
+		var env []KeyValuePair
 		for _, p := range c.Environment {
-			env[aws.StringValue(p.Name)] = aws.StringValue(p.Value)
+			var e KeyValuePair
+			e.Key = aws.StringValue(p.Name)
+			e.Value = aws.StringValue(p.Value)
+			env = append(env, e)
 		}
 		def.Environment = env
 
-		ports := []int64{}
+		var ports []PortMapping
 		for _, p := range c.PortMappings {
-			ports = append(ports, aws.Int64Value(p.ContainerPort))
+			pm := PortMapping{
+				Port:     aws.Int64Value(p.ContainerPort),
+				Protocol: aws.StringValue(p.Protocol),
+			}
+			ports = append(ports, pm)
 		}
 		def.Ports = ports
 
@@ -247,15 +243,15 @@ func newEcsContainerDefFromContainerReq(c ContainerDef) *ecs.ContainerDefinition
 	}
 
 	if len(c.Environment) > 0 {
-		var env []*ecs.KeyValuePair
-		for k, v := range c.Environment {
+		var environment []*ecs.KeyValuePair
+		for _, env := range c.Environment {
 			e := ecs.KeyValuePair{
-				Name:  aws.String(k),
-				Value: aws.String(v),
+				Name:  aws.String(env.Key),
+				Value: aws.String(env.Value),
 			}
-			env = append(env, &e)
+			environment = append(environment, &e)
 		}
-		def.SetEnvironment(env)
+		def.SetEnvironment(environment)
 	}
 
 	if len(c.Labels) > 0 {
@@ -266,7 +262,8 @@ func newEcsContainerDefFromContainerReq(c ContainerDef) *ecs.ContainerDefinition
 		var ports []*ecs.PortMapping
 		for _, p := range c.Ports {
 			port := ecs.PortMapping{
-				ContainerPort: aws.Int64(p),
+				ContainerPort: aws.Int64(p.Port),
+				Protocol:      aws.String(p.Protocol),
 			}
 			ports = append(ports, &port)
 		}

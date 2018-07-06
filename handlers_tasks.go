@@ -22,7 +22,11 @@ func TaskListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tasks, err := ecsService.ListTasks(r.Context(), cluster)
+	v := r.URL.Query()
+	service := v.Get("service")
+	family := v.Get("family")
+
+	tasks, err := ecsService.ListTasks(r.Context(), cluster, service, family)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
