@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
-	"git.yale.edu/spinup/ecs-api/ecs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
@@ -20,7 +22,7 @@ func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req ecs.ClusterRequest
+	var req ecs.CreateClusterInput
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		log.Error("cannot decode body into create cluster request")
@@ -28,7 +30,7 @@ func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cluster, err := ecsService.CreateCluster(r.Context(), req.Name)
+	cluster, err := ecsService.Service.CreateClusterWithContext(r.Context(), &req)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -58,7 +60,7 @@ func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clusters, err := ecsService.ListClusters(r.Context())
+	clusters, err := ecsService.Service.ListClustersWithContext(r.Context(), &ecs.ListClustersInput{})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -89,10 +91,24 @@ func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.GetCluster(r.Context(), cluster)
+	log.Infof("getting cluster %s details", cluster)
+	resp, err := ecsService.Service.DescribeClustersWithContext(r.Context(), &ecs.DescribeClustersInput{
+		Clusters: aws.StringSlice([]string{cluster}),
+	})
+
 	if err != nil {
+		log.Errorf("error describing cluster: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
+		return
+	}
+
+	log.Debugf("get cluster output: %+v", resp)
+
+	if len(resp.Clusters) != 1 {
+		log.Errorf("unexpected cluster response (length: %d): %v", len(resp.Clusters), resp.Clusters)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("unexpected cluster response (length != 1: %d)", len(resp.Clusters))))
 		return
 	}
 
@@ -120,7 +136,9 @@ func ClusterDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.DeleteCluster(r.Context(), cluster)
+	resp, err := ecsService.Service.DeleteClusterWithContext(r.Context(), &ecs.DeleteClusterInput{
+		Cluster: aws.String(cluster),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))

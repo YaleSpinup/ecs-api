@@ -8,6 +8,10 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
 GET /v1/ecs/ping
 GET /v1/ecs/version
 
+// Service Orchestration handlers
+POST /v1/ecs/{account}/services
+DELETE /v1/ecs/{account}/services
+
 // Clusters handlers
 GET /v1/ecs/{account}/clusters
 POST /v1/ecs/{account}/clusters
@@ -27,10 +31,80 @@ GET /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
 DELETE /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
 
 // Task definitions handlers
-GET /v1/ecs{account}//taskdefs
+GET /v1/ecs/{account}/taskdefs
 POST /v1/ecs/{account}/taskdefs
 GET /v1/ecs/{account}/taskdefs/{taskdef}
 DELETE /v1/ecs/{account}/taskdefs/{taskdef}
+
+GET /v1/ecs/{account}/servicediscovery/services
+POST /v1/ecs/{account}/servicediscovery/services
+GET /v1/ecs/{account}/servicediscovery/services/{id}
+DELETE /v1/ecs/{account}/servicediscovery/services/{id}
+```
+
+## Orchestration
+
+The service orchestration endpoints for creating and deleting services allow building and destroying services with one call to the API.
+
+The endpoints are essentially wrapped versions of the ECS and ServiceDiscovery endpoints from AWS.  The endpoint will determine
+what has been provided and try to take the most logical action.  For example, if you provide `CreateClusterInput`, `RegisterTaskDefinitionInput`
+and `CreateServiceInput`, the API will attempt to create the cluster, then the task definition and then the service using the created
+resources.  If you only provide the `CreateServiceInput` with the task definition name, the cluster name and the service registries, it
+will assume those resources already exist and just try to create the service.
+
+Example request body of new cluster, new task definition, new service registry and new service:
+
+```json
+{
+    "clustername": "myclu",
+    "taskdefinition": {
+        "family": "mytaskdef",
+        "cpu": "256",
+        "memory": "512",
+        "containerdefinitions": [
+            {
+                "name": "webserver",
+                "image": "nginx:alpine",
+                "ports": [80,443]
+            }
+        ]
+    },
+    "service": {
+        "desiredcount": 1,
+        "servicename": "webapp"
+    },
+    "serviceregistry": {
+      "name": "www",
+      "cluster": "myclu",
+      "dnsconfig": {
+        "namespaceid": "ns-y3uaw6neshhbev3f",
+        "dnsrecords": [
+          {
+            "ttl": 30,
+            "type": "A"
+          }
+        ]
+      }
+    }
+}
+```
+
+Example request body of new service with existing resources:
+
+```json
+{
+    "service": {
+        "cluster": "myclu",
+        "desiredcount": 1,
+        "servicename": "webapp",
+        "taskdefinition": "mytaskdef:1",
+        "serviceregistries": [
+            {
+                "registryarn": "arn:aws:servicediscovery:us-east-1:12345678910:service/srv-tvtbgvkkxtts3qlf"
+            }
+        ]
+    }
+}
 ```
 
 ## Clusters

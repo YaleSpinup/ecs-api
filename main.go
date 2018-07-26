@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"git.yale.edu/spinup/ecs-api/servicediscovery"
+
 	"git.yale.edu/spinup/ecs-api/common"
 	"git.yale.edu/spinup/ecs-api/ecs"
 	"git.yale.edu/spinup/ecs-api/ecsapi"
@@ -39,6 +41,9 @@ var AppConfig common.Config
 
 // EcsServices is a global map of ECS services
 var EcsServices = make(map[string]ecs.ECS)
+
+// SdServices is a global map of ECS services
+var SdServices = make(map[string]servicediscovery.ServiceDiscovery)
 
 func main() {
 	flag.Parse()
@@ -74,10 +79,13 @@ func main() {
 
 	log.Debugf("Read config: %+v", AppConfig)
 
-	// Create a shared ECS session for each account
+	// Create a shared ECS session and service discovery session for each account
 	for name, c := range AppConfig.Accounts {
 		log.Debugf("Creating new ECS service for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
 		EcsServices[name] = ecs.NewSession(c)
+
+		log.Debugf("Creating new service discovery service for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
+		SdServices[name] = servicediscovery.NewSession(c)
 	}
 
 	publicURLs := map[string]string{
@@ -89,6 +97,10 @@ func main() {
 	api := router.PathPrefix("/v1/ecs").Subrouter()
 	api.HandleFunc("/ping", PingHandler)
 	api.HandleFunc("/version", VersionHandler)
+
+	// Service Orchestration handlers
+	api.HandleFunc("/{account}/services", ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/services", ServiceOrchestrationDeleteHandler).Methods(http.MethodDelete)
 
 	// Clusters handlers
 	api.HandleFunc("/{account}/clusters", ClusterListHandler).Methods(http.MethodGet)
@@ -114,6 +126,12 @@ func main() {
 	api.HandleFunc("/{account}/taskdefs", TaskDefCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/taskdefs/{taskdef}", TaskDefShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/taskdefs/{taskdef}", TaskDefDeleteHandler).Methods(http.MethodDelete)
+
+	// Service Discovery handlers
+	api.HandleFunc("/{account}/servicediscovery/services", ServiceDiscoveryServiceListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/servicediscovery/services", ServiceDiscoveryServiceCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/servicediscovery/services/{id}", ServiceDiscoveryServiceShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/servicediscovery/services/{id}", ServiceDiscoveryServiceDeleteHandler).Methods(http.MethodDelete)
 
 	handler := handlers.LoggingHandler(os.Stdout, TokenMiddleware(publicURLs, router))
 	srv := &http.Server{

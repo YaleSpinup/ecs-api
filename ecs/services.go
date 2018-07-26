@@ -13,14 +13,15 @@ import (
 
 // ServiceRequest is a request for a new ECS service
 type ServiceRequest struct {
-	Count     int64
-	Grace     string
-	Name      string
-	Overrides map[string]ContainerOverride
-	Public    bool
-	Sgs       []string
-	Subnets   []string
-	TaskDef   string
+	Count             int64
+	Grace             string
+	Name              string
+	Overrides         map[string]ContainerOverride
+	Public            bool
+	ServiceRegistries []ServiceRegistry
+	Sgs               []string
+	Subnets           []string
+	TaskDef           string
 }
 
 // Service describes an ECS service
@@ -63,6 +64,12 @@ type ServiceEvent struct {
 	CreatedAt string
 	ID        string
 	Message   string
+}
+
+// ServiceRegistry is an ECS service registry
+type ServiceRegistry struct {
+	// Container   string
+	RegistryArn string
 }
 
 // GetService describes a service in a cluster
@@ -202,17 +209,16 @@ func (e ECS) CreateServiceWithWait(ctx context.Context, cluster string, req Serv
 }
 
 func (e ECS) createService(ctx context.Context, cluster string, req ServiceRequest) (*ecs.Service, error) {
-	// clientToken is a unique identifier for this request
-	clientToken := uuid.NewV4()
+	// token is a unique identifier for this request
+	token := uuid.NewV4()
 	input := &ecs.CreateServiceInput{
-		ClientToken: aws.String(clientToken.String()),
+		ClientToken: aws.String(token.String()),
 		Cluster:     aws.String(cluster),
 		// DeploymentConfiguration: TODO
 		DesiredCount: aws.Int64(req.Count),
 		LaunchType:   aws.String("FARGATE"),
 		// LoadBalancers: TODO
-		ServiceName: aws.String(req.Name),
-		// ServiceRegistries: TODO
+		ServiceName:    aws.String(req.Name),
 		TaskDefinition: aws.String(req.TaskDef),
 	}
 
@@ -243,6 +249,21 @@ func (e ECS) createService(ctx context.Context, cluster string, req ServiceReque
 		subnets = req.Subnets
 	} else {
 		subnets = e.DefaultSubnets
+	}
+
+	if len(req.ServiceRegistries) > 0 {
+		var registries []*ecs.ServiceRegistry
+		for _, r := range req.ServiceRegistries {
+			fmt.Printf("%+v", r)
+			registries = append(registries, &ecs.ServiceRegistry{
+				ContainerName: aws.String("foobar.svc.spinup.yale.edu"),
+				// RegistryArn: aws.String(r.RegistryArn),
+				RegistryArn: aws.String("arn:aws:servicediscovery:us-east-1:566360498260:service/srv-ve3xaqloppmgybma"),
+				// RegistryArn: aws.String("arn:aws:servicediscovery:us-east-1:566360498260:namespace:ns-kztruucx2gbveth6"),
+			})
+		}
+		fmt.Printf("%+v", registries)
+		input.SetServiceRegistries(registries)
 	}
 
 	input.SetNetworkConfiguration(&ecs.NetworkConfiguration{
