@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
-	"git.yale.edu/spinup/ecs-api/ecs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
@@ -22,37 +22,26 @@ func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var serviceRequest ecs.ServiceRequest
+	var serviceRequest ecs.CreateServiceInput
 	if err := json.NewDecoder(r.Body).Decode(&serviceRequest); err != nil {
-		log.Error("Cannot Decode body into create task request")
+		log.Error("cannot Decode body into create task request")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
+	serviceRequest.Cluster = aws.String(cluster)
 
-	log.Debugf("Decoded request into service request: %+v", serviceRequest)
+	log.Debugf("decoded request into service request: %+v", serviceRequest)
 
-	var service *ecs.Service
-	var err error
-	if wait := r.URL.Query().Get("wait"); wait != "" {
-		var w time.Duration
-		w, err = time.ParseDuration(wait)
-		if err != nil {
-			w = 60 * time.Second
-		}
-		service, err = ecsService.CreateServiceWithWait(r.Context(), cluster, serviceRequest, w)
-	} else {
-		service, err = ecsService.CreateService(r.Context(), cluster, serviceRequest)
-	}
-
+	output, err := ecsService.Service.CreateServiceWithContext(r.Context(), &serviceRequest)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	j, err := json.Marshal(service)
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("Cannot marshal response (%v) into JSON: %s", service, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -74,16 +63,33 @@ func ServiceListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	services, err := ecsService.ListServices(r.Context(), cluster)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
+	// Collect all of the task
+	input := ecs.ListServicesInput{
+		Cluster:    aws.String(cluster),
+		LaunchType: aws.String("FARGATE"),
+	}
+	output := []string{}
+	for {
+		out, err := ecsService.Service.ListServicesWithContext(r.Context(), &input)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		for _, t := range out.ServiceArns {
+			output = append(output, aws.StringValue(t))
+		}
+
+		if out.NextToken == nil {
+			break
+		}
+		input.NextToken = out.NextToken
 	}
 
-	j, err := json.Marshal(services)
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("Cannot marshal response (%v) into JSON: %s", services, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -106,16 +112,25 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.GetService(r.Context(), cluster, service)
+	output, err := ecsService.Service.DescribeServicesWithContext(r.Context(), &ecs.DescribeServicesInput{
+		Cluster:  aws.String(cluster),
+		Services: aws.StringSlice([]string{service}),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	j, err := json.Marshal(resp)
+	if len(output.Services) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not Found"))
+		return
+	}
+
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("Cannot marshal response (%v) into JSON: %s", resp, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -138,16 +153,26 @@ func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.GetServiceEvents(r.Context(), cluster, service)
+	output, err := ecsService.Service.DescribeServicesWithContext(r.Context(), &ecs.DescribeServicesInput{
+		Cluster:  aws.String(cluster),
+		Services: aws.StringSlice([]string{service}),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	j, err := json.Marshal(resp)
+	if len(output.Services) == 0 {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not Found"))
+		return
+	}
+
+	events := output.Services[0].Events
+	j, err := json.Marshal(events)
 	if err != nil {
-		log.Errorf("Cannot marshal response (%v) into JSON: %s", resp, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", events, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -170,16 +195,20 @@ func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.DeleteService(r.Context(), cluster, service)
+	output, err := ecsService.Service.DeleteServiceWithContext(r.Context(), &ecs.DeleteServiceInput{
+		Cluster: aws.String(cluster),
+		Force:   aws.Bool(true),
+		Service: aws.String(service),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	j, err := json.Marshal(resp)
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("Cannot marshal response (%v) into JSON: %s", resp, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

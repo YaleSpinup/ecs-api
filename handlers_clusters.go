@@ -60,16 +60,30 @@ func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clusters, err := ecsService.Service.ListClustersWithContext(r.Context(), &ecs.ListClustersInput{})
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
+	// Collect all of the task
+	input := ecs.ListClustersInput{}
+	output := []string{}
+	for {
+		out, err := ecsService.Service.ListClustersWithContext(r.Context(), &input)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		for _, t := range out.ClusterArns {
+			output = append(output, aws.StringValue(t))
+		}
+
+		if out.NextToken == nil {
+			break
+		}
+		input.NextToken = out.NextToken
 	}
 
-	j, err := json.Marshal(clusters)
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", clusters, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
