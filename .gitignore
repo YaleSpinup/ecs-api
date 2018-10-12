@@ -1,3 +1,4 @@
 data
 config/config.json
 vendor
+.vscode

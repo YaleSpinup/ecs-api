@@ -132,7 +132,7 @@ func (e ECS) CreateTask(ctx context.Context, cluster string, req TaskRequest) (*
 		return nil, err
 	}
 
-	log.Debug("create task output %+v", task)
+	log.Debugf("create task output %+v", task)
 
 	return newTaskFromECSTask(task), err
 }

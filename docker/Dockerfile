@@ -1,12 +1,13 @@
 # build stage
 FROM golang:alpine AS build-env
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git openssh-client
 
 WORKDIR /go
 ENV GOPATH=/go
+ENV GO111MODULE=on
 ADD . /go/src/git.yale.edu/spinup/ecs-api/
-RUN go get github.com/golang/dep/cmd/dep && cd /go/src/git.yale.edu/spinup/ecs-api && dep ensure
+RUN cd /go/src/git.yale.edu/spinup/ecs-api && go get ./...
 RUN go build -o api src/git.yale.edu/spinup/ecs-api/*.go
 
 # final stage

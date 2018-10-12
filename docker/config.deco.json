@@ -5,8 +5,8 @@
       "region": "us-east-1",
       "akid": "{{ .spinup_akid }}",
       "secret": "{{ .spinup_secret }}",
-      "default_sgs": ["{{ .default_sg }}"],
-      "default_subnets": ["{{ .default_subnet }}"]
+      "defaultSgs": ["{{ .default_sg }}"],
+      "defaultSubnets": ["{{ .default_subnet }}"]
     }
   },
   "token": "{{ .api_token }}",

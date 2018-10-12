@@ -12,12 +12,12 @@ var testConfig = []byte(
 		"accounts": {
 		  "provider1": {
 			"region": "us-east-1",
-			"key": "key1",
+			"akid": "key1",
 			"secret": "secret1"
 		  },
 		  "provider2": {
 			"region": "us-west-1",
-			"key": "key2",
+			"akid": "key2",
 			"secret": "secret2"
 		  }
 		},
@@ -31,12 +31,12 @@ func TestReadConfig(t *testing.T) {
 		Accounts: map[string]Account{
 			"provider1": Account{
 				Region: "us-east-1",
-				Key:    "key1",
+				Akid:   "key1",
 				Secret: "secret1",
 			},
 			"provider2": Account{
 				Region: "us-west-1",
-				Key:    "key2",
+				Akid:   "key2",
 				Secret: "secret2",
 			},
 		},
