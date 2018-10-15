@@ -9,15 +9,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ECS is a wrapper around the aws ECS service with some default config info
 type ECS struct {
 	Service        *ecs.ECS
 	DefaultSgs     []string
 	DefaultSubnets []string
 }
 
+// NewSession creates a new ECS session
 func NewSession(account common.Account) ECS {
 	e := ECS{}
-	log.Infof("Creating new session with key id %s in region %s", account.Akid, account.Region)
+	log.Infof("creating new session with key id %s in region %s", account.Akid, account.Region)
 	sess := session.Must(session.NewSession(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(account.Akid, account.Secret, ""),
 		Region:      aws.String(account.Region),

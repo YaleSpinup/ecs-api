@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"git.yale.edu/spinup/ecs-api/ecs"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
-// TaskDefCreateHandler creates a task definition
+// TaskDefCreateHandler creates a task definition. The expected input is compatible with
+// the AWS SDK ResgisterTaskDefinitionInput struct
+// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RegisterTaskDefinitionInput
 func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -20,8 +23,8 @@ func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var taskDefRequest ecs.TaskDefReq
-	err := json.NewDecoder(r.Body).Decode(&taskDefRequest)
+	tdefInput := ecs.RegisterTaskDefinitionInput{}
+	err := json.NewDecoder(r.Body).Decode(&tdefInput)
 	if err != nil {
 		log.Error("cannot decode body into create taskdef request")
 		w.WriteHeader(http.StatusBadRequest)
@@ -29,9 +32,7 @@ func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("decoded request into task def request: %+v", taskDefRequest)
-
-	resp, err := ecsService.CreateTaskDef(r.Context(), taskDefRequest)
+	resp, err := ecsService.Service.RegisterTaskDefinitionWithContext(r.Context(), &tdefInput)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -50,7 +51,7 @@ func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-// TaskDefListHandler gets a list of task definitions
+// TaskDefListHandler returns a list of task definitions
 func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -68,16 +69,36 @@ func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 		status = "ACTIVE"
 	}
 
-	list, err := ecsService.ListTaskDefs(r.Context(), status)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
-		return
+	// allow for a prefix query parameter
+	var prefix *string
+	if q.Get("prefix") != "" {
+		prefix = aws.String(q.Get("prefix"))
 	}
 
-	j, err := json.Marshal(list)
+	// Collect all of the task definitions and versions for now
+	input := ecs.ListTaskDefinitionsInput{Status: aws.String(status), FamilyPrefix: prefix}
+	output := []string{}
+	for {
+		out, err := ecsService.Service.ListTaskDefinitionsWithContext(r.Context(), &input)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		for _, td := range out.TaskDefinitionArns {
+			output = append(output, aws.StringValue(td))
+		}
+
+		if out.NextToken == nil {
+			break
+		}
+		input.NextToken = out.NextToken
+	}
+
+	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", list, err)
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -87,7 +108,7 @@ func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-// TaskDefShowHandler gets a list of task definitions
+// TaskDefShowHandler gets the details for a task definition
 func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -99,7 +120,9 @@ func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.GetTaskDef(r.Context(), taskdef)
+	resp, err := ecsService.Service.DescribeTaskDefinitionWithContext(r.Context(), &ecs.DescribeTaskDefinitionInput{
+		TaskDefinition: aws.String(taskdef),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
@@ -130,7 +153,9 @@ func TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := ecsService.DeleteTaskDef(r.Context(), taskdef)
+	resp, err := ecsService.Service.DeregisterTaskDefinitionWithContext(r.Context(), &ecs.DeregisterTaskDefinitionInput{
+		TaskDefinition: aws.String(taskdef),
+	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
