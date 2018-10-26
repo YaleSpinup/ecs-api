@@ -13,6 +13,7 @@ import (
 
 // ClusterCreateHandler creates a new cluster
 func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	ecsService, ok := EcsServices[account]
@@ -51,6 +52,7 @@ func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // ClusterListHandler gets a list of clusters
 func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	ecsService, ok := EcsServices[account]
@@ -95,6 +97,7 @@ func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
 
 // ClusterShowHandler gets details about a cluster
 func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -140,6 +143,7 @@ func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
 
 // ClusterDeleteHandler deletes cluster
 func ClusterDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]

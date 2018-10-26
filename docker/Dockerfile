@@ -6,9 +6,10 @@ RUN apk add --no-cache git openssh-client gcc musl-dev
 WORKDIR /go
 ENV GOPATH=/go
 ENV GO111MODULE=on
+RUN go version
 ADD . /go/src/git.yale.edu/spinup/ecs-api/
 RUN cd /go/src/git.yale.edu/spinup/ecs-api && go get ./...
-RUN go build -o api src/git.yale.edu/spinup/ecs-api/*.go
+RUN cd /go/src/git.yale.edu/spinup/ecs-api && go build -o /go/api *.go
 
 # final stage
 FROM alpine

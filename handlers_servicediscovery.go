@@ -12,6 +12,7 @@ import (
 
 // ServiceDiscoveryServiceListHandler gets the list of service discovery services
 func ServiceDiscoveryServiceListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
@@ -44,6 +45,7 @@ func ServiceDiscoveryServiceListHandler(w http.ResponseWriter, r *http.Request) 
 
 // ServiceDiscoveryServiceShowHandler gets the details for a service discovery service from an ID
 func ServiceDiscoveryServiceShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	id := vars["id"]
@@ -80,6 +82,7 @@ func ServiceDiscoveryServiceShowHandler(w http.ResponseWriter, r *http.Request) 
 
 // ServiceDiscoveryServiceDeleteHandler deletes a service discovery service by ID
 func ServiceDiscoveryServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	id := vars["id"]
@@ -119,6 +122,7 @@ func ServiceDiscoveryServiceDeleteHandler(w http.ResponseWriter, r *http.Request
 // Expects input JSON to satisfy serviceDiscovery.CreateServiceInput{}
 // https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#CreateServiceInput
 func ServiceDiscoveryServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	sd, ok := SdServices[account]

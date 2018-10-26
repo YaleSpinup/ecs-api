@@ -14,6 +14,7 @@ import (
 // request body into RunTaskInput.
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RunTaskInput
 func TaskCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -58,6 +59,7 @@ func TaskCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskListHandler gets a list of tasks in a cluster
 func TaskListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -127,6 +129,7 @@ func TaskListHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskShowHandler gets the details for a task in a cluster
 func TaskShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -167,6 +170,7 @@ func TaskShowHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskDeleteHandler stops a task in a cluster
 func TaskDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]

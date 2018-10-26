@@ -16,6 +16,7 @@ import (
 // ServiceOrchestrationCreateHandler is the one stop shop for creating a service
 // end to end with some basic assumptions baked into the automation
 func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
@@ -92,6 +93,7 @@ func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 // ServiceOrchestrationDeleteHandler is the one stop shop for deleting a service
 // end to end with some basic assumptions baked into the automation
 func ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 

@@ -148,6 +148,20 @@ func main() {
 	}
 }
 
+// LogWriter is an http.ResponseWriter
+type LogWriter struct {
+	http.ResponseWriter
+}
+
+// Write log message if http response writer returns and error
+func (w LogWriter) Write(p []byte) (n int, err error) {
+	n, err = w.ResponseWriter.Write(p)
+	if err != nil {
+		log.Errorf("Write failed: %v", err)
+	}
+	return
+}
+
 func vers() {
 	fmt.Printf("Indexer Version: %s%s\n", Version, VersionPrerelease)
 	os.Exit(0)

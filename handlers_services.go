@@ -1,17 +1,25 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/servicediscovery"
+
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
 
 // ServiceCreateHandler creates a service in a cluster
 func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -53,6 +61,7 @@ func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServiceListHandler gets a list of services in a cluster
 func ServiceListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -101,6 +110,7 @@ func ServiceListHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServiceShowHandler gets the details for a service in a cluster
 func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -112,7 +122,16 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	output, err := ecsService.Service.DescribeServicesWithContext(r.Context(), &ecs.DescribeServicesInput{
+	q := r.URL.Query()
+
+	// Check for the all query param
+	all := false
+	b, err := strconv.ParseBool(q.Get("all"))
+	if err == nil {
+		all = b
+	}
+
+	serviceOutput, err := ecsService.Service.DescribeServicesWithContext(r.Context(), &ecs.DescribeServicesInput{
 		Cluster:  aws.String(cluster),
 		Services: aws.StringSlice([]string{service}),
 	})
@@ -122,17 +141,66 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(output.Services) == 0 {
+	if len(serviceOutput.Services) == 0 {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("Not Found"))
 		return
 	}
 
-	j, err := json.Marshal(output)
-	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	var j []byte
+	if !all {
+		j, err = json.Marshal(serviceOutput)
+		if err != nil {
+			log.Errorf("cannot marshal response (%v) into JSON: %s", serviceOutput, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else {
+		log.Debugf("getting all details about %s/%s", cluster, service)
+		tdOutput, err := ecsService.Service.DescribeTaskDefinitionWithContext(r.Context(), &ecs.DescribeTaskDefinitionInput{
+			TaskDefinition: serviceOutput.Services[0].TaskDefinition,
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		tasks, err := tasksList(r.Context(), ecsService.Service, cluster, service)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		var serviceDiscoveryEndpoint *string
+		sd, ok := SdServices[account]
+		if ok {
+			log.Debugf("found service discovery account information for all details lookup of %s/%s", cluster, service)
+			serviceDiscoveryEndpoint, err = serviceEndpoint(r.Context(), sd.Service, serviceOutput.Services[0].ServiceRegistries[0])
+			if err != nil {
+				log.Errorf("error getting servicediscovery endpoint for %s/%s: %s", cluster, service, err)
+			}
+		}
+
+		output := struct {
+			*ecs.Service
+			ServiceEndpoint *string
+			Tasks           []*string
+			TaskDefinition  *ecs.TaskDefinition
+		}{
+			Service:         serviceOutput.Services[0],
+			ServiceEndpoint: serviceDiscoveryEndpoint,
+			Tasks:           tasks,
+			TaskDefinition:  tdOutput.TaskDefinition,
+		}
+
+		j, err = json.Marshal(output)
+		if err != nil {
+			log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -140,8 +208,86 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// tasksList collects all of the task ids (with the disired state of both running and stopped) for a service
+func tasksList(ctx context.Context, es *ecs.ECS, cluster, service string) ([]*string, error) {
+	tasks := []*string{}
+	runningTaskOutput, err := es.ListTasksWithContext(ctx, &ecs.ListTasksInput{
+		Cluster:     aws.String(cluster),
+		ServiceName: aws.String(service),
+		LaunchType:  aws.String("FARGATE"),
+	})
+	if err != nil {
+		return tasks, err
+	}
+
+	stoppedTaskOutput, err := es.ListTasksWithContext(ctx, &ecs.ListTasksInput{
+		Cluster:       aws.String(cluster),
+		ServiceName:   aws.String(service),
+		LaunchType:    aws.String("FARGATE"),
+		DesiredStatus: aws.String("STOPPED"),
+	})
+	if err != nil {
+		return tasks, err
+	}
+
+	for _, t := range append(runningTaskOutput.TaskArns, stoppedTaskOutput.TaskArns...) {
+		taskArn, err := arn.Parse(aws.StringValue(t))
+		if err != nil {
+			return tasks, err
+		}
+
+		// task resource is the form task/xxxxxxxxxxxxx
+		r := strings.SplitN(taskArn.Resource, "/", 2)
+		tasks = append(tasks, aws.String(r[1]))
+	}
+
+	return tasks, nil
+}
+
+// serviceEndpoint takes the service discovery client and the ecs service registry configuration.  It first gets the
+// details of the service registry given and from that determines the namespace ID.  The endpoint string is determined by
+// combining the service registry service name(hostname) and the namespace name (domain name).
+func serviceEndpoint(ctx context.Context, sd *servicediscovery.ServiceDiscovery, registry *ecs.ServiceRegistry) (*string, error) {
+	serviceResistryArn, err := arn.Parse(aws.StringValue(registry.RegistryArn))
+	if err != nil {
+		log.Errorf("error parsing servicediscovery service ARN %s", err)
+		return nil, err
+	}
+
+	if serviceResistryArn.Resource != "" {
+		log.Debugf("getting service registry service with id %s", serviceResistryArn.Resource)
+
+		// serviceRegistryArn.Resource is of the format 'service/srv-xxxxxxxxxxxxx', but GetServiceInput needs just the ID
+		serviceID := strings.SplitN(serviceResistryArn.Resource, "/", 2)
+		sdOutput, err := sd.GetServiceWithContext(ctx, &servicediscovery.GetServiceInput{
+			Id: aws.String(serviceID[1]),
+		})
+
+		if err != nil {
+			log.Errorf("error getting service from ID %s: %s", serviceID[1], err)
+			return nil, err
+		}
+
+		if nsID := aws.StringValue(sdOutput.Service.DnsConfig.NamespaceId); nsID != "" {
+			namespaceOutput, err := sd.GetNamespaceWithContext(ctx, &servicediscovery.GetNamespaceInput{
+				Id: aws.String(nsID),
+			})
+			if err != nil {
+				log.Errorf("error getting namespace %s", err)
+				return nil, err
+			}
+			endpoint := fmt.Sprintf("%s.%s", aws.StringValue(sdOutput.Service.Name), aws.StringValue(namespaceOutput.Namespace.Name))
+			return &endpoint, nil
+		}
+	}
+
+	log.Warnf("service discovery endpoint not found")
+	return nil, nil
+}
+
 // ServiceEventsHandler gets the events for a service in a cluster
 func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
@@ -184,6 +330,7 @@ func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServiceDeleteHandler stops a service in a cluster
 func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]

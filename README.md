@@ -19,7 +19,7 @@ GET /v1/ecs/{account}/clusters/{cluster}
 DELETE /v1/ecs/{account}/clusters/{cluster}
 
 // Services handlers
-GET /v1/ecs/{account}/clusters/{cluster}/services
+GET /v1/ecs/{account}/clusters/{cluster}/services[?all=true]
 POST /v1/ecs/{account}/clusters/{cluster}/services
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}

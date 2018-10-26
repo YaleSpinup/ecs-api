@@ -14,6 +14,7 @@ import (
 // the AWS SDK ResgisterTaskDefinitionInput struct
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RegisterTaskDefinitionInput
 func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	ecsService, ok := EcsServices[account]
@@ -53,6 +54,7 @@ func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskDefListHandler returns a list of task definitions
 func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	ecsService, ok := EcsServices[account]
@@ -110,6 +112,7 @@ func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskDefShowHandler gets the details for a task definition
 func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	taskdef := vars["taskdef"]
@@ -143,6 +146,7 @@ func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 
 // TaskDefDeleteHandler deregisters a task definition
 func TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	taskdef := vars["taskdef"]
