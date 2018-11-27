@@ -163,6 +163,6 @@ func (w LogWriter) Write(p []byte) (n int, err error) {
 }
 
 func vers() {
-	fmt.Printf("Indexer Version: %s%s\n", Version, VersionPrerelease)
+	fmt.Printf("ECS-API Version: %s%s\n", Version, VersionPrerelease)
 	os.Exit(0)
 }
