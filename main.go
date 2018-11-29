@@ -8,11 +8,11 @@ import (
 	"os"
 	"time"
 
-	"git.yale.edu/spinup/ecs-api/servicediscovery"
+	"github.com/YaleSpinup/ecs-api/servicediscovery"
 
-	"git.yale.edu/spinup/ecs-api/common"
-	"git.yale.edu/spinup/ecs-api/ecs"
-	"git.yale.edu/spinup/ecs-api/ecsapi"
+	"github.com/YaleSpinup/ecs-api/common"
+	"github.com/YaleSpinup/ecs-api/ecs"
+	"github.com/YaleSpinup/ecs-api/ecsapi"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
@@ -27,10 +27,10 @@ var (
 	VersionPrerelease = ecsapi.VersionPrerelease
 
 	// buildstamp is the timestamp the binary was built, it should be set at buildtime with ldflags
-	buildstamp = "No BuildStamp Provided"
+	buildstamp = ecsapi.BuildStamp
 
 	// githash is the git sha of the built binary, it should be set at buildtime with ldflags
-	githash = "No Git Commit Provided"
+	githash = ecsapi.GitHash
 
 	configFileName = flag.String("config", "config/config.json", "Configuration file.")
 	version        = flag.Bool("version", false, "Display version information and exit.")

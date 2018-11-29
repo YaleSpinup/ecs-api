@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"git.yale.edu/spinup/ecs-api/orchestration"
+	"github.com/YaleSpinup/ecs-api/orchestration"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 	uuid "github.com/satori/go.uuid"

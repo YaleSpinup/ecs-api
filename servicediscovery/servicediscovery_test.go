@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"git.yale.edu/spinup/ecs-api/common"
+	"github.com/YaleSpinup/ecs-api/common"
 )
 
 func TestNewSession(t *testing.T) {

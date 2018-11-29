@@ -1,7 +1,7 @@
 package ecs
 
 import (
-	"git.yale.edu/spinup/ecs-api/common"
+	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
