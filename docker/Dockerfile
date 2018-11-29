@@ -1,6 +1,11 @@
 # build stage
 FROM golang:alpine AS build-env
 
+ARG version="0.0.0"
+ARG prerelease=""
+ARG githash=""
+ARG buildstamp=""
+
 RUN apk add --no-cache git openssh-client gcc musl-dev
 
 WORKDIR /go
@@ -9,7 +14,8 @@ ENV GO111MODULE=on
 RUN go version
 ADD . /go/src/git.yale.edu/spinup/ecs-api/
 RUN cd /go/src/git.yale.edu/spinup/ecs-api && go get ./...
-RUN cd /go/src/git.yale.edu/spinup/ecs-api && go build -o /go/api *.go
+RUN cd /go/src/git.yale.edu/spinup/ecs-api && go build -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+RUN ./api -version
 
 # final stage
 FROM alpine
