@@ -1,6 +1,6 @@
 workspace:
   base: /go
-  path: src/git.yale.edu/spinup/ecs-api
+  path: src/github.com/YaleSpinup/ecs-api
 
 pipeline:
   build:

@@ -12,9 +12,9 @@ WORKDIR /go
 ENV GOPATH=/go
 ENV GO111MODULE=on
 RUN go version
-ADD . /go/src/git.yale.edu/spinup/ecs-api/
-RUN cd /go/src/git.yale.edu/spinup/ecs-api && go get ./...
-RUN cd /go/src/git.yale.edu/spinup/ecs-api && go build -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+ADD . /go/src/github.com/YaleSpinup/ecs-api/
+RUN cd /go/src/github.com/YaleSpinup/ecs-api && go get ./...
+RUN cd /go/src/github.com/YaleSpinup/ecs-api && go build -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
 RUN ./api -version
 
 # final stage
