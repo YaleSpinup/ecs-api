@@ -52,7 +52,8 @@ type Orchestrator struct {
 
 // ServiceOrchestrationInput encapsulates a single request for a service
 type ServiceOrchestrationInput struct {
-	ClusterName *string
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#CreateClusterInput
+	Cluster *ecs.CreateClusterInput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RegisterTaskDefinitionInput
 	TaskDefinition *ecs.RegisterTaskDefinitionInput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#CreateServiceInput
@@ -180,9 +181,9 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 		}
 		log.Debugf("Got cluster %+v", cluster)
 		return cluster, nil
-	} else if input.ClusterName != nil {
-		log.Infof("Creating cluster %s", aws.StringValue(input.ClusterName))
-		cluster, err := createCluster(ctx, client, input.ClusterName)
+	} else if input.Cluster != nil {
+		log.Infof("Creating cluster %s", aws.StringValue(input.Cluster.ClusterName))
+		cluster, err := createCluster(ctx, client, input.Cluster)
 		if err != nil {
 			return nil, err
 		}
@@ -195,8 +196,8 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 }
 
 // createCluster creates a cluster with context and name
-func createCluster(ctx context.Context, client ecsiface.ECSAPI, name *string) (*ecs.Cluster, error) {
-	output, err := client.CreateClusterWithContext(ctx, &ecs.CreateClusterInput{ClusterName: name})
+func createCluster(ctx context.Context, client ecsiface.ECSAPI, cluster *ecs.CreateClusterInput) (*ecs.Cluster, error) {
+	output, err := client.CreateClusterWithContext(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
@@ -446,6 +447,7 @@ func deleteServiceRegistryWithRetry(ctx context.Context, client *servicediscover
 
 // processService processes the service input.  It normalizes inputs and creates the ECS service.
 func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Service, error) {
+	client := o.ECS
 	if input.Service.ClientToken == nil {
 		input.Service.ClientToken = aws.String(o.Token)
 	}
@@ -464,8 +466,7 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 		input.Service.LaunchType = DefaultLaunchType
 	}
 	log.Debugf("processing service with input:\n%+v", input.Service)
-
-	output, err := o.ECS.CreateServiceWithContext(ctx, input.Service)
+	output, err := client.CreateServiceWithContext(ctx, input.Service)
 	if err != nil {
 		return nil, err
 	}

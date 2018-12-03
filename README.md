@@ -23,6 +23,7 @@ GET /v1/ecs/{account}/clusters/{cluster}/services[?all=true]
 POST /v1/ecs/{account}/clusters/{cluster}/services
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
 
 // Tasks handlers
 GET /v1/ecs/{account}/clusters/{cluster}/tasks

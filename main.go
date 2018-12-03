@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 
 	"github.com/YaleSpinup/ecs-api/common"
@@ -42,8 +43,11 @@ var AppConfig common.Config
 // EcsServices is a global map of ECS services
 var EcsServices = make(map[string]ecs.ECS)
 
-// SdServices is a global map of ECS services
+// SdServices is a global map of ServiceDiscovery services
 var SdServices = make(map[string]servicediscovery.ServiceDiscovery)
+
+// LogServerices is a global map of Cloudwatch Logs services
+var LogServices = make(map[string]cloudwatchlogs.CloudWatchLogs)
 
 func main() {
 	flag.Parse()
@@ -79,13 +83,16 @@ func main() {
 
 	log.Debugf("Read config: %+v", AppConfig)
 
-	// Create a shared ECS session and service discovery session for each account
+	// Create a shared ECS session, service discovery session and cloudwatch logs session for each account
 	for name, c := range AppConfig.Accounts {
 		log.Debugf("Creating new ECS service for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
 		EcsServices[name] = ecs.NewSession(c)
 
 		log.Debugf("Creating new service discovery service for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
 		SdServices[name] = servicediscovery.NewSession(c)
+
+		log.Debugf("Creating new cloudwatch logs service for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
+		LogServices[name] = cloudwatchlogs.NewSession(c)
 	}
 
 	publicURLs := map[string]string{
@@ -114,6 +121,7 @@ func main() {
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", ServiceEventsHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")
 
 	// Tasks handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/tasks", TaskListHandler).Methods(http.MethodGet)
