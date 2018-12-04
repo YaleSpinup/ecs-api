@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
@@ -364,3 +365,48 @@ func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
 }
+
+
+// ServiceLogsHandler gets the logs for a task/container by using the cluster name as
+// the log group name and constructing the log stream from the service name, the task id, and the container name 
+func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+	service := vars["service"]
+	task := vars["task"]
+	container := vars["container"]
+
+	logService, ok := LogServices[account]
+	if !ok {
+		log.Errorf("account not found: %s", account)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	logStream := fmt.Sprintf("%s/%s/%s", service, container,task)
+	log.Debugf("getting events for log group/stream: %s/%s", cluster, logStream)
+
+	output, err := logService.Service.GetLogEventsWithContext(r.Context(), &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName: aws.String(cluster),
+		LogStreamName:   aws.String(logStream),
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
