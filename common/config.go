@@ -18,11 +18,12 @@ type Config struct {
 
 // Account is the configuration for an individual account
 type Account struct {
-	Region         string
-	Akid           string
-	Secret         string
-	DefaultSgs     []string
-	DefaultSubnets []string
+	Region                  string
+	Akid                    string
+	Secret                  string
+	DefaultSgs              []string
+	DefaultSubnets          []string
+	DefaultExecutionRoleArn string
 }
 
 // ReadConfig decodes the configuration from an io Reader

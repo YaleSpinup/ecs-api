@@ -6,7 +6,8 @@
       "akid": "{{ .spinup_akid }}",
       "secret": "{{ .spinup_secret }}",
       "defaultSgs": ["{{ .default_sg }}"],
-      "defaultSubnets": ["{{ .default_subnet }}"]
+      "defaultSubnets": ["{{ .default_subnet }}"],
+      "defaultExecutionRoleArn": "{{ .default_exection_role_arn }}"
     }
   },
   "token": "{{ .api_token }}",
