@@ -8,14 +8,13 @@ ARG buildstamp=""
 
 RUN apk add --no-cache git openssh-client gcc musl-dev
 
-WORKDIR /go
-ENV GOPATH=/go
-ENV GO111MODULE=on
-RUN go version
-ADD . /go/src/github.com/YaleSpinup/ecs-api/
-RUN cd /go/src/github.com/YaleSpinup/ecs-api && go get ./...
-RUN cd /go/src/github.com/YaleSpinup/ecs-api && go build -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
-RUN ./api -version
+RUN mkdir /app
+WORKDIR /app
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+RUN go build -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
 
 # final stage
 FROM alpine

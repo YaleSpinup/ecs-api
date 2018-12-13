@@ -141,6 +141,9 @@ func main() {
 	api.HandleFunc("/{account}/servicediscovery/services/{id}", ServiceDiscoveryServiceShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/servicediscovery/services/{id}", ServiceDiscoveryServiceDeleteHandler).Methods(http.MethodDelete)
 
+	if AppConfig.ListenAddress == "" {
+		AppConfig.ListenAddress = ":8080"
+	}
 	handler := handlers.LoggingHandler(os.Stdout, TokenMiddleware(publicURLs, router))
 	srv := &http.Server{
 		Handler:      handler,

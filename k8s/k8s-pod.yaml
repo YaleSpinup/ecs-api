@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ecsapi
+  labels:
+    app: ecsapi
+spec:
+  containers:
+  - name: ecsapi
+    image: hub.docker.com/yaleits/ecsapi
+    volumeMounts:
+    - name: ecsapi-config
+      mountPath: "/app/config"
+      readOnly: true
+    livenessProbe:
+      httpGet:
+        path: /v1/ecs/ping
+        port: 8080
+      initialDelaySeconds: 3
+      periodSeconds: 3
+  volumes:
+  - name: ecsapi-config
+    secret:
+      secretName: ecs-api-config-json
