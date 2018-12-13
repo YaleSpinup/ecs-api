@@ -99,7 +99,7 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 
 func TestCreateCluster(t *testing.T) {
 	client := &mockECSClient{}
-	cluster, err := createCluster(context.TODO(), client, aws.String("goodclu"))
+	cluster, err := createCluster(context.TODO(), client, &ecs.CreateClusterInput{ClusterName: aws.String("goodclu")})
 	if err != nil {
 		t.Fatal("expected no error from create cluster, got", err)
 	}
@@ -108,7 +108,7 @@ func TestCreateCluster(t *testing.T) {
 		t.Fatalf("Expected %+v\nGot %+v", goodClu, cluster)
 	}
 
-	cluster, err = createCluster(context.TODO(), client, aws.String("badclu"))
+	cluster, err = createCluster(context.TODO(), client, &ecs.CreateClusterInput{ClusterName: aws.String("badclu")})
 	if err == nil {
 		t.Fatal("expected error from create cluster, got", err, cluster)
 	}
@@ -126,7 +126,7 @@ func TestGetCluster(t *testing.T) {
 		t.Fatalf("Expected %+v\nGot %+v", goodClu, cluster)
 	}
 
-	cluster, err = createCluster(context.TODO(), client, aws.String("badclu"))
+	cluster, err = createCluster(context.TODO(), client, &ecs.CreateClusterInput{ClusterName: aws.String("badclu")})
 	if err == nil {
 		t.Fatal("expected error from get cluster, got", err, cluster)
 	}

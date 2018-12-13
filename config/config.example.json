@@ -6,14 +6,16 @@
       "akid": "xxxxxxxx",
       "secret": "xxxxxxxx",
       "default_sgs": ["sg-xxxxxx", "sg-yyyyyy"],
-      "default_subnets": ["subnet-xxxxxxx", "subnet-yyyyyy"]
+      "default_subnets": ["subnet-xxxxxxx", "subnet-yyyyyy"],
+      "defaultExecutionRoleArn": "arn:aws:iam::1111111111111:role/ecsTaskExecutionRole"
     },
     "spinup": {
       "region": "us-east-1",
       "akid": "xxxxxxxx",
       "secret": "xxxxxxxx",
       "default_sgs": ["sg-zzzzzz"],
-      "default_subnets": ["subnet-zzzzzz"]
+      "default_subnets": ["subnet-zzzzzz"],
+      "defaultExecutionRoleArn": "arn:aws:iam::22222222222222:role/ecsTaskExecutionRole"
     }
   },
   "token": "xxxx",

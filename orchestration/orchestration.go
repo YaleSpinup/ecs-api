@@ -38,6 +38,8 @@ var (
 	DefaultSubnets = []*string{}
 	// DefaultSecurityGroups sets a list of default sgs to attach to ENIs
 	DefaultSecurityGroups = []*string{}
+	//DefaultExecutionRoleArn sets the default execution role to give the task definition
+	DefaultExecutionRoleArn = aws.String("")
 )
 
 // Orchestrator holds the service discovery client, ecs client, input, and output
@@ -316,6 +318,10 @@ func createTaskDefinition(ctx context.Context, client ecsiface.ECSAPI, input *ec
 
 	if input.NetworkMode == nil {
 		input.NetworkMode = DefaultNetworkMode
+	}
+
+	if input.ExecutionRoleArn == nil {
+		input.ExecutionRoleArn = DefaultExecutionRoleArn
 	}
 
 	output, err := client.RegisterTaskDefinitionWithContext(ctx, input)

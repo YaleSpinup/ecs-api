@@ -58,6 +58,10 @@ func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 		orchestration.DefaultSubnets = sus
 	}
 
+	if AppConfig.Accounts[account].DefaultExecutionRoleArn != "" {
+		orchestration.DefaultExecutionRoleArn = aws.String(AppConfig.Accounts[account].DefaultExecutionRoleArn)
+	}
+
 	body, _ := ioutil.ReadAll(r.Body)
 	log.Debugf("new service orchestration request body: %s", body)
 
