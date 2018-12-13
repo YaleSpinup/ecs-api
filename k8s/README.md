@@ -1,6 +1,6 @@
 # k8s development Readme
 
-The application ships with a basic k8s config (currently only configured for development) in the `k8s/` directory.  There you will find a `Dockerfile` and yaml configuration to deploy the *ecsapi* pod, servive and ingress.  There is also an example configuration yaml which needs to be populated by you before skaffold can deploy the ecsapi. 
+The application ships with a basic k8s config (currently only configured for development) in the `k8s/` directory.  There you will find a `Dockerfile` and yaml configuration to deploy the *ecsapi* pod, service and ingress.  There is also an example configuration yaml (`k8s-config.yaml`) which needs to be populated by you before skaffold can deploy the ecsapi.
 
 ## install minikube
 
@@ -12,11 +12,13 @@ The application ships with a basic k8s config (currently only configured for dev
 
 ## create k8s secret config
 
-* Modify the local configuration file in `config/config.json`
+* modify the local configuration file in `config/config.json`
 
-* `cat config/config.json | base64`
+* copy example secret yaml `cp k8s/example-k8s-config.yaml k8s/k8s-config.yaml`
 
-* copy output into `config.json` secret in `k8s-config.yaml`
+* base64 encode the configuration `cat config/config.json | base64`
+
+* copy output of `config.json` secret into `k8s-config.yaml`
 
 ## develop
 
@@ -26,6 +28,6 @@ The application ships with a basic k8s config (currently only configured for dev
 
 * use the endpoint `http://<<minikube_ip>>/v1/ecs`
 
-Saving your code should rebuild and deploy your project automatically
+Saving your code should rebuild and redeploy your project automatically
 
 ## [non-]profit
