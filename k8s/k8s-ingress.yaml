@@ -1,0 +1,14 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ecsapi-ingress
+  namespace: default
+spec:
+  rules:
+  - host: spincool.internal.yale.edu
+    http:
+      paths:
+      - path: /v1/ecs
+        backend:
+          serviceName: ecsapi
+          servicePort: http

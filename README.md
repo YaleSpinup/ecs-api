@@ -57,7 +57,9 @@ Example request body of new cluster, new task definition, new service registry a
 
 ```json
 {
-    "clustername": "myclu",
+    "cluster": {
+        "clustername": "myclu"
+    },
     "taskdefinition": {
         "family": "mytaskdef",
         "cpu": "256",

@@ -1,5 +1,5 @@
 { 
-  "listenAddress": ":8000",
+  "listenAddress": "",
   "accounts": {
     "nonprod": {
       "region": "us-east-1",
