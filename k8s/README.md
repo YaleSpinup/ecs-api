@@ -10,6 +10,13 @@ The application ships with a basic k8s config (currently only configured for dev
 
 [Install skaffold](https://skaffold.dev/docs/getting-started/#installing-skaffold)
 
+## setup ingress controller (do this once on your cluster)
+
+```
+kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a0b99ae7c6e49/raw/013f86ab7af23eb014f25ba18e5d24c4fd329689/traefik-rbac.yaml
+kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a0b99ae7c6e49/raw/013f86ab7af23eb014f25ba18e5d24c4fd329689/traefik-ds.yaml
+```
+
 ## create k8s secret config
 
 * modify the local configuration file in `config/config.json`
