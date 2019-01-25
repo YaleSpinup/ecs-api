@@ -18,6 +18,8 @@ import (
 	"github.com/gorilla/mux"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -81,6 +83,11 @@ func main() {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	if AppConfig.LogLevel == "debug" {
+		log.Debug("Starting profiler on 127.0.0.1:6080")
+		go http.ListenAndServe("127.0.0.1:6080", nil)
+	}
+
 	log.Debugf("Read config: %+v", AppConfig)
 
 	// Create a shared ECS session, service discovery session and cloudwatch logs session for each account
@@ -98,12 +105,14 @@ func main() {
 	publicURLs := map[string]string{
 		"/v1/ecs/ping":    "public",
 		"/v1/ecs/version": "public",
+		"/v1/ecs/metrics": "public",
 	}
 
 	router := mux.NewRouter()
 	api := router.PathPrefix("/v1/ecs").Subrouter()
 	api.HandleFunc("/ping", PingHandler)
 	api.HandleFunc("/version", VersionHandler)
+	api.Handle("/metrics", promhttp.Handler())
 
 	// Service Orchestration handlers
 	api.HandleFunc("/{account}/services", ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
