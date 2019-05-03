@@ -152,6 +152,19 @@ To create a `task definition`, just `POST` to the endpoint:
 {}
 ```
 
+## Development
+
+    - Install Go v1.11 or newer
+    - Enable Go modules: `export GO111MODULE=on`
+    - Create a config file with your account parameters:
+```
+$ cp -p config/config.example.json config/config.json
+# edit config.json and update the parameters
+```
+    - Run `go run .` to start the app locally while developing
+    - Run `go test ./...` to run all tests
+    - Run `go build ./...` to build the binary
+
 ## Author
 
 E Camden Fisher <camden.fisher@yale.edu>

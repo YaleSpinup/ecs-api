@@ -122,12 +122,14 @@ func main() {
 	api.HandleFunc("/{account}/clusters", ClusterListHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters", ClusterCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}", ClusterShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}", ClusterUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/clusters/{cluster}", ClusterDeleteHandler).Methods(http.MethodDelete)
 
 	// Services handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/services", ServiceListHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services", ServiceCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", ServiceEventsHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")

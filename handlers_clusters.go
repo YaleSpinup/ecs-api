@@ -11,6 +11,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ClusterUpdateInput encapsulates a single request for updating a cluster
+type ClusterUpdateInput struct {
+	Tags []*ecs.Tag
+}
+
 // ClusterCreateHandler creates a new cluster
 func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
@@ -139,6 +144,31 @@ func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
+}
+
+// ClusterUpdateHandler updates cluster parameters
+func ClusterUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	// vars := mux.Vars(r)
+	// account := vars["account"]
+	// cluster := vars["cluster"]
+	// ecsService, ok := EcsServices[account]
+	// if !ok {
+	// 	log.Errorf("account not found: %s", account)
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	return
+	// }
+
+	var req ClusterUpdateInput
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Error("cannot decode body into cluster update request")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Not Implemented
+	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // ClusterDeleteHandler deletes cluster

@@ -10,13 +10,18 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
+
+// ServiceUpdateInput encapsulates a single request for updating a service
+type ServiceUpdateInput struct {
+	Tags []*ecs.Tag
+}
 
 // ServiceCreateHandler creates a service in a cluster
 func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
@@ -329,6 +334,32 @@ func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// ServiceUpdateHandler updates parameters for a service in a cluster
+func ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	// vars := mux.Vars(r)
+	// account := vars["account"]
+	// cluster := vars["cluster"]
+	// service := vars["service"]
+	// ecsService, ok := EcsServices[account]
+	// if !ok {
+	// 	log.Errorf("account not found: %s", account)
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	return
+	// }
+
+	var req ServiceUpdateInput
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		log.Error("cannot decode body into service update request")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Not Implemented
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ServiceDeleteHandler stops a service in a cluster
 func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
@@ -366,9 +397,8 @@ func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-
 // ServiceLogsHandler gets the logs for a task/container by using the cluster name as
-// the log group name and constructing the log stream from the service name, the task id, and the container name 
+// the log group name and constructing the log stream from the service name, the task id, and the container name
 func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -385,12 +415,12 @@ func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logStream := fmt.Sprintf("%s/%s/%s", service, container,task)
+	logStream := fmt.Sprintf("%s/%s/%s", service, container, task)
 	log.Debugf("getting events for log group/stream: %s/%s", cluster, logStream)
 
 	output, err := logService.Service.GetLogEventsWithContext(r.Context(), &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName: aws.String(cluster),
-		LogStreamName:   aws.String(logStream),
+		LogGroupName:  aws.String(cluster),
+		LogStreamName: aws.String(logStream),
 	})
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -409,4 +439,3 @@ func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
 }
-
