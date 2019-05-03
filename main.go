@@ -48,7 +48,7 @@ var EcsServices = make(map[string]ecs.ECS)
 // SdServices is a global map of ServiceDiscovery services
 var SdServices = make(map[string]servicediscovery.ServiceDiscovery)
 
-// LogServerices is a global map of Cloudwatch Logs services
+// LogServices is a global map of Cloudwatch Logs services
 var LogServices = make(map[string]cloudwatchlogs.CloudWatchLogs)
 
 func main() {
@@ -116,10 +116,8 @@ func main() {
 
 	// Service Orchestration handlers
 	api.HandleFunc("/{account}/services", ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/services", ServiceOrchestrationUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/services", ServiceOrchestrationDeleteHandler).Methods(http.MethodDelete)
-	api.HandleFunc("/{account}/services", func(w http.ResponseWriter, req *http.Request) {
-		w.WriteHeader(http.StatusNotImplemented)
-	}).Methods(http.MethodPut)
 
 	// Clusters handlers
 	api.HandleFunc("/{account}/clusters", ClusterListHandler).Methods(http.MethodGet)
