@@ -117,19 +117,20 @@ func main() {
 	// Service Orchestration handlers
 	api.HandleFunc("/{account}/services", ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/services", ServiceOrchestrationDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/services", func(w http.ResponseWriter, req *http.Request) {
+		w.WriteHeader(http.StatusNotImplemented)
+	}).Methods(http.MethodPut)
 
 	// Clusters handlers
 	api.HandleFunc("/{account}/clusters", ClusterListHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters", ClusterCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}", ClusterShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}", ClusterUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/clusters/{cluster}", ClusterDeleteHandler).Methods(http.MethodDelete)
 
 	// Services handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/services", ServiceListHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services", ServiceCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", ServiceDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", ServiceEventsHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")

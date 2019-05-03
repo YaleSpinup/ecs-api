@@ -18,11 +18,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ServiceUpdateInput encapsulates a single request for updating a service
-type ServiceUpdateInput struct {
-	Tags []*ecs.Tag
-}
-
 // ServiceCreateHandler creates a service in a cluster
 func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
@@ -332,32 +327,6 @@ func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
-}
-
-// ServiceUpdateHandler updates parameters for a service in a cluster
-func ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
-	w = LogWriter{w}
-	// vars := mux.Vars(r)
-	// account := vars["account"]
-	// cluster := vars["cluster"]
-	// service := vars["service"]
-	// ecsService, ok := EcsServices[account]
-	// if !ok {
-	// 	log.Errorf("account not found: %s", account)
-	// 	w.WriteHeader(http.StatusBadRequest)
-	// 	return
-	// }
-
-	var req ServiceUpdateInput
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		log.Error("cannot decode body into service update request")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	// Not Implemented
-	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // ServiceDeleteHandler stops a service in a cluster
