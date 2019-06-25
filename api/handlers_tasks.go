@@ -1,8 +1,11 @@
-package main
+package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -13,15 +16,16 @@ import (
 // TaskCreateHandler runs a task in a cluster.  It expects to marshall the
 // request body into RunTaskInput.
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RunTaskInput
-func TaskCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -58,15 +62,16 @@ func TaskCreateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskListHandler gets a list of tasks in a cluster
-func TaskListHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account or cluster not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -128,16 +133,17 @@ func TaskListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskShowHandler gets the details for a task in a cluster
-func TaskShowHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
 	task := vars["task"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -169,16 +175,17 @@ func TaskShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskDeleteHandler stops a task in a cluster
-func TaskDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
 	task := vars["task"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 

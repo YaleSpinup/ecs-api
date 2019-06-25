@@ -1,8 +1,11 @@
-package main
+package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -13,14 +16,15 @@ import (
 // TaskDefCreateHandler creates a task definition. The expected input is compatible with
 // the AWS SDK ResgisterTaskDefinitionInput struct
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RegisterTaskDefinitionInput
-func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -53,14 +57,15 @@ func TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskDefListHandler returns a list of task definitions
-func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -111,15 +116,16 @@ func TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskDefShowHandler gets the details for a task definition
-func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	taskdef := vars["taskdef"]
-	ecsService, ok := EcsServices[account]
-	if !ok || taskdef == "" {
-		log.Errorf("account or taskdef not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+
+	ecsService, ok := s.ecsServices[account]
+	if !ok {
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -145,15 +151,16 @@ func TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // TaskDefDeleteHandler deregisters a task definition
-func TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	taskdef := vars["taskdef"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 

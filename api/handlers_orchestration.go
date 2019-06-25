@@ -1,47 +1,51 @@
-package main
+package api
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
+
 	uuid "github.com/satori/go.uuid"
 	log "github.com/sirupsen/logrus"
 )
 
 // ServiceOrchestrationCreateHandler is the one stop shop for creating a service
 // end to end with some basic assumptions baked into the automation
-func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
-	ec, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
-	sd, ok := SdServices[account]
+	sdService, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
 	orchestrator := orchestration.Orchestrator{
-		ECS:              ec.Service,
-		ServiceDiscovery: sd.Service,
+		ECS:              ecsService.Service,
+		ServiceDiscovery: sdService.Service,
 		Token:            uuid.NewV4().String(),
 	}
 
 	sgs := []*string{}
-	for _, sg := range AppConfig.Accounts[account].DefaultSgs {
+	for _, sg := range ecsService.DefaultSgs {
 		sgs = append(sgs, aws.String(sg))
 	}
 
@@ -50,7 +54,7 @@ func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sus := []*string{}
-	for _, su := range AppConfig.Accounts[account].DefaultSubnets {
+	for _, su := range ecsService.DefaultSubnets {
 		sus = append(sus, aws.String(su))
 	}
 
@@ -58,8 +62,8 @@ func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 		orchestration.DefaultSubnets = sus
 	}
 
-	if AppConfig.Accounts[account].DefaultExecutionRoleArn != "" {
-		orchestration.DefaultExecutionRoleArn = aws.String(AppConfig.Accounts[account].DefaultExecutionRoleArn)
+	if ecsService.DefaultExecutionRoleArn != "" {
+		orchestration.DefaultExecutionRoleArn = aws.String(ecsService.DefaultExecutionRoleArn)
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)
@@ -96,27 +100,27 @@ func ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServiceOrchestrationDeleteHandler is the one stop shop for deleting a service
 // end to end with some basic assumptions baked into the automation
-func ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
-	ec, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
-	sd, ok := SdServices[account]
+	sd, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
 	orchestrator := orchestration.Orchestrator{
-		ECS:              ec.Service,
+		ECS:              ecsService.Service,
 		ServiceDiscovery: sd.Service,
 		Token:            uuid.NewV4().String(),
 	}
@@ -153,15 +157,31 @@ func ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServiceOrchestrationUpdateHandler updates a service and its dependencies
-func ServiceOrchestrationUpdateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceOrchestrationUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
-	_, ok := EcsServices[account]
+	_, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ServiceOrchestrationShowHandler updates a service and its dependencies
+func (s *server) ServiceOrchestrationShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+
+	_, ok := s.ecsServices[account]
+	if !ok {
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 

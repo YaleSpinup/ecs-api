@@ -14,6 +14,7 @@ type Config struct {
 	Accounts      map[string]Account
 	Token         string
 	LogLevel      string
+	Version       Version
 }
 
 // Account is the configuration for an individual account
@@ -24,6 +25,14 @@ type Account struct {
 	DefaultSgs              []string
 	DefaultSubnets          []string
 	DefaultExecutionRoleArn string
+}
+
+// Version carries around the API version information
+type Version struct {
+	Version           string
+	VersionPrerelease string
+	BuildStamp        string
+	GitHash           string
 }
 
 // ReadConfig decodes the configuration from an io Reader

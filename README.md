@@ -168,3 +168,8 @@ $ cp -p config/config.example.json config/config.json
 ## Author
 
 E Camden Fisher <camden.fisher@yale.edu>
+
+## License
+
+GNU Affero General Public License v3.0 (GNU AGPLv3)
+Copyright (c) 2019 Yale University

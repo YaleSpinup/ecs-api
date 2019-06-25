@@ -23,7 +23,7 @@ kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a
 
 * copy example secret yaml `cp k8s/example-k8s-config.yaml k8s/k8s-config.yaml`
 
-* base64 encode the configuration `cat config/config.json | base64`
+* base64 encode the configuration `cat config/config.json | base64 -w0`
 
 * copy output of `config.json` secret into `k8s-config.yaml`
 
