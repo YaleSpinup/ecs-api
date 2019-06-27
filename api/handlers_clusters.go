@@ -1,9 +1,11 @@
-package main
+package api
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -12,14 +14,15 @@ import (
 )
 
 // ClusterCreateHandler creates a new cluster
-func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -51,14 +54,15 @@ func ClusterCreateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClusterListHandler gets a list of clusters
-func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ClusterListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -96,15 +100,16 @@ func ClusterListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClusterShowHandler gets details about a cluster
-func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -142,15 +147,16 @@ func ClusterShowHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClusterDeleteHandler deletes cluster
-func ClusterDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ClusterDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 

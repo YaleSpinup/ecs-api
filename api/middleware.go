@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"net/http"
@@ -8,7 +8,7 @@ import (
 )
 
 // TokenMiddleware checks the tokens for non-public URLs
-func TokenMiddleware(public map[string]string, h http.Handler) http.Handler {
+func TokenMiddleware(psk string, public map[string]string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug("Processing token middleware for protected URLs")
 
@@ -16,7 +16,7 @@ func TokenMiddleware(public map[string]string, h http.Handler) http.Handler {
 		if r.Method == "OPTIONS" {
 			log.Info("Setting CORS preflight options and returning")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Headers", "Auth-Token")
+			w.Header().Set("Access-Control-Allow-Headers", "X-Auth-Token")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte{})
 			return
@@ -34,8 +34,8 @@ func TokenMiddleware(public map[string]string, h http.Handler) http.Handler {
 		} else {
 			log.Infof("Authenticating token for protected URL '%s'", r.URL)
 
-			htoken := r.Header.Get("Auth-Token")
-			if AppConfig.Token == htoken {
+			htoken := r.Header.Get("X-Auth-Token")
+			if psk == htoken {
 				log.Debugf("Authenticating preshared token '%s' for '%s'", htoken, r.URL)
 			} else {
 				log.Warnf("Unable to authenticate session for '%s' with '%s'", r.URL, htoken)

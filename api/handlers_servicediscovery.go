@@ -1,8 +1,11 @@
-package main
+package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -11,15 +14,15 @@ import (
 )
 
 // ServiceDiscoveryServiceListHandler gets the list of service discovery services
-func ServiceDiscoveryServiceListHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceDiscoveryServiceListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 
-	sd, ok := SdServices[account]
+	sd, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discover service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -44,16 +47,16 @@ func ServiceDiscoveryServiceListHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // ServiceDiscoveryServiceShowHandler gets the details for a service discovery service from an ID
-func ServiceDiscoveryServiceShowHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceDiscoveryServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	id := vars["id"]
 
-	sd, ok := SdServices[account]
+	sd, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discover service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -81,16 +84,16 @@ func ServiceDiscoveryServiceShowHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // ServiceDiscoveryServiceDeleteHandler deletes a service discovery service by ID
-func ServiceDiscoveryServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceDiscoveryServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	id := vars["id"]
 
-	sd, ok := SdServices[account]
+	sd, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discover service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -121,14 +124,15 @@ func ServiceDiscoveryServiceDeleteHandler(w http.ResponseWriter, r *http.Request
 //
 // Expects input JSON to satisfy serviceDiscovery.CreateServiceInput{}
 // https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#CreateServiceInput
-func ServiceDiscoveryServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceDiscoveryServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	sd, ok := SdServices[account]
+
+	sd, ok := s.sdServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("service discover service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 

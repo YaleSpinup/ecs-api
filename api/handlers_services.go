@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -19,15 +21,15 @@ import (
 )
 
 // ServiceCreateHandler creates a service in a cluster
-func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -61,15 +63,15 @@ func ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServiceListHandler gets a list of services in a cluster
-func ServiceListHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
-	ecsService, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -110,16 +112,16 @@ func ServiceListHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServiceShowHandler gets the details for a service in a cluster
-func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
 	service := vars["service"]
-	ecsService, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -175,7 +177,7 @@ func ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var serviceDiscoveryEndpoint *string
-		sd, ok := SdServices[account]
+		sd, ok := s.sdServices[account]
 		if ok {
 			log.Debugf("found service discovery account information for all details lookup of %s/%s", cluster, service)
 			serviceDiscoveryEndpoint, err = serviceEndpoint(r.Context(), sd.Service, serviceOutput.Services[0].ServiceRegistries[0])
@@ -287,16 +289,16 @@ func serviceEndpoint(ctx context.Context, sd *servicediscovery.ServiceDiscovery,
 }
 
 // ServiceEventsHandler gets the events for a service in a cluster
-func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
 	service := vars["service"]
-	ecsService, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -330,16 +332,16 @@ func ServiceEventsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServiceDeleteHandler stops a service in a cluster
-func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
 	cluster := vars["cluster"]
 	service := vars["service"]
-	ecsService, ok := EcsServices[account]
+	ecsService, ok := s.ecsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -368,7 +370,7 @@ func ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 // ServiceLogsHandler gets the logs for a task/container by using the cluster name as
 // the log group name and constructing the log stream from the service name, the task id, and the container name
-func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -377,10 +379,10 @@ func ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	task := vars["task"]
 	container := vars["container"]
 
-	logService, ok := LogServices[account]
+	logService, ok := s.cwLogsServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusBadRequest)
+		msg := fmt.Sprintf("cloudwatch logs service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
