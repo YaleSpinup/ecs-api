@@ -4,11 +4,13 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/YaleSpinup/ecs-api/ecs"
+	"github.com/YaleSpinup/ecs-api/secretsmanager"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -18,26 +20,24 @@ import (
 
 type server struct {
 	sdServices     map[string]servicediscovery.ServiceDiscovery
+	smServices     map[string]secretsmanager.SecretsManager
 	ecsServices    map[string]ecs.ECS
 	cwLogsServices map[string]cloudwatchlogs.CloudWatchLogs
 	router         *mux.Router
 	version        common.Version
-	context        context.Context
+	org            string
 }
 
 // NewServer creates a new server and starts it
 func NewServer(config common.Config) error {
-	// setup server context with cancellation
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	s := server{
 		sdServices:     make(map[string]servicediscovery.ServiceDiscovery),
 		ecsServices:    make(map[string]ecs.ECS),
 		cwLogsServices: make(map[string]cloudwatchlogs.CloudWatchLogs),
+		smServices:     make(map[string]secretsmanager.SecretsManager),
 		router:         mux.NewRouter(),
 		version:        config.Version,
-		context:        ctx,
+		org:            config.Org,
 	}
 
 	for name, c := range config.Accounts {
@@ -45,6 +45,7 @@ func NewServer(config common.Config) error {
 		s.sdServices[name] = servicediscovery.NewSession(c)
 		s.ecsServices[name] = ecs.NewSession(c)
 		s.cwLogsServices[name] = cloudwatchlogs.NewSession(c)
+		s.smServices[name] = secretsmanager.NewSession(c)
 	}
 
 	publicURLs := map[string]string{
@@ -68,9 +69,31 @@ func NewServer(config common.Config) error {
 	}
 
 	log.Infof("Starting listener on %s", config.ListenAddress)
-	if err := srv.ListenAndServe(); err != nil {
-		return err
-	}
+	// Run our server in a goroutine so that it doesn't block.
+	go func() {
+		if err := srv.ListenAndServe(); err != nil {
+			log.Errorf("error starting listener: %s", err)
+			os.Exit(1)
+		}
+	}()
+
+	c := make(chan os.Signal, 1)
+	// We'll accept graceful shutdowns when quit via SIGINT (Ctrl+C)
+	// SIGKILL, SIGQUIT or SIGTERM (Ctrl+/) will not be caught.
+	signal.Notify(c, os.Interrupt)
+
+	// Block until we receive our signal.
+	<-c
+
+	// setup server context with cancellation
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	defer cancel()
+
+	// Doesn't block if no connections, but will otherwise wait
+	// until the timeout deadline.
+	srv.Shutdown(ctx)
+	log.Warn("shutting down")
+	os.Exit(0)
 
 	return nil
 }

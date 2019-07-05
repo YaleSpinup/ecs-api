@@ -49,4 +49,11 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/servicediscovery/services", s.ServiceDiscoveryServiceCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/servicediscovery/services/{id}", s.ServiceDiscoveryServiceShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/servicediscovery/services/{id}", s.ServiceDiscoveryServiceDeleteHandler).Methods(http.MethodDelete)
+
+	// Secrets handlers
+	api.HandleFunc("/{account}/secrets", s.SecretListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/secrets", s.SecretCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/secrets/{secret}", s.SecretShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/secrets/{secret}", s.SecretDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/secrets/{secret}", s.SecretUpdateHandler).Methods(http.MethodPut)
 }

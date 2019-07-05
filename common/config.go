@@ -14,6 +14,7 @@ type Config struct {
 	Accounts      map[string]Account
 	Token         string
 	LogLevel      string
+	Org           string
 	Version       Version
 }
 
@@ -25,6 +26,7 @@ type Account struct {
 	DefaultSgs              []string
 	DefaultSubnets          []string
 	DefaultExecutionRoleArn string
+	DefaultKmsKeyId         string
 }
 
 // Version carries around the API version information

@@ -7,9 +7,11 @@
       "secret": "{{ .spinup_secret }}",
       "defaultSgs": ["{{ .default_sg }}"],
       "defaultSubnets": ["{{ .default_subnet }}"],
-      "defaultExecutionRoleArn": "{{ .default_exection_role_arn }}"
+      "defaultExecutionRoleArn": "{{ .default_exection_role_arn }}",
+      "defaultKmsKeyId": "{{ .default_kms_key_id }}"
     }
   },
   "token": "{{ .api_token }}",
-  "logLevel": "{{ .log_level }}"
+  "logLevel": "{{ .log_level }}",
+  "org": {{ .server_org }}
 }
