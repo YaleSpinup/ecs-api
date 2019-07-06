@@ -16,36 +16,45 @@ import (
 
 var secretList1 = []*secretsmanager.SecretListEntry{
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret01-abcdefg"),
 		Name: aws.String("Secret01"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret02-abcdefg"),
 		Name: aws.String("Secret02"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret03-abcdefg"),
 		Name: aws.String("Secret03"),
 	},
 }
 
 var secretList2 = []*secretsmanager.SecretListEntry{
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret11-abcdefg"),
 		Name: aws.String("Secret11"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret12-abcdefg"),
 		Name: aws.String("Secret12"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret13-abcdefg"),
 		Name: aws.String("Secret13"),
 	},
 }
 
 var secretList3 = []*secretsmanager.SecretListEntry{
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret21-abcdefg"),
 		Name: aws.String("Secret21"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret22-abcdefg"),
 		Name: aws.String("Secret22"),
 	},
 	&secretsmanager.SecretListEntry{
+		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret23-abcdefg"),
 		Name: aws.String("Secret23"),
 	},
 }
@@ -112,9 +121,11 @@ func (m *mockSecretsManagerClient) CreateSecretWithContext(ctx context.Context, 
 func TestListSecretsWithFilter(t *testing.T) {
 	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
 
-	var expected []*secretsmanager.SecretListEntry
+	var expected []*string
 	for _, list := range [][]*secretsmanager.SecretListEntry{secretList1, secretList2, secretList3} {
-		expected = append(expected, list...)
+		for _, s := range list {
+			expected = append(expected, s.ARN)
+		}
 	}
 
 	out, err := s.ListSecretsWithFilter(context.TODO(), func(secret *secretsmanager.SecretListEntry) bool {
@@ -129,7 +140,7 @@ func TestListSecretsWithFilter(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", expected, out)
 	}
 
-	expected = []*secretsmanager.SecretListEntry{}
+	expected = []*string{}
 	out, err = s.ListSecretsWithFilter(context.TODO(), func(secret *secretsmanager.SecretListEntry) bool {
 		return false
 	})

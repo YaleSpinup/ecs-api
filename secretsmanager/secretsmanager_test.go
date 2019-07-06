@@ -1,8 +1,9 @@
 package secretsmanager
 
-import(
+import (
 	"reflect"
 	"testing"
+
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 )
