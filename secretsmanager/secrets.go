@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// CreateSecrets creates a secret in the secretsmanager
+// CreateSecret creates a secret in the secretsmanager
 func (s *SecretsManager) CreateSecret(ctx context.Context, input *secretsmanager.CreateSecretInput) (*secretsmanager.CreateSecretOutput, error) {
 	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -33,7 +33,7 @@ func (s *SecretsManager) CreateSecret(ctx context.Context, input *secretsmanager
 	return out, nil
 }
 
-// ListSecretsWithFIlter lists all of the secrets with a passed filter function
+// ListSecretsWithFilter lists all of the secrets with a passed filter function
 func (s *SecretsManager) ListSecretsWithFilter(ctx context.Context, filter func(*secretsmanager.SecretListEntry) bool) ([]*secretsmanager.SecretListEntry, error) {
 	log.Infof("listing secretsmanager secrets")
 	secrets := []*secretsmanager.SecretListEntry{}
