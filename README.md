@@ -41,6 +41,12 @@ GET /v1/ecs/{account}/servicediscovery/services
 POST /v1/ecs/{account}/servicediscovery/services
 GET /v1/ecs/{account}/servicediscovery/services/{id}
 DELETE /v1/ecs/{account}/servicediscovery/services/{id}
+
+// Secrets handlers
+GET /v1/ecs/{account}/secrets
+POST /v1/ecs/{account}/secrets
+GET /v1/ecs/{account}/secrets/{secret}
+DELETE /v1/ecs/{account}/secrets/{secret}
 ```
 
 ## Orchestration
@@ -152,18 +158,69 @@ To create a `task definition`, just `POST` to the endpoint:
 {}
 ```
 
+## Secrets
+
+`Secrets` store binary or string data in AWS secrets manager. By default, secrets are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
+
+### Create a secret
+
+POST `/v1/s3/{account}/secrets`
+
+#### Request
+
+```json
+{
+    "Name": "sshhhhh",
+    "SecretString": "abc123"
+}
+```
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:sshhhhh-Z8CxfW",
+    "Name": "sshhhhh",
+    "VersionId": "592CEFAE-7B74-4A22-B1C9-55F958531579"
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **500 Internal Server Error** | a server error occurred         |
+
+### List secrets
+
+Listing secrets is limited to the secrets that belong to the *org*.
+
+GET `/v1/s3/{account}/secrets`
+
+#### Response
+
+```json
+[
+    "arn:aws:secretsmanager:us-east-1:012345678901:secret:TopSekritPassword-rJ93nm",
+    "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco"
+]
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **500 Internal Server Error** | a server error occurred         |
+
 ## Development
 
-    - Install Go v1.11 or newer
-    - Enable Go modules: `export GO111MODULE=on`
-    - Create a config file with your account parameters:
-```
-$ cp -p config/config.example.json config/config.json
-# edit config.json and update the parameters
-```
-    - Run `go run .` to start the app locally while developing
-    - Run `go test ./...` to run all tests
-    - Run `go build ./...` to build the binary
+- Install Go v1.11 or newer
+- Enable Go modules: `export GO111MODULE=on`
+- Create a config: `cp -p config/config.example.json config/config.json`
+- Edit `config.json` and update the parameters
+- Run `go run .` to start the app locally while developing
+- Run `go test ./...` to run all tests
+- Run `go build ./...` to build the binary
 
 ## Author
 
