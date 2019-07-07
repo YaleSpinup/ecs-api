@@ -27,15 +27,39 @@ func (s *server) SecretListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secrets, err := smService.ListSecretsWithFilter(r.Context(), func(sec *secretsmanager.SecretListEntry) bool {
-		log.Debugf("checking tags for %s to be sure it's part of the org %s", aws.StringValue(sec.Name), s.org)
-		for _, tag := range sec.Tags {
-			if aws.StringValue(tag.Key) == "yale:org" && aws.StringValue(tag.Value) == s.org {
-				log.Debugf("%s has matching org tag and is part of the %s org, adding to the list", aws.StringValue(sec.Name), s.org)
-				return true
+	tagsFilter := map[string]string{"spinup:org": s.org}
+	q := r.URL.Query()
+	if len(q) > 0 {
+		log.Debugf("parsing query parameters %+v", q)
+		for k, v := range q {
+			log.Debugf("key: %s, value: %+v", k, v)
+			// append tag filters, silently ignore attempts to override the org
+			if k != "spinup:org" {
+				tagsFilter[k] = v[0]
 			}
 		}
-		return false
+	}
+
+	secrets, err := smService.ListSecretsWithFilter(r.Context(), func(sec *secretsmanager.SecretListEntry) bool {
+		for k, v := range tagsFilter {
+			log.Debugf("checking %s tags for %s = %s", aws.StringValue(sec.Name), k, v)
+
+			found := false
+			for _, tag := range sec.Tags {
+				if aws.StringValue(tag.Key) == k && aws.StringValue(tag.Value) == v {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				log.Debugf("didn't find tag (%s = %s) for %s", k, v, aws.StringValue(sec.Name))
+				return false
+			}
+		}
+
+		log.Debugf("%s matched all tags", aws.StringValue(sec.Name))
+		return true
 	})
 	if err != nil {
 		handleError(w, errors.Wrap(err, "unable to list secrets from the secretsmanager service"))
@@ -72,7 +96,7 @@ func (s *server) SecretCreateHandler(w http.ResponseWriter, r *http.Request) {
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
 	}
-	input.Tags = append(input.Tags, &secretsmanager.Tag{Key: aws.String("yale:org"), Value: aws.String(s.org)})
+	input.Tags = append(input.Tags, &secretsmanager.Tag{Key: aws.String("spinup:org"), Value: aws.String(s.org)})
 
 	out, err := smService.CreateSecret(r.Context(), input)
 	if err != nil {
@@ -105,7 +129,7 @@ func (s *server) SecretShowHandler(w http.ResponseWriter, r *http.Request) {
 	secret, err := smService.GetSecretMetaDataWithFilter(r.Context(), id, func(out *secretsmanager.DescribeSecretOutput) bool {
 		log.Debugf("checking tags for %s to be sure it's part of the org %s", aws.StringValue(out.Name), s.org)
 		for _, tag := range out.Tags {
-			if aws.StringValue(tag.Key) == "yale:org" && aws.StringValue(tag.Value) == s.org {
+			if aws.StringValue(tag.Key) == "spinup:org" && aws.StringValue(tag.Value) == s.org {
 				log.Debugf("%s has matching org tag and is part of the %s org, adding to the list", aws.StringValue(out.Name), s.org)
 				return true
 			}
@@ -155,7 +179,7 @@ func (s *server) SecretDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := smService.GetSecretMetaDataWithFilter(r.Context(), id, func(out *secretsmanager.DescribeSecretOutput) bool {
 		log.Debugf("checking tags for %s to be sure it's part of the org %s", aws.StringValue(out.Name), s.org)
 		for _, tag := range out.Tags {
-			if aws.StringValue(tag.Key) == "yale:org" && aws.StringValue(tag.Value) == s.org {
+			if aws.StringValue(tag.Key) == "spinup:org" && aws.StringValue(tag.Value) == s.org {
 				log.Debugf("%s has matching org tag and is part of the %s org, adding to the list", aws.StringValue(out.Name), s.org)
 				return true
 			}

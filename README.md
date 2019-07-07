@@ -193,9 +193,10 @@ POST `/v1/s3/{account}/secrets`
 
 ### List secrets
 
-Listing secrets is limited to the secrets that belong to the *org*.
+Listing secrets is limited to the secrets that belong to the *org*. Optionally pass `key=value` pairs
+to filter on secret tags.
 
-GET `/v1/s3/{account}/secrets`
+GET `/v1/s3/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
 #### Response
 
