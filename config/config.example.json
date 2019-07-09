@@ -5,8 +5,8 @@
       "region": "us-east-1",
       "akid": "xxxxxxxx",
       "secret": "xxxxxxxx",
-      "default_sgs": ["sg-xxxxxx", "sg-yyyyyy"],
-      "default_subnets": ["subnet-xxxxxxx", "subnet-yyyyyy"],
+      "defaultSgs": ["sg-xxxxxx", "sg-yyyyyy"],
+      "defaultSubnets": ["subnet-xxxxxxx", "subnet-yyyyyy"],
       "defaultExecutionRoleArn": "arn:aws:iam::1111111111111:role/ecsTaskExecutionRole",
       "defaultKmsKeyId": "12121212-3333-4444-5555-676767676767"
     },
@@ -14,8 +14,8 @@
       "region": "us-east-1",
       "akid": "xxxxxxxx",
       "secret": "xxxxxxxx",
-      "default_sgs": ["sg-zzzzzz"],
-      "default_subnets": ["subnet-zzzzzz"],
+      "defaultSgs": ["sg-zzzzzz"],
+      "defaultSubnets": ["subnet-zzzzzz"],
       "defaultExecutionRoleArn": "arn:aws:iam::22222222222222:role/ecsTaskExecutionRole",
       "defaultKmsKeyId": "90909090-8888-7777-6666-545454545454"
     }
