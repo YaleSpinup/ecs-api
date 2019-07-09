@@ -64,7 +64,7 @@ func (s *SecretsManager) ListSecretsWithFilter(ctx context.Context, filter func(
 	return secrets, nil
 }
 
-// GetSecretWithFilter describes a secret (doesn't return the actual secret) and requires a filter function to be passed.  This function
+// GetSecretMetaDataWithFilter describes a secret (doesn't return the actual secret) and requires a filter function to be passed.  This function
 // can be used (for example) to ensure the returned secret has certain tags or was encrypted with a specific CMK
 func (s *SecretsManager) GetSecretMetaDataWithFilter(ctx context.Context, id string, filter func(*secretsmanager.DescribeSecretOutput) bool) (*secretsmanager.DescribeSecretOutput, error) {
 	if id == "" {

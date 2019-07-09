@@ -236,7 +236,7 @@ GET `/v1/s3/{account}/secret/{secret}`
     "RotationRules": null,
     "Tags": [
         {
-            "Key": "yale:org",
+            "Key": "spinup:org",
             "Value": "localdev"
         }
     ],

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -13,6 +14,75 @@ import (
 
 	"github.com/YaleSpinup/s3-api/apierror"
 )
+
+var now = time.Now()
+
+var secretMeta1 = &secretsmanager.DescribeSecretOutput{
+	ARN:             aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret01-abcdefg"),
+	Name:            aws.String("Secret01"),
+	LastChangedDate: &now,
+	Tags: []*secretsmanager.Tag{
+		&secretsmanager.Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String("test"),
+		},
+		&secretsmanager.Tag{
+			Key:   aws.String("Application"),
+			Value: aws.String("Spinup"),
+		},
+		&secretsmanager.Tag{
+			Key:   aws.String("Foo"),
+			Value: aws.String("Bar"),
+		},
+	},
+	VersionIdsToStages: map[string][]*string{
+		"00000000-1111-2222-3333-444444444444": []*string{
+			aws.String("AWSCURRENT"),
+		},
+	},
+}
+
+var secretMeta2 = &secretsmanager.DescribeSecretOutput{
+	ARN:             aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret02-abcdefg"),
+	Name:            aws.String("Secret02"),
+	LastChangedDate: &now,
+	Tags: []*secretsmanager.Tag{
+		&secretsmanager.Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String("test"),
+		},
+		&secretsmanager.Tag{
+			Key:   aws.String("Application"),
+			Value: aws.String("Spinup"),
+		},
+	},
+	VersionIdsToStages: map[string][]*string{
+		"00000000-1111-2222-3333-444444444444": []*string{
+			aws.String("AWSCURRENT"),
+		},
+	},
+}
+
+var secretMeta3 = &secretsmanager.DescribeSecretOutput{
+	ARN:             aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret03-abcdefg"),
+	Name:            aws.String("Secret03"),
+	LastChangedDate: &now,
+	Tags: []*secretsmanager.Tag{
+		&secretsmanager.Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String("prod"),
+		},
+		&secretsmanager.Tag{
+			Key:   aws.String("Application"),
+			Value: aws.String("Spinup"),
+		},
+	},
+	VersionIdsToStages: map[string][]*string{
+		"00000000-1111-2222-3333-444444444444": []*string{
+			aws.String("AWSCURRENT"),
+		},
+	},
+}
 
 var secretList1 = []*secretsmanager.SecretListEntry{
 	&secretsmanager.SecretListEntry{
@@ -71,6 +141,39 @@ var testSecretsList = []*secretsmanager.ListSecretsOutput{
 	&secretsmanager.ListSecretsOutput{
 		SecretList: secretList3,
 	},
+}
+
+func (m *mockSecretsManagerClient) DescribeSecretWithContext(ctx context.Context, input *secretsmanager.DescribeSecretInput, opts ...request.Option) (*secretsmanager.DescribeSecretOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, s := range []*secretsmanager.DescribeSecretOutput{secretMeta1, secretMeta2, secretMeta3} {
+		if aws.StringValue(input.SecretId) == aws.StringValue(s.ARN) {
+			return s, nil
+		}
+	}
+
+	return nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secret not found", nil)
+}
+
+func (m *mockSecretsManagerClient) DeleteSecretWithContext(ctx context.Context, input *secretsmanager.DeleteSecretInput, opts ...request.Option) (*secretsmanager.DeleteSecretOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	deleteDate := now.Add(time.Duration(aws.Int64Value(input.RecoveryWindowInDays) * 24))
+	for _, s := range []*secretsmanager.DescribeSecretOutput{secretMeta1, secretMeta2, secretMeta3} {
+		if aws.StringValue(input.SecretId) == aws.StringValue(s.ARN) {
+			return &secretsmanager.DeleteSecretOutput{
+				ARN:          s.ARN,
+				DeletionDate: &deleteDate,
+				Name:         s.Name,
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "Secret not found", nil)
 }
 
 func (m *mockSecretsManagerClient) ListSecretsWithContext(ctx context.Context, input *secretsmanager.ListSecretsInput, opts ...request.Option) (*secretsmanager.ListSecretsOutput, error) {
@@ -205,6 +308,87 @@ func TestCreateSecrets(t *testing.T) {
 		Name:         aws.String("foobar"),
 		SecretString: aws.String("top sekrit"),
 	})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrInternalError {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
+func TestGetSecretMetaDataWithFilter(t *testing.T) {
+	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
+
+	out, err := s.GetSecretMetaDataWithFilter(context.TODO(), aws.StringValue(secretMeta1.ARN), func(filter *secretsmanager.DescribeSecretOutput) bool { return true })
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	if !reflect.DeepEqual(out, secretMeta1) {
+		t.Errorf("expected %+v, got %+v", secretMeta1, out)
+	}
+
+	_, err = s.GetSecretMetaDataWithFilter(context.TODO(), aws.StringValue(secretMeta1.ARN), func(filter *secretsmanager.DescribeSecretOutput) bool { return false })
+	if err == nil {
+		t.Error("expected error returned when no matching secret")
+	}
+
+	if aerr, ok := err.(apierror.Error); !ok || aerr.Code != apierror.ErrNotFound {
+		t.Errorf("expected apierr not found, got %s", err)
+	}
+
+	_, err = s.GetSecretMetaDataWithFilter(context.TODO(), "", func(filter *secretsmanager.DescribeSecretOutput) bool { return true })
+	if err == nil {
+		t.Error("expected error returned when id is empty string")
+	}
+
+	// test an error from the api secretsmanager.ErrCodeInternalServiceError
+	s.Service.(*mockSecretsManagerClient).err = awserr.New(secretsmanager.ErrCodeInternalServiceError, "Internal Error", nil)
+	_, err = s.GetSecretMetaDataWithFilter(context.TODO(), aws.StringValue(secretMeta1.ARN), func(filter *secretsmanager.DescribeSecretOutput) bool { return true })
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrInternalError {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
+func TestDeleteSecret(t *testing.T) {
+	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
+	expected := &secretsmanager.DeleteSecretOutput{
+		ARN:          secretMeta1.ARN,
+		DeletionDate: &now,
+		Name:         secretMeta1.Name,
+	}
+
+	out, err := s.DeleteSecret(context.TODO(), aws.StringValue(secretMeta1.ARN), int64(0))
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	if !reflect.DeepEqual(out, expected) {
+		t.Errorf("expected %+v, got %+v", expected, out)
+	}
+
+	_, err = s.DeleteSecret(context.TODO(), aws.StringValue(secretMeta1.ARN), int64(1))
+	if err == nil {
+		t.Error("expected error returned when no window is not 0 or between 7 and 30")
+	}
+
+	if aerr, ok := err.(apierror.Error); !ok || aerr.Code != apierror.ErrBadRequest {
+		t.Errorf("expected apierr bad request, got %s", err)
+	}
+
+	_, err = s.DeleteSecret(context.TODO(), "", int64(0))
+	if err == nil {
+		t.Error("expected error returned when id is empty string")
+	}
+
+	// test an error from the api secretsmanager.ErrCodeInternalServiceError
+	s.Service.(*mockSecretsManagerClient).err = awserr.New(secretsmanager.ErrCodeInternalServiceError, "Internal Error", nil)
+	_, err = s.DeleteSecret(context.TODO(), aws.StringValue(secretMeta1.ARN), int64(0))
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)

@@ -166,13 +166,14 @@ func (s *server) SecretDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	id := vars["secret"]
 	window := int64(7)
 	q := r.URL.Query()
-	if w := q.Get("window"); w != "" {
-		i, err := strconv.ParseInt(w, 10, 64)
+	if wq := q.Get("window"); wq != "" {
+		i, err := strconv.ParseInt(wq, 10, 64)
 		if err != nil {
-			log.Warnf("failed to parse window size as integer: %s", err)
-		} else {
-			window = i
+			msg := fmt.Sprintf("failed to parse window size as integer: %s", wq)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+			return
 		}
+		window = i
 	}
 
 	// first check the secret matches our filters (ie. it's part of the org)
@@ -180,7 +181,7 @@ func (s *server) SecretDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		log.Debugf("checking tags for %s to be sure it's part of the org %s", aws.StringValue(out.Name), s.org)
 		for _, tag := range out.Tags {
 			if aws.StringValue(tag.Key) == "spinup:org" && aws.StringValue(tag.Value) == s.org {
-				log.Debugf("%s has matching org tag and is part of the %s org, adding to the list", aws.StringValue(out.Name), s.org)
+				log.Debugf("%s has matching org tag and is part of the %s org", aws.StringValue(out.Name), s.org)
 				return true
 			}
 		}
