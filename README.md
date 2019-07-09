@@ -193,9 +193,10 @@ POST `/v1/s3/{account}/secrets`
 
 ### List secrets
 
-Listing secrets is limited to the secrets that belong to the *org*.
+Listing secrets is limited to the secrets that belong to the *org*. Optionally pass `key=value` pairs
+to filter on secret tags.
 
-GET `/v1/s3/{account}/secrets`
+GET `/v1/s3/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
 #### Response
 
@@ -210,6 +211,72 @@ GET `/v1/s3/{account}/secrets`
 | ----------------------------- | --------------------------------|
 | **200 OK**                    | okay                            |
 | **400 Bad Request**           | badly formed request            |
+| **500 Internal Server Error** | a server error occurred         |
+
+### Show a secret
+
+Pass the secret id to get the metadata about a secret.
+
+GET `/v1/s3/{account}/secret/{secret}`
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "DeletedDate": null,
+    "Description": null,
+    "KmsKeyId": null,
+    "LastAccessedDate": null,
+    "LastChangedDate": "2019-07-01T21:30:54Z",
+    "LastRotatedDate": null,
+    "Name": "ShhhDontTellAnyone",
+    "RotationEnabled": null,
+    "RotationLambdaARN": null,
+    "RotationRules": null,
+    "Tags": [
+        {
+            "Key": "spinup:org",
+            "Value": "localdev"
+        }
+    ],
+    "VersionIdsToStages": {
+        "12345678-9012-3456-7898-123456789012": [
+            "AWSCURRENT"
+        ]
+    }
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | secret wasn't found in the org  |
+| **500 Internal Server Error** | a server error occurred         |
+
+### Delete a secret
+
+Pass the secret id and an options `window` parameter (in days).  A parameter of `0` will cause the secret
+to be deleted immediately.  Otherwise the grace period must be between `7` and `30`.
+
+DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "DeletionDate": "2019-07-13T11:18:33Z",
+    "Name": "ShhhDontTellAnyone"
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
 ## Development
