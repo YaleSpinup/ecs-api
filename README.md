@@ -41,6 +41,12 @@ GET /v1/ecs/{account}/servicediscovery/services
 POST /v1/ecs/{account}/servicediscovery/services
 GET /v1/ecs/{account}/servicediscovery/services/{id}
 DELETE /v1/ecs/{account}/servicediscovery/services/{id}
+
+// Secrets handlers
+GET /v1/ecs/{account}/secrets
+POST /v1/ecs/{account}/secrets
+GET /v1/ecs/{account}/secrets/{secret}
+DELETE /v1/ecs/{account}/secrets/{secret}
 ```
 
 ## Orchestration
@@ -152,18 +158,136 @@ To create a `task definition`, just `POST` to the endpoint:
 {}
 ```
 
+## Secrets
+
+`Secrets` store binary or string data in AWS secrets manager. By default, secrets are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
+
+### Create a secret
+
+POST `/v1/s3/{account}/secrets`
+
+#### Request
+
+```json
+{
+    "Name": "sshhhhh",
+    "SecretString": "abc123"
+}
+```
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:sshhhhh-Z8CxfW",
+    "Name": "sshhhhh",
+    "VersionId": "592CEFAE-7B74-4A22-B1C9-55F958531579"
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **500 Internal Server Error** | a server error occurred         |
+
+### List secrets
+
+Listing secrets is limited to the secrets that belong to the *org*. Optionally pass `key=value` pairs
+to filter on secret tags.
+
+GET `/v1/s3/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
+
+#### Response
+
+```json
+[
+    "arn:aws:secretsmanager:us-east-1:012345678901:secret:TopSekritPassword-rJ93nm",
+    "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco"
+]
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **500 Internal Server Error** | a server error occurred         |
+
+### Show a secret
+
+Pass the secret id to get the metadata about a secret.
+
+GET `/v1/s3/{account}/secret/{secret}`
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "DeletedDate": null,
+    "Description": null,
+    "KmsKeyId": null,
+    "LastAccessedDate": null,
+    "LastChangedDate": "2019-07-01T21:30:54Z",
+    "LastRotatedDate": null,
+    "Name": "ShhhDontTellAnyone",
+    "RotationEnabled": null,
+    "RotationLambdaARN": null,
+    "RotationRules": null,
+    "Tags": [
+        {
+            "Key": "spinup:org",
+            "Value": "localdev"
+        }
+    ],
+    "VersionIdsToStages": {
+        "12345678-9012-3456-7898-123456789012": [
+            "AWSCURRENT"
+        ]
+    }
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | secret wasn't found in the org  |
+| **500 Internal Server Error** | a server error occurred         |
+
+### Delete a secret
+
+Pass the secret id and an options `window` parameter (in days).  A parameter of `0` will cause the secret
+to be deleted immediately.  Otherwise the grace period must be between `7` and `30`.
+
+DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
+
+#### Response
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "DeletionDate": "2019-07-13T11:18:33Z",
+    "Name": "ShhhDontTellAnyone"
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | secret wasn't found in the org  |
+| **500 Internal Server Error** | a server error occurred         |
+
 ## Development
 
-    - Install Go v1.11 or newer
-    - Enable Go modules: `export GO111MODULE=on`
-    - Create a config file with your account parameters:
-```
-$ cp -p config/config.example.json config/config.json
-# edit config.json and update the parameters
-```
-    - Run `go run .` to start the app locally while developing
-    - Run `go test ./...` to run all tests
-    - Run `go build ./...` to build the binary
+- Install Go v1.11 or newer
+- Enable Go modules: `export GO111MODULE=on`
+- Create a config: `cp -p config/config.example.json config/config.json`
+- Edit `config.json` and update the parameters
+- Run `go run .` to start the app locally while developing
+- Run `go test ./...` to run all tests
+- Run `go build ./...` to build the binary
 
 ## Author
 
