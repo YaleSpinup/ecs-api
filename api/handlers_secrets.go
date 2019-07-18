@@ -210,7 +210,68 @@ func (s *server) SecretDeleteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) SecretUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	smService, ok := s.smServices[account]
+	if !ok {
+		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+	id := vars["secret"]
+
+	var input = struct {
+		Secret string
+		Tags   []*secretsmanager.Tag
+	}{}
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		msg := fmt.Sprintf("cannot decode body into create update secret input: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	if len(input.Tags) > 0 {
+		for _, t := range input.Tags {
+			if aws.StringValue(t.Key) == "spinup:org" {
+				handleError(w, apierror.New(apierror.ErrBadRequest, "illegal update of org tag", err))
+				return
+			}
+		}
+
+		if err := smService.UpdateSecretTags(r.Context(), id, input.Tags); err != nil {
+			handleError(w, apierror.New(apierror.ErrBadRequest, "failed to update tags for secret", err))
+			return
+		}
+	}
+
+	if input.Secret == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte{})
+		return
+	}
+
+	out, err := smService.UpdateSecret(r.Context(), &secretsmanager.PutSecretValueInput{
+		SecretId:     aws.String(id),
+		SecretString: aws.String(input.Secret),
+		VersionStages: []*string{
+			aws.String("AWSCURRENT"),
+		},
+	})
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "failed to update secret value", err))
+		return
+	}
+
+	j, err := json.Marshal(out)
+	if err != nil {
+		handleError(w, errors.Wrap(err, "unable to marshal response from the secretsmanager service"))
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte{})
+	w.Write(j)
 }

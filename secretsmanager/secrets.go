@@ -109,3 +109,46 @@ func (s *SecretsManager) DeleteSecret(ctx context.Context, id string, window int
 
 	return out, nil
 }
+
+// UpdateSecret updates the value of the secret, replacing the current version with the new version
+func (s *SecretsManager) UpdateSecret(ctx context.Context, input *secretsmanager.PutSecretValueInput) (*secretsmanager.PutSecretValueOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	if input.SecretBinary == nil && input.SecretString == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input, one of secretstring or secretbinary are required", nil)
+	}
+
+	if input.SecretBinary != nil && input.SecretString != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input, ONLY one of secretstring or secretbinary are allowed", nil)
+	}
+
+	log.Infof("updating secret %s", aws.StringValue(input.SecretId))
+
+	out, err := s.Service.PutSecretValueWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to update secret", err)
+	}
+
+	return out, nil
+}
+
+// UpdateSecretTags creates tags that doen't exist and updates existing tags.  It cannot currently remove tags.
+func (s *SecretsManager) UpdateSecretTags(ctx context.Context, id string, tags []*secretsmanager.Tag) error {
+	if len(tags) == 0 {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("updating secret %s", id)
+
+	_, err := s.Service.TagResourceWithContext(ctx, &secretsmanager.TagResourceInput{
+		SecretId: aws.String(id),
+		Tags:     tags,
+	})
+	if err != nil {
+		return ErrCode("failed to update secret", err)
+	}
+
+	return nil
+}
