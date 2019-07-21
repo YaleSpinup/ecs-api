@@ -134,7 +134,7 @@ func (s *SecretsManager) UpdateSecret(ctx context.Context, input *secretsmanager
 	return out, nil
 }
 
-// UpdateSecretTags creates tags that doen't exist and updates existing tags.  It cannot currently remove tags.
+// UpdateSecretTags creates tags that don't exist and updates existing tags.  It cannot currently remove tags.
 func (s *SecretsManager) UpdateSecretTags(ctx context.Context, id string, tags []*secretsmanager.Tag) error {
 	if len(tags) == 0 {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)

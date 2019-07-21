@@ -286,7 +286,7 @@ DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
 Pass the secret id, the new secret string value and/or the list of tags to update. Currently,
 updating binary secrets is not supported, nor is setting the secret version.
 
-PUT `/v1/s3/{account}/secret/{secret}`
+PUT `/v1/s3/{account}/secrets/{secret}`
 
 #### Request
 
