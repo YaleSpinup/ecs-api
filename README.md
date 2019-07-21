@@ -46,6 +46,7 @@ DELETE /v1/ecs/{account}/servicediscovery/services/{id}
 GET /v1/ecs/{account}/secrets
 POST /v1/ecs/{account}/secrets
 GET /v1/ecs/{account}/secrets/{secret}
+PUT /v1/ecs/{account}/secrets/{secret}
 DELETE /v1/ecs/{account}/secrets/{secret}
 ```
 
@@ -278,6 +279,49 @@ DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
 | **400 Bad Request**           | badly formed request            |
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
+
+
+### Update a secret
+
+Pass the secret id, the new secret string value and/or the list of tags to update. Currently,
+updating binary secrets is not supported, nor is setting the secret version.
+
+PUT `/v1/s3/{account}/secrets/{secret}`
+
+#### Request
+
+```json
+{
+    "Secret": "TOPSEKRETsshhhhh",
+    "Tags": [
+        {
+            "key": "Application",
+            "value": "FooBAAAAAR"
+        }
+    ]
+}
+```
+
+#### Response
+
+When only updating tags, you will get an empty response on success. When updating a secret:
+
+```json
+{
+    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "Name": "ShhhDontTellAnyone",
+    "VersionId": "AWSCURRENT"
+}
+```
+
+| Response Code                 | Definition                      |
+| ----------------------------- | --------------------------------|
+| **200 OK**                    | okay                            |
+| **400 Bad Request**           | badly formed request            |
+| **404 Not Found**             | secret wasn't found in the org  |
+| **500 Internal Server Error** | a server error occurred         |
+
+
 
 ## Development
 

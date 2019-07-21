@@ -221,6 +221,49 @@ func (m *mockSecretsManagerClient) CreateSecretWithContext(ctx context.Context, 
 	}, nil
 }
 
+func (m *mockSecretsManagerClient) PutSecretValueWithContext(ctx context.Context, input *secretsmanager.PutSecretValueInput, opts ...request.Option) (*secretsmanager.PutSecretValueOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	if input == nil {
+		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "invalid input", nil)
+	}
+
+	if aws.StringValue(input.SecretId) == "" {
+		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "SecretId is required", nil)
+	}
+
+	if (input.SecretBinary == nil && input.SecretString == nil) || (input.SecretBinary != nil && input.SecretString != nil) {
+		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "secret string OR secretbinary is required", nil)
+	}
+
+	return &secretsmanager.PutSecretValueOutput{
+		ARN:       aws.String("arn:foobar"),
+		Name:      aws.String("foobar"),
+		VersionId: aws.String("v1"),
+		VersionStages: []*string{
+			aws.String("AWSCURRENT"),
+		},
+	}, nil
+}
+
+func (m *mockSecretsManagerClient) TagResourceWithContext(ctx context.Context, input *secretsmanager.TagResourceInput, opts ...request.Option) (*secretsmanager.TagResourceOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	if input == nil {
+		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "invalid input", nil)
+	}
+
+	if aws.StringValue(input.SecretId) == "" {
+		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "SecretId is required", nil)
+	}
+
+	return &secretsmanager.TagResourceOutput{}, nil
+}
+
 func TestListSecretsWithFilter(t *testing.T) {
 	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
 
@@ -395,5 +438,74 @@ func TestDeleteSecret(t *testing.T) {
 		}
 	} else {
 		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
+func TestUpdateSecrets(t *testing.T) {
+	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
+	expected := &secretsmanager.PutSecretValueOutput{
+		ARN:       aws.String("arn:foobar"),
+		Name:      aws.String("foobar"),
+		VersionId: aws.String("v1"),
+		VersionStages: []*string{
+			aws.String("AWSCURRENT"),
+		},
+	}
+
+	out, err := s.UpdateSecret(context.TODO(), &secretsmanager.PutSecretValueInput{
+		SecretId:     aws.String("arn:foobar"),
+		SecretString: aws.String("top sekrit"),
+	})
+	if err != nil {
+		t.Errorf("expected nil error, got %s", err)
+	}
+
+	if !reflect.DeepEqual(out, expected) {
+		t.Errorf("expected %+v, got %+v", expected, out)
+	}
+
+	if _, err = s.UpdateSecret(context.TODO(), nil); err == nil {
+		t.Error("expected error for nil input, got nil")
+	}
+
+	if _, err = s.UpdateSecret(context.TODO(), &secretsmanager.PutSecretValueInput{
+		SecretId:     aws.String("arn:foobar"),
+		SecretString: aws.String("top sekrit"),
+		SecretBinary: []byte("moar sekrit"),
+	}); err == nil {
+		t.Error("expected error for bad input, got nil")
+	}
+
+	// test an error from the api secretsmanager.ErrCodeInternalServiceError
+	s.Service.(*mockSecretsManagerClient).err = awserr.New(secretsmanager.ErrCodeInternalServiceError, "Internal Error", nil)
+	_, err = s.UpdateSecret(context.TODO(), &secretsmanager.PutSecretValueInput{
+		SecretId:     aws.String("arn:foobar"),
+		SecretString: aws.String("top sekrit"),
+	})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrInternalError {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
+func TestUpdateSecretTags(t *testing.T) {
+	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
+
+	tags := []*secretsmanager.Tag{
+		&secretsmanager.Tag{
+			Key:   aws.String("foo"),
+			Value: aws.String("bar"),
+		},
+		&secretsmanager.Tag{
+			Key:   aws.String("baz"),
+			Value: aws.String("biz"),
+		},
+	}
+
+	if err := s.UpdateSecretTags(context.TODO(), "arn:foobar", tags); err != nil {
+		t.Errorf("expected nil error, got %s", err)
 	}
 }
