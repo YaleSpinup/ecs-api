@@ -13,5 +13,5 @@
   },
   "token": "{{ .api_token }}",
   "logLevel": "{{ .log_level }}",
-  "org": {{ .server_org }}
+  "org": "{{ .server_org }}"
 }
