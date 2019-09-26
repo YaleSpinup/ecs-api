@@ -113,3 +113,53 @@ func (i *IAM) DeleteRole(ctx context.Context, input *iam.DeleteRoleInput) (*iam.
 
 	return output, nil
 }
+
+// PutRolePolicy handles attaching an inline policy to IAM role
+func (i *IAM) PutRolePolicy(ctx context.Context, input *iam.PutRolePolicyInput) (*iam.PutRolePolicyOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("attaching inline policy to iam role: %s", *input.RoleName)
+
+	output, err := i.Service.PutRolePolicyWithContext(ctx, input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			// * ErrCodeInvalidInputException "InvalidInput"
+			// The request was rejected because an invalid or out-of-range value was supplied
+			// for an input parameter.
+			// * ErrCodeMalformedPolicyDocumentException "MalformedPolicyDocument"
+			// The request was rejected because the policy document was malformed. The error
+			// message describes the specific error.
+			case iam.ErrCodeInvalidInputException, iam.ErrCodeMalformedPolicyDocumentException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrBadRequest, msg, err)
+			// * ErrCodeLimitExceededException "LimitExceeded"
+			// The request was rejected because it attempted to create resources beyond
+			// the current AWS account limits. The error message describes the limit exceeded.
+			case iam.ErrCodeLimitExceededException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrLimitExceeded, msg, err)
+			// * ErrCodeNoSuchEntityException "NoSuchEntityException"
+			// The request was rejected because it referenced an entity that does not exist.
+			// The error code describes the entity.
+			case iam.ErrCodeNoSuchEntityException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrNotFound, msg, err)
+			// * ErrCodeServiceFailureException "ServiceFailure"
+			// The request processing has failed because of an unknown error, exception
+			// or failure.
+			case iam.ErrCodeServiceFailureException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrServiceUnavailable, msg, err)
+			default:
+				return nil, apierror.New(apierror.ErrBadRequest, aerr.Message(), err)
+			}
+		}
+
+		return nil, apierror.New(apierror.ErrInternalError, "unknown error occurred", err)
+	}
+
+	return output, nil
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/YaleSpinup/ecs-api/ecs"
+	"github.com/YaleSpinup/ecs-api/iam"
 	"github.com/YaleSpinup/ecs-api/secretsmanager"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 	"github.com/gorilla/handlers"
@@ -22,6 +23,7 @@ type server struct {
 	sdServices     map[string]servicediscovery.ServiceDiscovery
 	smServices     map[string]secretsmanager.SecretsManager
 	ecsServices    map[string]ecs.ECS
+	iamServices    map[string]iam.IAM
 	cwLogsServices map[string]cloudwatchlogs.CloudWatchLogs
 	router         *mux.Router
 	version        common.Version
@@ -35,6 +37,7 @@ func NewServer(config common.Config) error {
 		ecsServices:    make(map[string]ecs.ECS),
 		cwLogsServices: make(map[string]cloudwatchlogs.CloudWatchLogs),
 		smServices:     make(map[string]secretsmanager.SecretsManager),
+		iamServices:    make(map[string]iam.IAM),
 		router:         mux.NewRouter(),
 		version:        config.Version,
 		org:            config.Org,
@@ -46,6 +49,7 @@ func NewServer(config common.Config) error {
 		s.ecsServices[name] = ecs.NewSession(c)
 		s.cwLogsServices[name] = cloudwatchlogs.NewSession(c)
 		s.smServices[name] = secretsmanager.NewSession(c)
+		s.iamServices[name] = iam.NewSession(c)
 	}
 
 	publicURLs := map[string]string{

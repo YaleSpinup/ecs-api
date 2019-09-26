@@ -1,8 +1,10 @@
 package iam
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/YaleSpinup/ecs-api/common"
 
@@ -17,9 +19,9 @@ import (
 // PolicyStatement is an individual IAM Policy statement
 type PolicyStatement struct {
 	Effect    string
-	Principal string `json:",omitempty"`
 	Action    []string
-	Resource  []string
+	Resource  []string            `json:",omitempty"`
+	Principal map[string][]string `json:",omitempty"`
 }
 
 // PolicyDoc collects the policy statements
@@ -50,9 +52,8 @@ func NewSession(account common.Account) IAM {
 }
 
 // DefaultTaskExecutionPolicy generates the default policy for ECS task execution
-func (i *IAM) DefaultTaskExecutionPolicy(cluster *string) ([]byte, error) {
-	c := aws.StringValue(cluster)
-	log.Debugf("generating default task execution policy for cluster %s", c)
+func (i *IAM) DefaultTaskExecutionPolicy(path string) ([]byte, error) {
+	log.Debugf("generating default task execution policy for %s", path)
 
 	policyDoc, err := json.Marshal(PolicyDoc{
 		Version: "2012-10-17",
@@ -79,7 +80,7 @@ func (i *IAM) DefaultTaskExecutionPolicy(cluster *string) ([]byte, error) {
 				},
 				Resource: []string{
 					"arn:aws:secretsmanager:::secret:*",
-					fmt.Sprintf("arn:aws:ssm:::parameter/*"),
+					fmt.Sprintf("arn:aws:ssm:::parameter/%s/*", path),
 					fmt.Sprintf("arn:aws:kms:::key/%s", i.DefaultKmsKeyID),
 				},
 			},
@@ -87,9 +88,66 @@ func (i *IAM) DefaultTaskExecutionPolicy(cluster *string) ([]byte, error) {
 	})
 
 	if err != nil {
-		log.Errorf("failed to generate default task execution policy for cluster %s: %s", c, err)
+		log.Errorf("failed to generate default task execution policy for %s: %s", path, err)
 		return []byte{}, err
 	}
 
 	return policyDoc, nil
+}
+
+// DefaultTaskExecutionRole generates the default role for ECS task execution and returns the ARN
+func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*string, error) {
+	role := fmt.Sprintf("%s-ecsTaskExecution", path[strings.LastIndex(path, "/")+1:])
+	log.Debugf("generating default task execution role %s", role)
+
+	assumeRolePolicyDoc, err := json.Marshal(PolicyDoc{
+		Version: "2012-10-17",
+		Statement: []PolicyStatement{
+			PolicyStatement{
+				Effect: "Allow",
+				Action: []string{
+					"sts:AssumeRole",
+				},
+				Principal: map[string][]string{
+					"Service": {"ecs-tasks.amazonaws.com"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		log.Errorf("failed to generate default task execution role assume policy for %s: %s", path, err)
+		return nil, err
+	}
+
+	defaultPolicy, err := i.DefaultTaskExecutionPolicy(path)
+	if err != nil {
+		log.Errorf("failed creating default IAM task execution policy for %s: %s", path, err.Error())
+		return nil, err
+	}
+
+	// TODO: check if role already exists
+
+	roleOutput, err := i.CreateRole(ctx, &iam.CreateRoleInput{
+		AssumeRolePolicyDocument: aws.String(string(assumeRolePolicyDoc)),
+		Description:              aws.String(fmt.Sprintf("ECS task execution policy for %s", path)),
+		Path:                     aws.String("/"),
+		RoleName:                 aws.String(role),
+	})
+	if err != nil {
+		log.Errorf("failed to create role %s: %s", role, err.Error())
+		return nil, err
+	}
+
+	// attach default role policy to the role
+	_, err = i.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+		PolicyDocument: aws.String(string(defaultPolicy)),
+		PolicyName:     aws.String("ECSTaskAccessPolicy"),
+		RoleName:       aws.String(role),
+	})
+	if err != nil {
+		log.Errorf("failed to attach policy to role %s: %s", role, err.Error())
+		return nil, err
+	}
+
+	return roleOutput.Role.Arn, nil
 }

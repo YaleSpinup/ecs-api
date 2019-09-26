@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 
+	"github.com/YaleSpinup/ecs-api/iam"
+
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -38,14 +40,19 @@ var (
 	DefaultSubnets = []*string{}
 	// DefaultSecurityGroups sets a list of default sgs to attach to ENIs
 	DefaultSecurityGroups = []*string{}
-	//DefaultExecutionRoleArn sets the default execution role to give the task definition
+	// DefaultExecutionRoleArn sets the default execution role to give the task definition
 	DefaultExecutionRoleArn = aws.String("")
+	// Org is the organization where this orchestration runs
+	Org = ""
 )
 
-// Orchestrator holds the service discovery client, ecs client, input, and output
+// Orchestrator holds the service discovery client, iam client, ecs client, input, and output
 type Orchestrator struct {
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#ECS
 	ECS *ecs.ECS
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/iam/#IAM
+	IAM iam.IAM
+	// IAM iamiface.IAMAPI
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#ServiceDiscovery
 	ServiceDiscovery *servicediscovery.ServiceDiscovery
 	// Token is a uniqueness token for calls to AWS
@@ -289,6 +296,7 @@ func deleteClusterWithRetry(ctx context.Context, client ecsiface.ECSAPI, arn *st
 // is true, an error is returned.
 func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, error) {
 	client := o.ECS
+
 	if input.Service.TaskDefinition != nil {
 		log.Infof("using provided task definition %s", aws.StringValue(input.Service.TaskDefinition))
 		taskDefinition, err := getTaskDefinition(ctx, client, input.Service.TaskDefinition)
@@ -298,6 +306,17 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		return taskDefinition, nil
 	} else if input.TaskDefinition != nil {
 		log.Infof("creating task definition %+v", input.TaskDefinition)
+
+		if input.TaskDefinition.ExecutionRoleArn == nil {
+			path := fmt.Sprintf("%s/%s", Org, *input.Cluster.ClusterName)
+			roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
+			if err != nil {
+				return nil, err
+			}
+
+			input.TaskDefinition.ExecutionRoleArn = roleARN
+		}
+
 		taskDefinition, err := createTaskDefinition(ctx, client, input.TaskDefinition)
 		if err != nil {
 			return nil, err
@@ -318,10 +337,6 @@ func createTaskDefinition(ctx context.Context, client ecsiface.ECSAPI, input *ec
 
 	if input.NetworkMode == nil {
 		input.NetworkMode = DefaultNetworkMode
-	}
-
-	if input.ExecutionRoleArn == nil {
-		input.ExecutionRoleArn = DefaultExecutionRoleArn
 	}
 
 	output, err := client.RegisterTaskDefinitionWithContext(ctx, input)

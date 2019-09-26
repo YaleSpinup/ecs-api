@@ -17,10 +17,6 @@ import (
 )
 
 var testRole = iam.Role{
-	// AssumeRolePolicyDocument *string `min:"1" type:"string"`
-	// MaxSessionDuration *int64 `min:"3600" type:"integer"`
-	// PermissionsBoundary *AttachedPermissionsBoundary `type:"structure"`
-	// Tags []*Tag `type:"list"`
 	Arn:         aws.String("arn:aws:iam::12345678910:role/testrole"),
 	CreateDate:  &testTime,
 	Description: aws.String("role model"),
@@ -60,7 +56,7 @@ func TestCreateRole(t *testing.T) {
 	expected := &iam.CreateRoleOutput{Role: &testRole}
 
 	// build the default IAM task execution policy (from the config and known inputs)
-	defaultPolicy, err := i.DefaultTaskExecutionPolicy(aws.String("testCluster"))
+	defaultPolicy, err := i.DefaultTaskExecutionPolicy("org/testCluster")
 	if err != nil {
 		t.Errorf("expected nil error creating default policy doc, got %s", err)
 	}

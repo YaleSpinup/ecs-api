@@ -36,7 +36,7 @@ func TestNewSession(t *testing.T) {
 	}
 }
 
-var cluster = "super-why"
+var path = "org/super-why"
 
 var i = &IAM{
 	DefaultKmsKeyID: "123",
@@ -67,7 +67,7 @@ var defaultPolicyDoc = PolicyDoc{
 			},
 			Resource: []string{
 				"arn:aws:secretsmanager:::secret:*",
-				fmt.Sprintf("arn:aws:ssm:::parameter/*"),
+				fmt.Sprintf("arn:aws:ssm:::parameter/%s/*", path),
 				fmt.Sprintf("arn:aws:kms:::key/%s", i.DefaultKmsKeyID),
 			},
 		},
@@ -80,7 +80,7 @@ func TestDefaultTaskExecutionPolicy(t *testing.T) {
 		t.Errorf("expected to marshall defaultPolicyDoc with nil error, got %s", err)
 	}
 
-	policyBytes, err := i.DefaultTaskExecutionPolicy(&cluster)
+	policyBytes, err := i.DefaultTaskExecutionPolicy(path)
 	if err != nil {
 		t.Errorf("expected DefaultTaskExecutionPolicy to return nil error, got %s", err)
 	}
