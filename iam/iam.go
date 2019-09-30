@@ -95,10 +95,20 @@ func (i *IAM) DefaultTaskExecutionPolicy(path string) ([]byte, error) {
 	return policyDoc, nil
 }
 
-// DefaultTaskExecutionRole generates the default role for ECS task execution and returns the ARN
+// DefaultTaskExecutionRole generates the default role (if it doesn't exist) for ECS task execution and returns the ARN
 func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*string, error) {
 	role := fmt.Sprintf("%s-ecsTaskExecution", path[strings.LastIndex(path, "/")+1:])
-	log.Debugf("generating default task execution role %s", role)
+	log.Infof("generating default task execution role %s", role)
+
+	// check if role already exists
+	getRoleOutput, err := i.GetRole(ctx, &iam.GetRoleInput{
+		RoleName: aws.String(role),
+	})
+	if err == nil {
+		log.Infof("role already exists: %s", role)
+		return getRoleOutput.Role.Arn, nil
+	}
+	log.Debugf("unable to find role %s: %s", role, err)
 
 	assumeRolePolicyDoc, err := json.Marshal(PolicyDoc{
 		Version: "2012-10-17",
@@ -124,8 +134,6 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 		log.Errorf("failed creating default IAM task execution policy for %s: %s", path, err.Error())
 		return nil, err
 	}
-
-	// TODO: check if role already exists
 
 	roleOutput, err := i.CreateRole(ctx, &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(string(assumeRolePolicyDoc)),

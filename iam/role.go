@@ -114,6 +114,34 @@ func (i *IAM) DeleteRole(ctx context.Context, input *iam.DeleteRoleInput) (*iam.
 	return output, nil
 }
 
+// GetRole handles getting information about an IAM role
+func (i *IAM) GetRole(ctx context.Context, input *iam.GetRoleInput) (*iam.GetRoleOutput, error) {
+	if input == nil || aws.StringValue(input.RoleName) == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting iam role %s", aws.StringValue(input.RoleName))
+
+	output, err := i.Service.GetRoleWithContext(ctx, input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case iam.ErrCodeNoSuchEntityException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrNotFound, msg, err)
+			case iam.ErrCodeServiceFailureException:
+				msg := fmt.Sprintf("%s: %s", aerr.Code(), aerr.Error())
+				return nil, apierror.New(apierror.ErrServiceUnavailable, msg, err)
+			default:
+				return nil, apierror.New(apierror.ErrBadRequest, aerr.Message(), err)
+			}
+		}
+		return nil, apierror.New(apierror.ErrInternalError, "unknown error occurred", err)
+	}
+
+	return output, nil
+}
+
 // PutRolePolicy handles attaching an inline policy to IAM role
 func (i *IAM) PutRolePolicy(ctx context.Context, input *iam.PutRolePolicyInput) (*iam.PutRolePolicyOutput, error) {
 	if input == nil {
