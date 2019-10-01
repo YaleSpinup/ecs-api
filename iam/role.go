@@ -60,7 +60,7 @@ func (i *IAM) GetRole(ctx context.Context, input *iam.GetRoleInput) (*iam.GetRol
 
 // PutRolePolicy handles attaching an inline policy to IAM role
 func (i *IAM) PutRolePolicy(ctx context.Context, input *iam.PutRolePolicyInput) (*iam.PutRolePolicyOutput, error) {
-	if input == nil {
+	if input == nil || aws.StringValue(input.RoleName) == "" || aws.StringValue(input.PolicyDocument) == "" || aws.StringValue(input.PolicyName) == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
