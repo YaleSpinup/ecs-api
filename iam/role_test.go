@@ -162,7 +162,7 @@ func TestCreateRole(t *testing.T) {
 	}
 
 	// test some other, unexpected AWS error
-	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeDeleteConflictException, "delete conflict", nil)
+	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
 	_, err = i.CreateRole(context.TODO(), &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(string(defaultPolicy)),
 		Path:                     aws.String("/"),
@@ -285,7 +285,7 @@ func TestDeleteRole(t *testing.T) {
 	}
 
 	// test some other, unexpected AWS error
-	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeEntityAlreadyExistsException, "role exists", nil)
+	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
 	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {

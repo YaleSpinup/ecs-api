@@ -142,8 +142,7 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 		RoleName:                 aws.String(role),
 	})
 	if err != nil {
-		log.Errorf("failed to create role %s: %s", role, err.Error())
-		return nil, err
+		return nil, ErrCode("failed to create role", err)
 	}
 
 	// attach default role policy to the role
@@ -153,8 +152,7 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 		RoleName:       aws.String(role),
 	})
 	if err != nil {
-		log.Errorf("failed to attach policy to role %s: %s", role, err.Error())
-		return nil, err
+		return nil, ErrCode("failed to attach policy to role", err)
 	}
 
 	return roleOutput.Role.Arn, nil
