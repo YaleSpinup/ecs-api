@@ -2,6 +2,7 @@ package iam
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/YaleSpinup/ecs-api/common"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
@@ -74,6 +76,21 @@ var defaultPolicyDoc = PolicyDoc{
 	},
 }
 
+var defaultAssumePolicyDoc = PolicyDoc{
+	Version: "2012-10-17",
+	Statement: []PolicyStatement{
+		PolicyStatement{
+			Effect: "Allow",
+			Action: []string{
+				"sts:AssumeRole",
+			},
+			Principal: map[string][]string{
+				"Service": {"ecs-tasks.amazonaws.com"},
+			},
+		},
+	},
+}
+
 func TestDefaultTaskExecutionPolicy(t *testing.T) {
 	p, err := json.Marshal(defaultPolicyDoc)
 	if err != nil {
@@ -87,5 +104,33 @@ func TestDefaultTaskExecutionPolicy(t *testing.T) {
 
 	if !bytes.Equal(policyBytes, p) {
 		t.Errorf("expected: %s\ngot: %s", defaultPolicyDoc, policyBytes)
+	}
+}
+
+func TestDefaultTaskExecutionRole(t *testing.T) {
+	i := IAM{
+		Service:         newMockIAMClient(t, nil),
+		DefaultKmsKeyID: "12345678-90ab-cdef-1234-567890abcdef",
+	}
+
+	// test when role exists
+	expected := "arn:aws:iam::12345678910:role/testrole"
+	roleARN, err := i.DefaultTaskExecutionRole(context.TODO(), path)
+	if err != nil {
+		t.Errorf("expected DefaultTaskExecutionRole to return nil error, got %s", err)
+	}
+	if roleARN != expected {
+		t.Errorf("expected roleARN: %s, got: %s", expected, roleARN)
+	}
+
+	// test when role doesn't exist
+	expected = "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution"
+	i.Service.(*mockIAMClient).err = awserr.New("TestNoSuchEntity", "TestNoSuchEntity", nil)
+	roleARN, err = i.DefaultTaskExecutionRole(context.TODO(), path)
+	if err != nil {
+		t.Errorf("expected DefaultTaskExecutionRole to return nil error, got %s", err)
+	}
+	if roleARN != expected {
+		t.Errorf("expected roleARN: %s, got: %s", expected, roleARN)
 	}
 }

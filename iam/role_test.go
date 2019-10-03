@@ -42,17 +42,25 @@ var testPolicyDoc = PolicyDoc{
 }
 
 func (m *mockIAMClient) CreateRoleWithContext(ctx context.Context, input *iam.CreateRoleInput, opts ...request.Option) (*iam.CreateRoleOutput, error) {
-	if m.err != nil {
-		return nil, m.err
-	}
-	return &iam.CreateRoleOutput{Role: &iam.Role{
+	var output = &iam.CreateRoleOutput{Role: &iam.Role{
 		Arn:         aws.String(fmt.Sprintf("arn:aws:iam::12345678910:role/%s", *input.RoleName)),
 		CreateDate:  &testTime,
 		Description: input.Description,
 		Path:        input.Path,
 		RoleId:      aws.String(strings.ToUpper(fmt.Sprintf("%sID123", *input.RoleName))),
 		RoleName:    input.RoleName,
-	}}, nil
+	}}
+
+	if m.err != nil {
+		if aerr, ok := (m.err).(awserr.Error); ok {
+			if aerr.Code() == "TestNoSuchEntity" {
+				return output, nil
+			}
+		}
+		return nil, m.err
+	}
+
+	return output, nil
 }
 
 func (m *mockIAMClient) DeleteRoleWithContext(ctx context.Context, input *iam.DeleteRoleInput, opts ...request.Option) (*iam.DeleteRoleOutput, error) {
@@ -63,17 +71,33 @@ func (m *mockIAMClient) DeleteRoleWithContext(ctx context.Context, input *iam.De
 }
 
 func (m *mockIAMClient) GetRoleWithContext(ctx context.Context, input *iam.GetRoleInput, opts ...request.Option) (*iam.GetRoleOutput, error) {
+	var output = &iam.GetRoleOutput{Role: &testRole}
+
 	if m.err != nil {
+		if aerr, ok := (m.err).(awserr.Error); ok {
+			if aerr.Code() == "TestNoSuchEntity" {
+				return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "NoSuchEntity", nil)
+			}
+		}
 		return nil, m.err
 	}
-	return &iam.GetRoleOutput{Role: &testRole}, nil
+
+	return output, nil
 }
 
 func (m *mockIAMClient) PutRolePolicyWithContext(ctx context.Context, input *iam.PutRolePolicyInput, opts ...request.Option) (*iam.PutRolePolicyOutput, error) {
+	var output = &iam.PutRolePolicyOutput{}
+
 	if m.err != nil {
+		if aerr, ok := (m.err).(awserr.Error); ok {
+			if aerr.Code() == "TestNoSuchEntity" {
+				return output, nil
+			}
+		}
 		return nil, m.err
 	}
-	return &iam.PutRolePolicyOutput{}, nil
+
+	return output, nil
 }
 
 func TestCreateRole(t *testing.T) {
