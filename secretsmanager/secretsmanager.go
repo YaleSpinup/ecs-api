@@ -13,7 +13,6 @@ import (
 // SecretsManager is a wrapper around the aws secretsmanager service with some default config info
 type SecretsManager struct {
 	Service         secretsmanageriface.SecretsManagerAPI
-	Org             string
 	DefaultKmsKeyId string
 }
 

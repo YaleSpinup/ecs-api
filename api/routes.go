@@ -56,4 +56,12 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/secrets/{secret}", s.SecretShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/secrets/{secret}", s.SecretDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/secrets/{secret}", s.SecretUpdateHandler).Methods(http.MethodPut)
+
+	// Parameter store handlers
+	api.HandleFunc("/{account}/params/{prefix}", s.ParamCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/params/{prefix}", s.ParamListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/params/{prefix}", s.ParamDeleteAllHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamUpdateHandler).Methods(http.MethodPut)
 }

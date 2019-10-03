@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/YaleSpinup/s3-api/apierror"
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	log "github.com/sirupsen/logrus"

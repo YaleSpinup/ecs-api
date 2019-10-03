@@ -48,6 +48,14 @@ POST /v1/ecs/{account}/secrets
 GET /v1/ecs/{account}/secrets/{secret}
 PUT /v1/ecs/{account}/secrets/{secret}
 DELETE /v1/ecs/{account}/secrets/{secret}
+
+// Parameter store handlers
+POST /v1/ecs/{account}/params
+GET /v1/ecs/{account}/params/{prefix}
+DELETE /v1/ecs/{account}/params/{prefix}
+GET /v1/ecs/{account}/params/{prefix}/{param}
+DELETE /v1/ecs/{account}/params/{prefix}/{param}
+PUT /v1/ecs//{account}/params/{prefix}/{param}
 ```
 
 ## Orchestration
@@ -159,13 +167,184 @@ To create a `task definition`, just `POST` to the endpoint:
 {}
 ```
 
+## SSM Parameters
+
+`Parameters` store string data in AWS SSM parameter store. By default, parameters are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
+
+### Create a param
+
+Parameters are automatically creating in the `org` path.  A `prefix` should be specified in the `Name`.
+
+POST `/v1/ecs/{account}/params/{prefix}`
+
+#### Request
+
+[PutParameterInput](https://docs.aws.amazon.com/sdk-for-go/api/service/ssm/#PutParameterInput)
+
+```json
+{
+    "Description": "a secret parameter",
+    "Name": "newsecret123",
+    "Value": "abc123",
+    "Tags": [
+        {"Key": "MyKey", "Value": "MyValue"},
+        {"Key": "Application", "Value": "someprefix"},
+    ]
+}
+```
+
+#### Response
+
+```json
+{
+    "Tier": "Standard",
+    "VersionId": "592CEFAE-7B74-4A22-B1C9-55F958531579"
+}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account wasn't found                  |
+| **500 Internal Server Error** | a server error occurred               |
+
+### List parameters
+
+Listing parameters is limited to the parameters that belong to the *org*. A `prefix` is also required.
+
+GET `/v1/ecs/{account}/params/{prefix}`
+
+#### Response
+
+```json
+[
+    "newsecret123",
+    "newsecret321",
+    "oldsecret123"
+]
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account or prefix wasn't found        |
+| **500 Internal Server Error** | a server error occurred               |
+
+### Show a parameter
+
+Pass the parameter `prefix` and `param` to get the metadata about a secret.  The `org` will automatically be prepended.
+
+GET `/v1/ecs/{account}/params/{prefix}/{param}`
+
+#### Response
+
+```json
+{
+    "Name": "newsecret123",
+    "ARN": "arn:aws:ssm:us-east-1:1234567890:parameter/myorg/someprefix/newsecret123",
+    "Type": "SecureString",
+    "Tags": [
+        {
+            "Key": "MyKey",
+            "Value": "MyValue"
+        },
+        {
+            "Key": "spinup:org",
+            "Value": "myorg"
+        },
+        {
+            "Key": "Application",
+            "Value": "someprefix"
+        }
+    ],
+    "LastModifiedDate": "2019-09-26 18:08:38 +0000 UTC"
+}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account, param or prefix wasn't found |
+| **500 Internal Server Error** | a server error occurred               |
+
+### Delete a parameter
+
+DELETE `/v1/ecs/{account}/params/{prefix}/{param}`
+
+#### Response
+
+```json
+{"OK"}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account, param or prefix wasn't found |
+| **500 Internal Server Error** | a server error occurred               |
+
+### Delete all parameters in a prefix
+
+DELETE `/v1/ecs/{account}/params/{prefix}`
+
+#### Response
+
+```json
+{
+    "Message": "OK",
+    "Deleted": 3,
+}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account or prefix wasn't found        |
+| **500 Internal Server Error** | a server error occurred               |
+
+### Update a parameter
+
+Update the tags and/or value of a parameter.  Pass the `prefix` and the `param`.
+
+PUT `/v1/ecs/{account}/params/{prefix}/{param}`
+
+#### Request
+
+```json
+{
+    "Value": "abc123",
+    "Tags": [
+        {"Key": "MyKey", "Value": "MyValue"},
+        {"Key": "Application", "Value": "someprefix"},
+    ]
+}
+```
+
+#### Response
+
+```json
+{"OK"}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | account, param or prefix wasn't found |
+| **500 Internal Server Error** | a server error occurred               |
+
 ## Secrets
 
 `Secrets` store binary or string data in AWS secrets manager. By default, secrets are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
 
 ### Create a secret
 
-POST `/v1/s3/{account}/secrets`
+POST `/v1/ecs/{account}/secrets`
 
 #### Request
 
@@ -197,7 +376,7 @@ POST `/v1/s3/{account}/secrets`
 Listing secrets is limited to the secrets that belong to the *org*. Optionally pass `key=value` pairs
 to filter on secret tags.
 
-GET `/v1/s3/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
+GET `/v1/ecs/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
 #### Response
 
@@ -218,7 +397,7 @@ GET `/v1/s3/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
 Pass the secret id to get the metadata about a secret.
 
-GET `/v1/s3/{account}/secret/{secret}`
+GET `/v1/ecs/{account}/secret/{secret}`
 
 #### Response
 
@@ -261,7 +440,7 @@ GET `/v1/s3/{account}/secret/{secret}`
 Pass the secret id and an options `window` parameter (in days).  A parameter of `0` will cause the secret
 to be deleted immediately.  Otherwise the grace period must be between `7` and `30`.
 
-DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
+DELETE `/v1/ecs/{account}/secret/{secret}[?window=[0|7-30]]`
 
 #### Response
 
@@ -280,13 +459,12 @@ DELETE `/v1/s3/{account}/secret/{secret}[?window=[0|7-30]]`
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
-
 ### Update a secret
 
 Pass the secret id, the new secret string value and/or the list of tags to update. Currently,
 updating binary secrets is not supported, nor is setting the secret version.
 
-PUT `/v1/s3/{account}/secrets/{secret}`
+PUT `/v1/ecs/{account}/secrets/{secret}`
 
 #### Request
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/YaleSpinup/s3-api/apierror"
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
