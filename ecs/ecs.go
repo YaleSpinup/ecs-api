@@ -11,10 +11,9 @@ import (
 
 // ECS is a wrapper around the aws ECS service with some default config info
 type ECS struct {
-	Service                 *ecs.ECS
-	DefaultSgs              []string
-	DefaultSubnets          []string
-	DefaultExecutionRoleArn string
+	Service        *ecs.ECS
+	DefaultSgs     []string
+	DefaultSubnets []string
 }
 
 // NewSession creates a new ECS session
@@ -29,7 +28,6 @@ func NewSession(account common.Account) ECS {
 
 	e.DefaultSgs = account.DefaultSgs
 	e.DefaultSubnets = account.DefaultSubnets
-	e.DefaultExecutionRoleArn = account.DefaultExecutionRoleArn
 
 	return e
 }

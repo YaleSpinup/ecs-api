@@ -7,7 +7,6 @@
       "secret": "xxxxxxxx",
       "defaultSgs": ["sg-xxxxxx", "sg-yyyyyy"],
       "defaultSubnets": ["subnet-xxxxxxx", "subnet-yyyyyy"],
-      "defaultExecutionRoleArn": "arn:aws:iam::1111111111111:role/ecsTaskExecutionRole",
       "defaultKmsKeyId": "12121212-3333-4444-5555-676767676767"
     },
     "spinup": {
@@ -16,7 +15,6 @@
       "secret": "xxxxxxxx",
       "defaultSgs": ["sg-zzzzzz"],
       "defaultSubnets": ["subnet-zzzzzz"],
-      "defaultExecutionRoleArn": "arn:aws:iam::22222222222222:role/ecsTaskExecutionRole",
       "defaultKmsKeyId": "90909090-8888-7777-6666-545454545454"
     }
   },

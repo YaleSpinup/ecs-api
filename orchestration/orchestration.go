@@ -40,8 +40,6 @@ var (
 	DefaultSubnets = []*string{}
 	// DefaultSecurityGroups sets a list of default sgs to attach to ENIs
 	DefaultSecurityGroups = []*string{}
-	// DefaultExecutionRoleArn sets the default execution role to give the task definition
-	DefaultExecutionRoleArn = aws.String("")
 	// Org is the organization where this orchestration runs
 	Org = ""
 )
@@ -52,7 +50,6 @@ type Orchestrator struct {
 	ECS *ecs.ECS
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/iam/#IAM
 	IAM iam.IAM
-	// IAM iamiface.IAMAPI
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#ServiceDiscovery
 	ServiceDiscovery *servicediscovery.ServiceDiscovery
 	// Token is a uniqueness token for calls to AWS
@@ -314,7 +311,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 				return nil, err
 			}
 
-			input.TaskDefinition.ExecutionRoleArn = roleARN
+			input.TaskDefinition.ExecutionRoleArn = &roleARN
 		}
 
 		taskDefinition, err := createTaskDefinition(ctx, client, input.TaskDefinition)

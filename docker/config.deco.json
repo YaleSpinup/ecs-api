@@ -7,7 +7,6 @@
       "secret": "{{ .spinup_secret }}",
       "defaultSgs": ["{{ .default_sg }}"],
       "defaultSubnets": ["{{ .default_subnet }}"],
-      "defaultExecutionRoleArn": "{{ .default_exection_role_arn }}",
       "defaultKmsKeyId": "{{ .default_kms_key_id }}"
     }
   },

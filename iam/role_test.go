@@ -89,7 +89,7 @@ func TestCreateRole(t *testing.T) {
 	}
 
 	// test success
-	expected := &iam.CreateRoleOutput{Role: &testRole}
+	expected := &testRole
 	out, err := i.CreateRole(context.TODO(), &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(string(defaultPolicy)),
 		Description:              aws.String("role model"),
@@ -242,18 +242,13 @@ func TestDeleteRole(t *testing.T) {
 	}
 
 	// test success
-	expected := &iam.DeleteRoleOutput{}
-	out, err := i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err := i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
 
-	if !reflect.DeepEqual(out, expected) {
-		t.Errorf("expected %+v, got %+v", expected, out)
-	}
-
 	// test nil input
-	_, err = i.DeleteRole(context.TODO(), nil)
+	err = i.DeleteRole(context.TODO(), nil)
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -263,7 +258,7 @@ func TestDeleteRole(t *testing.T) {
 	}
 
 	// test empty policy arn
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -274,7 +269,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeNoSuchEntityException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeNoSuchEntityException, "NoSuchEntity", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("rolenotfound")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("rolenotfound")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrNotFound {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrNotFound, aerr.Code)
@@ -285,7 +280,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeLimitExceededException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeLimitExceededException, "LimitExceeded", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrLimitExceeded {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrLimitExceeded, aerr.Code)
@@ -296,7 +291,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeUnmodifiableEntityException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeUnmodifiableEntityException, "UnmodifiableEntity", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
@@ -307,7 +302,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeConcurrentModificationException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeConcurrentModificationException, "ConcurrentModification", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrConflict {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrConflict, aerr.Code)
@@ -318,7 +313,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeDeleteConflictException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeDeleteConflictException, "DeleteConflict", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrConflict {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrConflict, aerr.Code)
@@ -329,7 +324,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test ErrCodeServiceFailureException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeServiceFailureException, "ServiceFailure", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrServiceUnavailable {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrServiceUnavailable, aerr.Code)
@@ -340,7 +335,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test some other, unexpected AWS error
 	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -351,7 +346,7 @@ func TestDeleteRole(t *testing.T) {
 
 	// test non-aws error
 	i.Service.(*mockIAMClient).err = errors.New("things blowing up")
-	_, err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
+	err = i.DeleteRole(context.TODO(), &iam.DeleteRoleInput{RoleName: aws.String("testrole")})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
@@ -368,7 +363,7 @@ func TestGetRole(t *testing.T) {
 	}
 
 	// test success
-	expected := &iam.GetRoleOutput{Role: &testRole}
+	expected := &testRole
 	out, err := i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
@@ -455,8 +450,7 @@ func TestPutRolePolicy(t *testing.T) {
 	}
 
 	// test success
-	expected := &iam.PutRolePolicyOutput{}
-	out, err := i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -465,12 +459,8 @@ func TestPutRolePolicy(t *testing.T) {
 		t.Errorf("expected nil error, got: %s", err)
 	}
 
-	if !reflect.DeepEqual(out, expected) {
-		t.Errorf("expected %+v, got %+v", expected, out)
-	}
-
 	// test nil input
-	_, err = i.PutRolePolicy(context.TODO(), nil)
+	err = i.PutRolePolicy(context.TODO(), nil)
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -480,7 +470,7 @@ func TestPutRolePolicy(t *testing.T) {
 	}
 
 	// test empty role name and empty policy doc
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{})
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -491,7 +481,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test ErrCodeNoSuchEntityException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeNoSuchEntityException, "NoSuchEntity", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -506,7 +496,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test ErrCodeLimitExceededException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeLimitExceededException, "LimitExceeded", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -521,7 +511,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test ErrCodeMalformedPolicyDocumentException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeMalformedPolicyDocumentException, "MalformedPolicyDocument", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -536,7 +526,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test ErrCodeUnmodifiableEntityException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeUnmodifiableEntityException, "UnmodifiableEntity", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -551,7 +541,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test ErrCodeServiceFailureException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeServiceFailureException, "ServiceFailure", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -566,7 +556,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test some other, unexpected AWS error
 	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),
@@ -581,7 +571,7 @@ func TestPutRolePolicy(t *testing.T) {
 
 	// test non-aws error
 	i.Service.(*mockIAMClient).err = errors.New("things blowing up")
-	_, err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(context.TODO(), &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(testPolicy)),
 		PolicyName:     aws.String("testpolicy"),
 		RoleName:       aws.String("testrole"),

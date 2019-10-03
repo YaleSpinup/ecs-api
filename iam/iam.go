@@ -96,7 +96,7 @@ func (i *IAM) DefaultTaskExecutionPolicy(path string) ([]byte, error) {
 }
 
 // DefaultTaskExecutionRole generates the default role (if it doesn't exist) for ECS task execution and returns the ARN
-func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*string, error) {
+func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (string, error) {
 	role := fmt.Sprintf("%s-ecsTaskExecution", path[strings.LastIndex(path, "/")+1:])
 	log.Infof("generating default task execution role %s", role)
 
@@ -106,7 +106,7 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 	})
 	if err == nil {
 		log.Infof("role already exists: %s", role)
-		return getRoleOutput.Role.Arn, nil
+		return *getRoleOutput.Arn, nil
 	}
 	log.Debugf("unable to find role %s: %s", role, err)
 
@@ -126,13 +126,13 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 	})
 	if err != nil {
 		log.Errorf("failed to generate default task execution role assume policy for %s: %s", path, err)
-		return nil, err
+		return "", err
 	}
 
 	defaultPolicy, err := i.DefaultTaskExecutionPolicy(path)
 	if err != nil {
 		log.Errorf("failed creating default IAM task execution policy for %s: %s", path, err.Error())
-		return nil, err
+		return "", err
 	}
 
 	roleOutput, err := i.CreateRole(ctx, &iam.CreateRoleInput{
@@ -142,18 +142,18 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (*strin
 		RoleName:                 aws.String(role),
 	})
 	if err != nil {
-		return nil, ErrCode("failed to create role", err)
+		return "", ErrCode("failed to create role", err)
 	}
 
 	// attach default role policy to the role
-	_, err = i.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
+	err = i.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(defaultPolicy)),
 		PolicyName:     aws.String("ECSTaskAccessPolicy"),
 		RoleName:       aws.String(role),
 	})
 	if err != nil {
-		return nil, ErrCode("failed to attach policy to role", err)
+		return "", ErrCode("failed to attach policy to role", err)
 	}
 
-	return roleOutput.Role.Arn, nil
+	return *roleOutput.Arn, nil
 }

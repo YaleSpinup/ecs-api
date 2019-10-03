@@ -7,11 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrCode converts AWS errors to standardized ecs-api errors
 func ErrCode(msg string, err error) error {
 	if aerr, ok := errors.Cause(err).(awserr.Error); ok {
 		switch aerr.Code() {
 		case
-
 			// ErrCodeConcurrentModificationException for service response error code
 			// "ConcurrentModification".
 			//
@@ -47,9 +47,7 @@ func ErrCode(msg string, err error) error {
 			// The request was rejected because it attempted to create a resource that already
 			// exists.
 			iam.ErrCodeEntityAlreadyExistsException:
-
 			return apierror.New(apierror.ErrConflict, msg, aerr)
-
 		case
 			// ErrCodeCredentialReportExpiredException for service response error code
 			// "ReportExpired".
@@ -165,9 +163,7 @@ func ErrCode(msg string, err error) error {
 			// The request was rejected because the public key encoding format is unsupported
 			// or unrecognized.
 			iam.ErrCodeUnrecognizedPublicKeyEncodingException:
-
 			return apierror.New(apierror.ErrBadRequest, msg, aerr)
-
 		case
 			// ErrCodeLimitExceededException for service response error code
 			// "LimitExceeded".
@@ -175,9 +171,7 @@ func ErrCode(msg string, err error) error {
 			// The request was rejected because it attempted to create resources beyond
 			// the current AWS account limits. The error message describes the limit exceeded.
 			iam.ErrCodeLimitExceededException:
-
 			return apierror.New(apierror.ErrLimitExceeded, msg, aerr)
-
 		case
 			// ErrCodeNoSuchEntityException for service response error code
 			// "NoSuchEntity".
@@ -185,9 +179,7 @@ func ErrCode(msg string, err error) error {
 			// The request was rejected because it referenced a resource entity that does
 			// not exist. The error message describes the resource.
 			iam.ErrCodeNoSuchEntityException:
-
 			return apierror.New(apierror.ErrNotFound, msg, aerr)
-
 		case
 			// ErrCodeReportGenerationLimitExceededException for service response error code
 			// "ReportGenerationLimitExceeded".
@@ -195,9 +187,7 @@ func ErrCode(msg string, err error) error {
 			// The request failed because the maximum number of concurrent requests for
 			// this account are already running.
 			iam.ErrCodeReportGenerationLimitExceededException:
-
 			return apierror.New(apierror.ErrLimitExceeded, msg, aerr)
-
 		case
 			// ErrCodeUnmodifiableEntityException for service response error code
 			// "UnmodifiableEntity".
@@ -207,9 +197,7 @@ func ErrCode(msg string, err error) error {
 			// the name of the service that depends on this service-linked role. You must
 			// request the change through that service.
 			iam.ErrCodeUnmodifiableEntityException:
-
 			return apierror.New(apierror.ErrInternalError, msg, aerr)
-
 		case
 			// ErrCodeServiceFailureException for service response error code
 			// "ServiceFailure".
@@ -223,9 +211,7 @@ func ErrCode(msg string, err error) error {
 			//
 			// The specified service does not support service-specific credentials.
 			iam.ErrCodeServiceNotSupportedException:
-
 			return apierror.New(apierror.ErrServiceUnavailable, msg, aerr)
-
 		default:
 			m := msg + ": " + aerr.Message()
 			return apierror.New(apierror.ErrBadRequest, m, aerr)

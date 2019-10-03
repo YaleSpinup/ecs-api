@@ -72,10 +72,6 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 		orchestration.DefaultSubnets = sus
 	}
 
-	// if ecsService.DefaultExecutionRoleArn != "" {
-	// 	orchestration.DefaultExecutionRoleArn = aws.String(ecsService.DefaultExecutionRoleArn)
-	// }
-
 	body, _ := ioutil.ReadAll(r.Body)
 	log.Debugf("new service orchestration request body: %s", body)
 
