@@ -1,7 +1,7 @@
 package secretsmanager
 
 import (
-	"github.com/YaleSpinup/s3-api/apierror"
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/pkg/errors"
