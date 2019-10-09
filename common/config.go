@@ -20,13 +20,12 @@ type Config struct {
 
 // Account is the configuration for an individual account
 type Account struct {
-	Region                  string
-	Akid                    string
-	Secret                  string
-	DefaultSgs              []string
-	DefaultSubnets          []string
-	DefaultExecutionRoleArn string
-	DefaultKmsKeyId         string
+	Region          string
+	Akid            string
+	Secret          string
+	DefaultSgs      []string
+	DefaultSubnets  []string
+	DefaultKmsKeyId string
 }
 
 // Version carries around the API version information

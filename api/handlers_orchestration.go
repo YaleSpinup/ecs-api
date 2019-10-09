@@ -38,11 +38,21 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	iamService, ok := s.iamServices[account]
+	if !ok {
+		msg := fmt.Sprintf("iam service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
 	orchestrator := orchestration.Orchestrator{
 		ECS:              ecsService.Service,
+		IAM:              iamService,
 		ServiceDiscovery: sdService.Service,
 		Token:            uuid.NewV4().String(),
 	}
+
+	orchestration.Org = s.org
 
 	sgs := []*string{}
 	for _, sg := range ecsService.DefaultSgs {
@@ -60,10 +70,6 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 
 	if len(sus) > 0 {
 		orchestration.DefaultSubnets = sus
-	}
-
-	if ecsService.DefaultExecutionRoleArn != "" {
-		orchestration.DefaultExecutionRoleArn = aws.String(ecsService.DefaultExecutionRoleArn)
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)

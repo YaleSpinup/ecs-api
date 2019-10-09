@@ -273,5 +273,5 @@ func TestGetServiceDiscovery(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected error from bad get service discovery service, got %+v", sd)
 	}
-	t.Log("Got expected error frmo bad service discovery service", err)
+	t.Log("Got expected error from bad service discovery service", err)
 }
