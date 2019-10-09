@@ -243,7 +243,8 @@ GET `/v1/ecs/{account}/params/{prefix}/{param}`
 ```json
 {
     "Name": "newsecret123",
-    "ARN": "arn:aws:ssm:us-east-1:1234567890:parameter/myorg/someprefix/newsecret123",
+    "Description": "a test secret shhhhhh! 123",
+    "KeyId": "arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee",
     "Type": "SecureString",
     "Tags": [
         {
@@ -259,7 +260,8 @@ GET `/v1/ecs/{account}/params/{prefix}/{param}`
             "Value": "someprefix"
         }
     ],
-    "LastModifiedDate": "2019-09-26 18:08:38 +0000 UTC"
+    "LastModifiedDate": "2019-10-09 15:43:44 +0000 UTC",
+    "Version": 1
 }
 ```
 

@@ -159,23 +159,27 @@ func (s *server) ParamShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	tags, err := ssmService.ListParameterTags(r.Context(), path, param)
 	if err != nil {
-		msg := fmt.Sprintf("unable to get parameter tags from the ssm parameter id %s", aws.StringValue(parameter.ARN))
+		msg := fmt.Sprintf("unable to get parameter tags from the ssm parameter id %s", aws.StringValue(parameter.Name))
 		handleError(w, errors.Wrap(err, msg))
 		return
 	}
 
 	out := struct {
 		Name             *string
-		ARN              *string
+		Description      *string
+		KeyId            *string
 		Type             *string
 		Tags             []*ssm.Tag
 		LastModifiedDate string
+		Version          *int64
 	}{
 		parameter.Name,
-		parameter.ARN,
+		parameter.Description,
+		parameter.KeyId,
 		parameter.Type,
 		tags,
 		parameter.LastModifiedDate.String(),
+		parameter.Version,
 	}
 
 	j, err := json.Marshal(out)

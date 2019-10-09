@@ -51,25 +51,37 @@ func (s *SSM) ListParametersByPath(ctx context.Context, path string) ([]string, 
 }
 
 // GetParameter gets all of the parameter in a path
-func (s *SSM) GetParameter(ctx context.Context, prefix, name string) (*ssm.Parameter, error) {
+func (s *SSM) GetParameter(ctx context.Context, prefix, name string) (*ssm.ParameterMetadata, error) {
 	if prefix == "" || name == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
 	path := fmt.Sprintf("%s/%s", prefix, name)
 
-	log.Infof("getting ssm parameter store params with path %s", path)
+	log.Infof("describing ssm parameter store params with path %s", path)
 
-	out, err := s.Service.GetParameterWithContext(ctx, &ssm.GetParameterInput{
-		Name:           aws.String(path),
-		WithDecryption: aws.Bool(false),
+	out, err := s.Service.DescribeParametersWithContext(ctx, &ssm.DescribeParametersInput{
+		MaxResults: aws.Int64(1),
+		ParameterFilters: []*ssm.ParameterStringFilter{
+			&ssm.ParameterStringFilter{
+				Key:    aws.String("Name"),
+				Option: aws.String("Equals"),
+				Values: []*string{aws.String(path)},
+			},
+		},
 	})
 	if err != nil {
 		return nil, ErrCode("failed to get parameter", err)
 	}
 
-	out.Parameter.Name = aws.String(name)
-	return out.Parameter, nil
+	if len(out.Parameters) == 0 || out.Parameters[0] == nil {
+		return nil, apierror.New(apierror.ErrNotFound, "parameter not found", nil)
+	}
+
+	metadata := out.Parameters[0]
+	metadata.Name = aws.String(name)
+
+	return metadata, nil
 }
 
 // CreateParameter creates a new parameter

@@ -105,13 +105,19 @@ func (m *mockSSMClient) GetParametersByPathWithContext(ctx context.Context, inpu
 	return out, nil
 }
 
-func (m *mockSSMClient) GetParameterWithContext(ctx context.Context, input *ssm.GetParameterInput, opts ...request.Option) (*ssm.GetParameterOutput, error) {
+func (m *mockSSMClient) DescribeParametersWithContext(ctx context.Context, input *ssm.DescribeParametersInput, opts ...request.Option) (*ssm.DescribeParametersOutput, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	return &ssm.GetParameterOutput{
-		Parameter: testParam1.Param,
+	return &ssm.DescribeParametersOutput{
+		Parameters: []*ssm.ParameterMetadata{
+			&ssm.ParameterMetadata{
+				Name:             testParam1.Param.Name,
+				KeyId:            testParam1.Param.ARN,
+				LastModifiedDate: testParam1.Param.LastModifiedDate,
+			},
+		},
 	}, nil
 }
 
@@ -207,7 +213,11 @@ func TestListParametersByPath(t *testing.T) {
 
 func TestGetParameter(t *testing.T) {
 	p := SSM{Service: newmockSSMClient(t, nil)}
-	expected := testParam1.Param
+	expected := &ssm.ParameterMetadata{
+		Name:             testParam1.Param.Name,
+		KeyId:            testParam1.Param.ARN,
+		LastModifiedDate: testParam1.Param.LastModifiedDate,
+	}
 
 	out, err := p.GetParameter(context.TODO(), org+"/"+prefix, aws.StringValue(testParam1.Param.Name))
 	if err != nil {
