@@ -50,7 +50,7 @@ PUT /v1/ecs/{account}/secrets/{secret}
 DELETE /v1/ecs/{account}/secrets/{secret}
 
 // Parameter store handlers
-POST /v1/ecs/{account}/params
+POST /v1/ecs/{account}/params/{prefix}
 GET /v1/ecs/{account}/params/{prefix}
 DELETE /v1/ecs/{account}/params/{prefix}
 GET /v1/ecs/{account}/params/{prefix}/{param}
