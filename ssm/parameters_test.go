@@ -110,15 +110,37 @@ func (m *mockSSMClient) DescribeParametersWithContext(ctx context.Context, input
 		return nil, m.err
 	}
 
-	return &ssm.DescribeParametersOutput{
-		Parameters: []*ssm.ParameterMetadata{
-			&ssm.ParameterMetadata{
-				Name:             testParam1.Param.Name,
-				KeyId:            testParam1.Param.ARN,
-				LastModifiedDate: testParam1.Param.LastModifiedDate,
-			},
-		},
-	}, nil
+	for _, p := range []testParam{testParam1, testParam2, testParam3} {
+		if org+"/"+prefix+"/"+aws.StringValue(p.Param.Name) == aws.StringValue(input.ParameterFilters[0].Values[0]) {
+			return &ssm.DescribeParametersOutput{
+				Parameters: []*ssm.ParameterMetadata{
+					&ssm.ParameterMetadata{
+						Name:             p.Param.Name,
+						KeyId:            aws.String("arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee"),
+						LastModifiedDate: p.Param.LastModifiedDate,
+					},
+				},
+			}, nil
+		}
+	}
+
+	return &ssm.DescribeParametersOutput{}, awserr.New(ssm.ErrCodeParameterNotFound, "not found", nil)
+}
+
+func (m *mockSSMClient) GetParameterWithContext(ctx context.Context, input *ssm.GetParameterInput, opts ...request.Option) (*ssm.GetParameterOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, p := range []testParam{testParam1, testParam2, testParam3} {
+		if org+"/"+prefix+"/"+aws.StringValue(p.Param.Name) == aws.StringValue(input.Name) {
+			return &ssm.GetParameterOutput{
+				Parameter: p.Param,
+			}, nil
+		}
+	}
+
+	return &ssm.GetParameterOutput{}, awserr.New(ssm.ErrCodeParameterNotFound, "not found", nil)
 }
 
 func (m *mockSSMClient) PutParameterWithContext(ctx context.Context, input *ssm.PutParameterInput, opts ...request.Option) (*ssm.PutParameterOutput, error) {
@@ -211,13 +233,49 @@ func TestListParametersByPath(t *testing.T) {
 	}
 }
 
-func TestGetParameter(t *testing.T) {
+func TestGetParameterMetadata(t *testing.T) {
 	p := SSM{Service: newmockSSMClient(t, nil)}
 	expected := &ssm.ParameterMetadata{
 		Name:             testParam1.Param.Name,
-		KeyId:            testParam1.Param.ARN,
+		KeyId:            aws.String("arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee"),
 		LastModifiedDate: testParam1.Param.LastModifiedDate,
 	}
+
+	out, err := p.GetParameterMetadata(context.TODO(), org+"/"+prefix, aws.StringValue(testParam1.Param.Name))
+	if err != nil {
+		t.Errorf("unexpected error %s", err)
+	}
+
+	if !reflect.DeepEqual(expected, out) {
+		t.Errorf("expected %+v, got %+v", expected, out)
+	}
+
+	// test param that doesn't exist
+	_, err = p.GetParameterMetadata(context.TODO(), org+"/"+prefix, "foobar")
+	if err == nil {
+		t.Error("expected error for not found name, got nil")
+	}
+
+	// test empty prefix
+	if _, err = p.GetParameterMetadata(context.TODO(), "", "foobar"); err == nil {
+		t.Error("expected error for empty name, got nil")
+	}
+
+	// test empty name
+	if _, err = p.GetParameterMetadata(context.TODO(), org+"/"+prefix, ""); err == nil {
+		t.Error("expected error for empty name, got nil")
+	}
+
+	p.Service.(*mockSSMClient).err = awserr.New(ssm.ErrCodeInternalServerError, "Internal Error", nil)
+	_, err = p.GetParameterMetadata(context.TODO(), org+"/"+prefix, "foobar")
+	if err == nil {
+		t.Error("expected error for empty path, got nil")
+	}
+}
+
+func TestGetParameter(t *testing.T) {
+	p := SSM{Service: newmockSSMClient(t, nil)}
+	expected := testParam1.Param
 
 	out, err := p.GetParameter(context.TODO(), org+"/"+prefix, aws.StringValue(testParam1.Param.Name))
 	if err != nil {
@@ -226,6 +284,12 @@ func TestGetParameter(t *testing.T) {
 
 	if !reflect.DeepEqual(expected, out) {
 		t.Errorf("expected %+v, got %+v", expected, out)
+	}
+
+	// test param that doesn't exist
+	_, err = p.GetParameter(context.TODO(), org+"/"+prefix, "foobar")
+	if err == nil {
+		t.Error("expected error for not found name, got nil")
 	}
 
 	// test empty prefix

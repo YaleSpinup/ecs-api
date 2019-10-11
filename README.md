@@ -242,6 +242,7 @@ GET `/v1/ecs/{account}/params/{prefix}/{param}`
 
 ```json
 {
+    "ARN": "arn:aws:ssm:us-east-1:1234567890:parameter/myorg/someprefix/newsecret123",
     "Name": "newsecret123",
     "Description": "a test secret shhhhhh! 123",
     "KeyId": "arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee",
