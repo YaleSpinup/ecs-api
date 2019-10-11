@@ -116,7 +116,7 @@ func (m *mockSSMClient) DescribeParametersWithContext(ctx context.Context, input
 				Parameters: []*ssm.ParameterMetadata{
 					&ssm.ParameterMetadata{
 						Name:             p.Param.Name,
-						KeyId:            p.Param.ARN,
+						KeyId:            aws.String("arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee"),
 						LastModifiedDate: p.Param.LastModifiedDate,
 					},
 				},
@@ -237,7 +237,7 @@ func TestGetParameterMetadata(t *testing.T) {
 	p := SSM{Service: newmockSSMClient(t, nil)}
 	expected := &ssm.ParameterMetadata{
 		Name:             testParam1.Param.Name,
-		KeyId:            testParam1.Param.ARN,
+		KeyId:            aws.String("arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee"),
 		LastModifiedDate: testParam1.Param.LastModifiedDate,
 	}
 
