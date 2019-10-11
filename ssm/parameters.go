@@ -50,15 +50,15 @@ func (s *SSM) ListParametersByPath(ctx context.Context, path string) ([]string, 
 	return params, nil
 }
 
-// GetParameter gets all of the parameter in a path
-func (s *SSM) GetParameter(ctx context.Context, prefix, name string) (*ssm.ParameterMetadata, error) {
+// GetParameterMetadata gets a parameters metadata
+func (s *SSM) GetParameterMetadata(ctx context.Context, prefix, name string) (*ssm.ParameterMetadata, error) {
 	if prefix == "" || name == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
 	path := fmt.Sprintf("%s/%s", prefix, name)
 
-	log.Infof("describing ssm parameter store params with path %s", path)
+	log.Infof("describing ssm parameter store param with path %s", path)
 
 	out, err := s.Service.DescribeParametersWithContext(ctx, &ssm.DescribeParametersInput{
 		MaxResults: aws.Int64(1),
@@ -82,6 +82,27 @@ func (s *SSM) GetParameter(ctx context.Context, prefix, name string) (*ssm.Param
 	metadata.Name = aws.String(name)
 
 	return metadata, nil
+}
+
+// GetParameter gets the details of a parameter
+func (s *SSM) GetParameter(ctx context.Context, prefix, name string) (*ssm.Parameter, error) {
+	if prefix == "" || name == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	path := fmt.Sprintf("%s/%s", prefix, name)
+
+	log.Infof("getting a ssm parameter store param with path %s", path)
+
+	out, err := s.Service.GetParameterWithContext(ctx, &ssm.GetParameterInput{
+		Name:           aws.String(path),
+		WithDecryption: aws.Bool(false),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to get parameter", err)
+	}
+
+	return out.Parameter, nil
 }
 
 // CreateParameter creates a new parameter

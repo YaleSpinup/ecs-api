@@ -150,6 +150,13 @@ func (s *server) ParamShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	path := fmt.Sprintf("/%s/%s", s.org, prefix)
 
+	meta, err := ssmService.GetParameterMetadata(r.Context(), path, param)
+	if err != nil {
+		msg := fmt.Sprintf("unable to get parameter metadata from the ssm service path %s/%s", path, param)
+		handleError(w, errors.Wrap(err, msg))
+		return
+	}
+
 	parameter, err := ssmService.GetParameter(r.Context(), path, param)
 	if err != nil {
 		msg := fmt.Sprintf("unable to get parameter from the ssm service path %s/%s", path, param)
@@ -159,12 +166,13 @@ func (s *server) ParamShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	tags, err := ssmService.ListParameterTags(r.Context(), path, param)
 	if err != nil {
-		msg := fmt.Sprintf("unable to get parameter tags from the ssm parameter id %s", aws.StringValue(parameter.Name))
+		msg := fmt.Sprintf("unable to get parameter tags from the ssm parameter id %s", aws.StringValue(meta.Name))
 		handleError(w, errors.Wrap(err, msg))
 		return
 	}
 
 	out := struct {
+		ARN              *string
 		Name             *string
 		Description      *string
 		KeyId            *string
@@ -173,13 +181,14 @@ func (s *server) ParamShowHandler(w http.ResponseWriter, r *http.Request) {
 		LastModifiedDate string
 		Version          *int64
 	}{
-		parameter.Name,
-		parameter.Description,
-		parameter.KeyId,
-		parameter.Type,
+		parameter.ARN,
+		meta.Name,
+		meta.Description,
+		meta.KeyId,
+		meta.Type,
 		tags,
-		parameter.LastModifiedDate.String(),
-		parameter.Version,
+		meta.LastModifiedDate.String(),
+		meta.Version,
 	}
 
 	j, err := json.Marshal(out)
@@ -318,7 +327,7 @@ func (s *server) ParamUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	path := fmt.Sprintf("/%s/%s", s.org, prefix)
-	parameter, err := ssmService.GetParameter(r.Context(), path, paramName)
+	parameter, err := ssmService.GetParameterMetadata(r.Context(), path, paramName)
 	if err != nil {
 		msg := fmt.Sprintf("unable to get parameter from the ssm service path %s/%s", path, paramName)
 		handleError(w, errors.Wrap(err, msg))
