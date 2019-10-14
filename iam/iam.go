@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/YaleSpinup/ecs-api/common"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -145,14 +147,41 @@ func (i *IAM) DefaultTaskExecutionRole(ctx context.Context, path string) (string
 		return "", ErrCode("failed to create role", err)
 	}
 
+	policy := "ECSTaskAccessPolicy"
+
 	// attach default role policy to the role
 	err = i.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
 		PolicyDocument: aws.String(string(defaultPolicy)),
-		PolicyName:     aws.String("ECSTaskAccessPolicy"),
+		PolicyName:     aws.String(policy),
 		RoleName:       aws.String(role),
 	})
 	if err != nil {
 		return "", ErrCode("failed to attach policy to role", err)
+	}
+
+	// wait for the policy to get attached
+	err = common.Retry(3, 2*time.Second, func() error {
+		log.Infof("checking if policy %s is attached to role %s before continuing", policy, role)
+		output, err := i.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
+			PolicyName: aws.String(policy),
+			RoleName:   aws.String(role),
+		})
+		if err != nil {
+			// retry
+			return err
+		}
+
+		if output != "" {
+			log.Infof("policy %s attached", policy)
+			return nil
+		}
+
+		msg := fmt.Sprintf("policy %s not found in role %s", policy, role)
+		return errors.New(msg)
+	})
+
+	if err != nil {
+		return "", ErrCode("timed out attaching policy to role", err)
 	}
 
 	return *roleOutput.Arn, nil

@@ -58,6 +58,22 @@ func (i *IAM) GetRole(ctx context.Context, input *iam.GetRoleInput) (*iam.Role, 
 	return output.Role, nil
 }
 
+// GetRolePolicy handles retrieving an inline policy from IAM role
+func (i *IAM) GetRolePolicy(ctx context.Context, input *iam.GetRolePolicyInput) (string, error) {
+	if input == nil || aws.StringValue(input.RoleName) == "" || aws.StringValue(input.PolicyName) == "" {
+		return "", apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting inline policy %s from iam role %s", *input.PolicyName, *input.RoleName)
+
+	output, err := i.Service.GetRolePolicyWithContext(ctx, input)
+	if err != nil {
+		return "", ErrCode("failed to get policy from role", err)
+	}
+
+	return *output.PolicyDocument, nil
+}
+
 // PutRolePolicy handles attaching an inline policy to IAM role
 func (i *IAM) PutRolePolicy(ctx context.Context, input *iam.PutRolePolicyInput) error {
 	if input == nil || aws.StringValue(input.RoleName) == "" || aws.StringValue(input.PolicyDocument) == "" || aws.StringValue(input.PolicyName) == "" {

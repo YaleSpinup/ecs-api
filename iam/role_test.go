@@ -85,6 +85,26 @@ func (m *mockIAMClient) GetRoleWithContext(ctx context.Context, input *iam.GetRo
 	return output, nil
 }
 
+func (m *mockIAMClient) GetRolePolicyWithContext(ctx context.Context, input *iam.GetRolePolicyInput, opts ...request.Option) (*iam.GetRolePolicyOutput, error) {
+	testPolicy, _ := json.Marshal(testPolicyDoc)
+	var output = &iam.GetRolePolicyOutput{
+		PolicyDocument: aws.String(string(testPolicy)),
+		PolicyName:     aws.String("testpolicy"),
+		RoleName:       aws.String("testrole"),
+	}
+
+	if m.err != nil {
+		if aerr, ok := (m.err).(awserr.Error); ok {
+			if aerr.Code() == "TestNoSuchEntity" {
+				return output, nil
+			}
+		}
+		return nil, m.err
+	}
+
+	return output, nil
+}
+
 func (m *mockIAMClient) PutRolePolicyWithContext(ctx context.Context, input *iam.PutRolePolicyInput, opts ...request.Option) (*iam.PutRolePolicyOutput, error) {
 	var output = &iam.PutRolePolicyOutput{}
 
@@ -453,6 +473,106 @@ func TestGetRole(t *testing.T) {
 	// test non-aws error
 	i.Service.(*mockIAMClient).err = errors.New("things blowing up")
 	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrInternalError {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
+func TestGetRolePolicy(t *testing.T) {
+	i := IAM{
+		Service:         newMockIAMClient(t, nil),
+		DefaultKmsKeyID: "12345678-90ab-cdef-1234-567890abcdef",
+	}
+
+	// test success
+	expected, err := json.Marshal(testPolicyDoc)
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+	out, err := i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{
+		PolicyName: aws.String("testpolicy"),
+		RoleName:   aws.String("testrole"),
+	})
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	if string(expected) != out {
+		t.Errorf("expected %+v, got %+v", string(expected), out)
+	}
+
+	// test nil input
+	_, err = i.GetRolePolicy(context.TODO(), nil)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test empty role name
+	_, err = i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test ErrCodeNoSuchEntityException
+	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeNoSuchEntityException, "NoSuchEntity", nil)
+	_, err = i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{
+		PolicyName: aws.String("testpolicy"),
+		RoleName:   aws.String("testrole"),
+	})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrNotFound {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrNotFound, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test ErrCodeServiceFailureException
+	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeServiceFailureException, "ServiceFailure", nil)
+	_, err = i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{
+		PolicyName: aws.String("testpolicy"),
+		RoleName:   aws.String("testrole"),
+	})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrServiceUnavailable {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrServiceUnavailable, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test some other, unexpected AWS error
+	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
+	_, err = i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{
+		PolicyName: aws.String("testpolicy"),
+		RoleName:   aws.String("testrole"),
+	})
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test non-aws error
+	i.Service.(*mockIAMClient).err = errors.New("things blowing up")
+	_, err = i.GetRolePolicy(context.TODO(), &iam.GetRolePolicyInput{
+		PolicyName: aws.String("testpolicy"),
+		RoleName:   aws.String("testrole"),
+	})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
