@@ -100,23 +100,27 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 		return nil, err
 	}
 	output.Cluster = cluster
+	log.Debugf("GOOGLEY00_cluster:\n %+v", cluster)
 
 	td, err := o.processTaskDefinition(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.TaskDefinition = td
+	log.Debugf("GOOGLEY01_task_def:\n %+v", td)
 
 	sr, err := o.processServiceRegistry(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.ServiceDiscoveryService = sr
+	log.Debugf("GOOGLEY02_srvc_disc_srvc:\n %+v", sr)
 
 	service, err := o.processService(ctx, input)
 	if err != nil {
 		return nil, err
 	}
+	log.Debugf("GOOGLEY03_process_service:\n %+v", service)
 	output.Service = service
 
 	return output, nil
