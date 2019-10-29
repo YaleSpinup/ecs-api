@@ -79,7 +79,7 @@ func NewVerifier(input string, insecure bool) (*Verifier, error) {
 
 // Verify executes image verification for a verifier
 func (v *Verifier) Verify(ctx context.Context) (bool, error) {
-	url := v.Scheme + "://" + v.Host + "/v2/" + v.Path + "/manifests/" + v.Tag
+	url := fmt.Sprintf("%s://%s/v2/%s/manifests/%s", v.Scheme, v.Host, v.Path, v.Tag)
 	log.Infof("verifying with URL %s", url)
 
 	// setup HTTP request to registry URL
@@ -136,20 +136,25 @@ func (v *Verifier) Verify(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// bearerTokenAuth executes the request for the bearer token regerenced in a Www-Authenticate header
+// bearerTokenAuth executes the request for the bearer token referenced in a Www-Authenticate header
 func (v *Verifier) bearerTokenAuth(ctx context.Context, header string) (string, error) {
 	if header == "" {
 		return "", errors.New("empty authenticate header")
 	}
 	log.Debugf("parsing bearer token header: %s", header)
 
+	header = strings.TrimSpace(header)
+	value := strings.TrimPrefix(header, "Bearer ")
+
+	// return an error if there's no Bearer header
+	if header == value {
+		return "", errors.New("missing Bearer header")
+	}
+
 	realm := ""
 	scope := ""
 	service := ""
-
-	value := strings.TrimPrefix(header, "Bearer ")
-	parts := strings.Split(value, ",")
-	for _, p := range parts {
+	for _, p := range strings.Split(value, ",") {
 		p = strings.ReplaceAll(p, "\"", "")
 		pv := strings.SplitN(p, "=", 2)
 		switch pv[0] {

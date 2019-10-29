@@ -309,7 +309,7 @@ func TestBearerTokenAuth(t *testing.T) {
 		}))
 		defer ts.Close()
 
-		header := fmt.Sprintf("Bearer \"realm=%s\",\"scope=%s\",\"service=%s\"", ts.URL, h.scope, h.service)
+		header := fmt.Sprintf("Bearer \"realm=%s\",\"scope=%s\",\"service=%s\",\"foo=bar\"", ts.URL, h.scope, h.service)
 		testVerifier.Client = ts.Client()
 		token, err := testVerifier.bearerTokenAuth(context.TODO(), header)
 		if h.err == nil && err != nil {
@@ -322,4 +322,32 @@ func TestBearerTokenAuth(t *testing.T) {
 			t.Errorf("expected token %s, got %s", h.token, token)
 		}
 	}
+
+	// test missing header
+	_, err := testVerifier.bearerTokenAuth(context.TODO(), "")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	t.Logf("got err response for missing header '%s'", err)
+
+	// test missing Bearer
+	_, err = testVerifier.bearerTokenAuth(context.TODO(), "\"realm=foobar\",\"scope=foo\",\"service=bar\"")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	t.Logf("got err response for missing Bearer '%s'", err)
+
+	// bad json response
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{fuuuuuuuu"))
+	}))
+	defer ts.Close()
+
+	testVerifier.Client = ts.Client()
+	_, err = testVerifier.bearerTokenAuth(context.TODO(), fmt.Sprintf("Bearer \"realm=%s\",\"scope=foo\",\"service=bar\"", ts.URL))
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	t.Logf("got err response for bad JSON '%s'", err)
 }
