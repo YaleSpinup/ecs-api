@@ -100,27 +100,23 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 		return nil, err
 	}
 	output.Cluster = cluster
-	//log.Debugf("GOOGLEY30_cluster_def:\n %+v", output.Cluster)
 
 	td, err := o.processTaskDefinition(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.TaskDefinition = td
-	//log.Debugf("GOOGLEY01_task_def:\n %+v", output.Cluster)
 
 	sr, err := o.processServiceRegistry(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.ServiceDiscoveryService = sr
-	//log.Debugf("GOOGLEY02_srvc_disc_srvc:\n %+v", sr)
 
 	service, err := o.processService(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	//log.Debugf("GOOGLEY03_process_service:\n %+v", service)
 	output.Service = service
 
 	return output, nil
@@ -178,63 +174,46 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 	return &ServiceOrchestrationOutput{Service: service}, nil
 }
 
-/*
-func UpdateClusterTags (ctx context.Context, id string, input *ServiceOrchestrationInputTag) error {
-_, err := s.Service.TagResourceWithContext(ctx, &secretsmanager.TagResourceInput{
-	SecretId: aws.String(id),
-	Tags:     tags,
-})
-if err != nil {
-	return ErrCode("failed to update secret", err)
-}
-*/
-
 // processCluster processes the cluster portion of the input.  If the cluster is defined on ths service object
 // it will be used, otherwise if the ClusterName is given, it will be created.  If neither is provided, an error
 // will be returned.
 func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, error) {
 	client := o.ECS
-	if input.Cluster != nil {
+	if input.Service.Cluster != nil {
 		log.Infof("Using provided cluster name %s", aws.StringValue(input.Cluster.ClusterName))
 
-		cluster, err := getCluster(ctx, client, input.Cluster.ClusterName)
+		cluster, err := getCluster(ctx, client, input.Service.Cluster)
 		if err != nil {
 			return nil, err
-		}
-
-		count := 0
-		for _, tag := range input.Cluster.Tags {
-			// the tag is set and not set to our Org, rewrite it
-			if aws.StringValue(tag.Key) == "spinup:tag" {
-				if aws.StringValue(tag.Value) != *aws.String(Org) {
-					count++
-				}
-			}
-			// the tag is not set to our Org, rewrite it
-			if aws.StringValue(tag.Key) != "spinup:tag" {
-				count++
-			}
-		}
-
-		//rewrite tag to our org
-		if count > 0 {
-			input.Cluster.Tags = append(input.Cluster.Tags, &ecs.Tag{
-				Key:   aws.String("spinup:tag"),
-				Value: aws.String(Org),
-			})
-			if err != nil {
-				log.Infof("error updating Cluster Tags: %s", err)
-			}
 		}
 
 		log.Debugf("Got cluster %+v", cluster)
 		return cluster, nil
 	} else if input.Cluster != nil {
 		log.Infof("Creating cluster %s", aws.StringValue(input.Cluster.ClusterName))
-		input.Cluster.Tags = append(input.Cluster.Tags, &ecs.Tag{
-			Key:   aws.String("spinup:tag"),
-			Value: aws.String(Org),
-		})
+
+		tagCount := 0
+		for _, tag := range input.Cluster.Tags {
+			// the tag is set and not set to our Org, rewrite it
+			if aws.StringValue(tag.Key) == "spinup:tag" {
+				if aws.StringValue(tag.Value) != *aws.String(Org) {
+					tagCount++
+				}
+			}
+			// the tag is not set to our Org, rewrite it
+			if aws.StringValue(tag.Key) != "spinup:tag" {
+				tagCount++
+			}
+		}
+
+		//rewrite tag to our org
+		if tagCount > 0 {
+			input.Cluster.Tags = append(input.Cluster.Tags, &ecs.Tag{
+				Key:   aws.String("spinup:tag"),
+				Value: aws.String(Org),
+			})
+		}
+
 		////log.Infof("Using GOOGLEY20 tags:\n %s", input.Cluster.Tags)
 		cluster, err := createCluster(ctx, client, input.Cluster)
 		if err != nil {
