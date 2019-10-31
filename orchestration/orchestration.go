@@ -179,7 +179,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, error) {
 	client := o.ECS
 	if input.Service.Cluster != nil {
-		log.Infof("Using provided cluster name %s", aws.StringValue(input.Cluster.ClusterName))
+		log.Infof("Using provided cluster name (input.Service.Cluster) %s", aws.StringValue(input.Service.Cluster))
 
 		cluster, err := getCluster(ctx, client, input.Service.Cluster)
 		if err != nil {
