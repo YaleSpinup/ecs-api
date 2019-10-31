@@ -127,7 +127,112 @@ Example request body of new cluster, new task definition, new service registry a
       }
     }
 }
+
+{
+    "cluster": {
+        "clustername": "myclu00",
+	"tags": [
+		{
+		    "Key": "CreatedBy",
+		    "Value": "netid"
+		},
+		{
+		    "Key": "ChargingAccount",
+		    "Value": "CX81...XXXXXXXXX.XXXXXX.XXXXXXX.YYYYYYYY..."
+		},
+		{   
+            "Key": "DRTier",
+            "Value": "3" 
+		},
+		{
+		    "Key": "OS",
+		    "Value": "container"
+		},
+		{
+		    "Key": "OwnerDepartmentContact",
+		    "Value": "netid"
+		},
+		{
+		    "Key": "spinup:spaceid",
+		    "Value": "myspace00"
+		},
+		{
+		    "Key": "OwnerDepartment",
+		    "Value": "Owner Dept"
+		},
+		{
+		    "Key": "Name",
+		    "Value": "mycontainer00"
+		},
+		{
+		    "Key": "SupportDepartment",
+		    "Value": "Support Dept"
+		},
+		{
+		    "Key": "Environment",
+		    "Value": "prd"
+		},
+		{
+		    "Key": "SupportDepartmentContact",
+		    "Value": "netid"
+		}
+	    ]
+    },
+    "taskdefinition": {
+        "family": "webservers",
+        "cpu": "256",
+        "memory": "512",
+        "containerdefinitions": [
+            {
+                "Environment": [{
+                    "Name": "API_HOST",
+                    "Value": "localhost"
+                  },{
+                    "Name": "API_PORT",
+                    "Value": "1234"
+                  }],
+                "Image": "dkw00/createsecrets:nginxenv",
+                "LogConfiguration": {
+                  "LogDriver": "awslogs",
+                  "Options": {
+                    "awslogs-group": "myclu",
+                    "awslogs-stream-prefix": "mycontainer00",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-create-group": "true"
+                  }
+                },
+                "Name": "you",
+                "PortMappings": [{
+                    "ContainerPort": 80,
+                    "Protocol": "tcp"
+                  }],
+                "Secrets": []
+            }
+        ]
+    },
+    "service": {
+        "desiredcount": 1,
+        "servicename": "mycontainer00"
+    },
+    "serviceregistry": {
+      "name": "mycontainer00",
+      "cluster": "mycontainer00",
+      "dnsconfig": {
+        "namespaceid": "ns-h4yfujs27uxfefyb",
+        "dnsrecords": [
+          {
+            "ttl": 30,
+            "type": "A"
+          }
+        ]
+      }
+    }
+}
 ```
+
+Place the above json in a file ecs-api-payload and execute a PUT against resource:
+
+```curl -vvv --data "@ecs-api-payload" -H "X-Auth-Token:99999999-3333-4444-5555-11111222222" http://127.0.0.1:8080/v1/ecs/spinup/services```
 
 Example request body of new service with existing resources:
 
