@@ -12,6 +12,9 @@ func (s *server) routes() {
 	api.HandleFunc("/version", s.VersionHandler)
 	api.Handle("/metrics", promhttp.Handler())
 
+	// Docker image handlers
+	api.HandleFunc("/images", s.ImageVerificationHandler).Methods(http.MethodHead).Queries("image", "{image}")
+
 	// Service Orchestration handlers
 	api.HandleFunc("/{account}/services", s.ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/services", s.ServiceOrchestrationUpdateHandler).Methods(http.MethodPut)

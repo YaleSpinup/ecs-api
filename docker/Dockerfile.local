@@ -7,7 +7,7 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-RUN go build -o /go/api *.go
+RUN go build -trimpath -o /go/api *.go
 
 # final stage
 FROM alpine

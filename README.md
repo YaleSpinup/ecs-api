@@ -8,6 +8,9 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
 GET /v1/ecs/ping
 GET /v1/ecs/version
 
+// Docker Image handlers
+HEAD /v1/ecs/images?image={image}
+
 // Service Orchestration handlers
 POST /v1/ecs/{account}/services
 DELETE /v1/ecs/{account}/services
@@ -57,6 +60,25 @@ GET /v1/ecs/{account}/params/{prefix}/{param}
 DELETE /v1/ecs/{account}/params/{prefix}/{param}
 PUT /v1/ecs//{account}/params/{prefix}/{param}
 ```
+
+## Docker Image verification
+
+Image verification checks if an image is available.  Currently, this endpoint is a simple `HEAD` request.  Successful http response
+codes mean the image is available.
+
+### Check if an image is available
+
+HEAD `/v1/ecs/images?image={image}`
+
+#### Response
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | image is available                    |
+| **400 Bad Request**           | badly formed request                  |
+| **404 Not Found**             | image wasn't found (or requires auth) |
+| **500 Internal Server Error** | a server error occurred               |
+
 
 ## Orchestration
 
