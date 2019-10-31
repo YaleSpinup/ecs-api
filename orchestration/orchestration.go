@@ -77,7 +77,6 @@ type ServiceOrchestrationOutput struct {
 	Service *ecs.Service
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#Service
 	ServiceDiscoveryService *servicediscovery.Service
-	ServiceTags             *ecs.Tag
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
