@@ -9,10 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/YaleSpinup/ecs-api/iam"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
-
-	"github.com/YaleSpinup/ecs-api/iam"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
@@ -180,15 +179,32 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, error) {
 	client := o.ECS
 	if input.Service.Cluster != nil {
-		log.Infof("Using provided cluster name %s", aws.StringValue(input.Service.Cluster))
+		log.Infof("Using provided cluster name (input.Service.Cluster) %s", aws.StringValue(input.Service.Cluster))
+
 		cluster, err := getCluster(ctx, client, input.Service.Cluster)
 		if err != nil {
 			return nil, err
 		}
+
 		log.Debugf("Got cluster %+v", cluster)
 		return cluster, nil
 	} else if input.Cluster != nil {
 		log.Infof("Creating cluster %s", aws.StringValue(input.Cluster.ClusterName))
+
+		newTags := []*ecs.Tag{
+			&ecs.Tag{
+				Key:   aws.String("spinup:org"),
+				Value: aws.String(Org),
+			},
+		}
+
+		for _, t := range input.Cluster.Tags {
+			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+				newTags = append(newTags, t)
+			}
+		}
+		input.Cluster.Tags = newTags
+
 		cluster, err := createCluster(ctx, client, input.Cluster)
 		if err != nil {
 			return nil, err
@@ -197,7 +213,6 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 		input.Service.Cluster = cluster.ClusterName
 		return cluster, nil
 	}
-
 	return nil, errors.New("A new or existing cluster is required")
 }
 
@@ -302,6 +317,21 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		}
 		return taskDefinition, nil
 	} else if input.TaskDefinition != nil {
+
+		newTags := []*ecs.Tag{
+			&ecs.Tag{
+				Key:   aws.String("spinup:org"),
+				Value: aws.String(Org),
+			},
+		}
+
+		for _, t := range input.TaskDefinition.Tags {
+			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+				newTags = append(newTags, t)
+			}
+		}
+		input.TaskDefinition.Tags = newTags
+
 		log.Infof("creating task definition %+v", input.TaskDefinition)
 
 		if input.TaskDefinition.ExecutionRoleArn == nil {
@@ -323,6 +353,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		input.Service.TaskDefinition = aws.String(td)
 		return taskDefinition, nil
 	}
+
 	return nil, errors.New("taskDefinition or service task definition name is required")
 }
 
@@ -479,6 +510,20 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 			},
 		}
 	}
+
+	newTags := []*ecs.Tag{
+		&ecs.Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String(Org),
+		},
+	}
+
+	for _, t := range input.Service.Tags {
+		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+			newTags = append(newTags, t)
+		}
+	}
+	input.Service.Tags = newTags
 
 	if input.Service.LaunchType == nil {
 		input.Service.LaunchType = DefaultLaunchType

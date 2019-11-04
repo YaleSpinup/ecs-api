@@ -95,23 +95,54 @@ Example request body of new cluster, new task definition, new service registry a
 ```json
 {
     "cluster": {
-        "clustername": "myclu"
+        "clustername": "myclu",
+    	"tags": [
+		    {
+		        "Key": "CreatedBy",
+		        "Value": "netid"
+		    },
+		    {
+		        "Key": "OS",
+		        "Value": "container"
+		    }
+	    ]
     },
     "taskdefinition": {
-        "family": "mytaskdef",
+        "family": "webservers",
         "cpu": "256",
         "memory": "512",
         "containerdefinitions": [
             {
+                "environment": [{
+                    "name": "API_HOST",
+                    "value": "localhost"
+                  },{
+                    "name": "API_PORT",
+                    "value": "1234"
+                  }],
                 "name": "webserver",
                 "image": "nginx:alpine",
-                "ports": [80,443]
+                "ports": [80,443],
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "myclu",
+                    "awslogs-stream-prefix": "www",
+                    "awslogs-region": "us-east-1",
+                    "awslogs-create-group": "true"
+                  }
+                },
+                "PortMappings": [{
+                    "ContainerPort": 80,
+                    "protocol": "tcp"
+                  }],
+                "secrets": []
             }
         ]
     },
     "service": {
         "desiredcount": 1,
-        "servicename": "webapp"
+        "servicename": "www"
     },
     "serviceregistry": {
       "name": "www",
