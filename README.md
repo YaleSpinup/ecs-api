@@ -122,7 +122,7 @@ Example request body of new cluster, new task definition, new service registry a
                   }],
                 "name": "webserver",
                 "image": "nginx:alpine",
-                "ports": [80,443]
+                "ports": [80,443],
                 "logConfiguration": {
                   "logDriver": "awslogs",
                   "options": {
