@@ -96,7 +96,7 @@ Example request body of new cluster, new task definition, new service registry a
 {
     "cluster": {
         "clustername": "myclu",
-    	"tags": [
+        "tags": [
 		    {
 		        "Key": "CreatedBy",
 		        "Value": "netid"
