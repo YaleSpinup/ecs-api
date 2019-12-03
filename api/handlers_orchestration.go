@@ -31,13 +31,6 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	sdService, ok := s.sdServices[account]
-	if !ok {
-		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
 	iamService, ok := s.iamServices[account]
 	if !ok {
 		msg := fmt.Sprintf("iam service not found for account: %s", account)
@@ -45,10 +38,25 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	sdService, ok := s.sdServices[account]
+	if !ok {
+		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
+	smService, ok := s.smServices[account]
+	if !ok {
+		msg := fmt.Sprintf("secrets manager service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
 	orchestrator := orchestration.Orchestrator{
-		ECS:              ecsService.Service,
+		ECS:              ecsService,
 		IAM:              iamService,
-		ServiceDiscovery: sdService.Service,
+		ServiceDiscovery: sdService,
+		SecretsManager:   smService,
 		Token:            uuid.NewV4().String(),
 	}
 
@@ -125,9 +133,17 @@ func (s *server) ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	sm, ok := s.smServices[account]
+	if !ok {
+		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
 	orchestrator := orchestration.Orchestrator{
-		ECS:              ecsService.Service,
-		ServiceDiscovery: sd.Service,
+		ECS:              ecsService,
+		ServiceDiscovery: sd,
+		SecretsManager:   sm,
 		Token:            uuid.NewV4().String(),
 	}
 
