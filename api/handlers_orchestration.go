@@ -47,7 +47,7 @@ func (s *server) ServiceOrchestrationCreateHandler(w http.ResponseWriter, r *htt
 
 	smService, ok := s.smServices[account]
 	if !ok {
-		msg := fmt.Sprintf("secrets manager service not found for account: %s", account)
+		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
 		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
