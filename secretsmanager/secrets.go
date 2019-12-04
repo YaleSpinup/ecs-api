@@ -91,6 +91,8 @@ func (s *SecretsManager) DeleteSecret(ctx context.Context, id string, window int
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
+	log.Infof("Deleting secret %s with window %d", id, window)
+
 	input := secretsmanager.DeleteSecretInput{SecretId: aws.String(id)}
 	if window == 0 {
 		input.ForceDeleteWithoutRecovery = aws.Bool(true)

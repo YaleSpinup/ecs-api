@@ -79,12 +79,11 @@ HEAD `/v1/ecs/images?image={image}`
 | **404 Not Found**             | image wasn't found (or requires auth) |
 | **500 Internal Server Error** | a server error occurred               |
 
-
 ## Orchestration
 
 The service orchestration endpoints for creating and deleting services allow building and destroying services with one call to the API.
 
-The endpoints are essentially wrapped versions of the ECS and ServiceDiscovery endpoints from AWS.  The endpoint will determine
+The endpoints are wrapped versions of the ECS, IAM, Secrets manager and ServiceDiscovery services from AWS.  The endpoint will determine
 what has been provided and try to take the most logical action.  For example, if you provide `CreateClusterInput`, `RegisterTaskDefinitionInput`
 and `CreateServiceInput`, the API will attempt to create the cluster, then the task definition and then the service using the created
 resources.  If you only provide the `CreateServiceInput` with the task definition name, the cluster name and the service registries, it
@@ -97,15 +96,15 @@ Example request body of new cluster, new task definition, new service registry a
     "cluster": {
         "clustername": "myclu",
         "tags": [
-		    {
-		        "Key": "CreatedBy",
-		        "Value": "netid"
-		    },
-		    {
-		        "Key": "OS",
-		        "Value": "container"
-		    }
-	    ]
+            {
+                "Key": "CreatedBy",
+                "Value": "netid"
+            },
+            {
+                "Key": "OS",
+                "Value": "container"
+            }
+        ]
     },
     "taskdefinition": {
         "family": "webservers",
@@ -156,7 +155,17 @@ Example request body of new cluster, new task definition, new service registry a
           }
         ]
       }
-    }
+    },
+    "credentials": {
+        "webserver": {
+            "Name": "myapp-webserver-cred",
+            "SecretString": "{\"username\" : \"supahman\",\"password\" : \"dontkryptonitemebro\"}",
+            "Description": "myapp-webserver-cred",
+            "tags": [
+                {"Key": "Application", "Value": "myapp" }
+            ]
+        }
+    },
 }
 ```
 
