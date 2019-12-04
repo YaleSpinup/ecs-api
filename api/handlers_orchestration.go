@@ -126,14 +126,14 @@ func (s *server) ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	sd, ok := s.sdServices[account]
+	sdService, ok := s.sdServices[account]
 	if !ok {
 		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
 		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
-	sm, ok := s.smServices[account]
+	smService, ok := s.smServices[account]
 	if !ok {
 		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
 		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
@@ -142,8 +142,8 @@ func (s *server) ServiceOrchestrationDeleteHandler(w http.ResponseWriter, r *htt
 
 	orchestrator := orchestration.Orchestrator{
 		ECS:              ecsService,
-		ServiceDiscovery: sd,
-		SecretsManager:   sm,
+		ServiceDiscovery: sdService,
+		SecretsManager:   smService,
 		Token:            uuid.NewV4().String(),
 	}
 
