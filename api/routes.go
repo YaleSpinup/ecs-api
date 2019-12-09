@@ -15,25 +15,20 @@ func (s *server) routes() {
 	// Docker image handlers
 	api.HandleFunc("/images", s.ImageVerificationHandler).Methods(http.MethodHead).Queries("image", "{image}")
 
-	// Service Orchestration handlers
-	api.HandleFunc("/{account}/services", s.ServiceOrchestrationCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/services", s.ServiceOrchestrationUpdateHandler).Methods(http.MethodPut)
-	api.HandleFunc("/{account}/services", s.ServiceOrchestrationDeleteHandler).Methods(http.MethodDelete)
-	api.HandleFunc("/{account}/services/{service}", s.ServiceOrchestrationShowHandler).Methods(http.MethodGet)
+	// Service handlers
+	api.HandleFunc("/{account}/services", s.ServiceCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/clusters/{cluster}/services", s.ServiceListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceUpdateHandler).Methods(http.MethodPut)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceDeleteHandler).Methods(http.MethodDelete)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceShowHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", s.ServiceEventsHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")
 
 	// Clusters handlers
 	api.HandleFunc("/{account}/clusters", s.ClusterListHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters", s.ClusterCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}", s.ClusterShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}", s.ClusterDeleteHandler).Methods(http.MethodDelete)
-
-	// Services handlers
-	api.HandleFunc("/{account}/clusters/{cluster}/services", s.ServiceListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/services", s.ServiceCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceDeleteHandler).Methods(http.MethodDelete)
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", s.ServiceEventsHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")
 
 	// Tasks handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/tasks", s.TaskListHandler).Methods(http.MethodGet)
