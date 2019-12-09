@@ -10,7 +10,7 @@ spec:
       - path: /v1/ecs
         backend:
           serviceName: ecsapi
-          servicePort: 80
+          servicePort: 8080
 ---
 apiVersion: v1
 kind: Service
@@ -29,8 +29,9 @@ spec:
     tier: api
   ports:
     - protocol: TCP
-      port: 80
+      port: 8080
       targetPort: 8080
+      name: http
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,6 +56,8 @@ spec:
       terminationGracePeriodSeconds: 10
       containers:
       - name: ecsapi
+        ports:
+        - containerPort: 8080
         image: hub.docker.com/yaleits/ecsapi
         volumeMounts:
         - name: ecsapi-config
