@@ -1,6 +1,6 @@
 # k8s development Readme
 
-The application ships with a basic k8s config (currently only configured for development) in the `k8s/` directory.  There you will find a `Dockerfile` and yaml configuration to deploy the *ecsapi* pod, service and ingress.  There is also an example configuration yaml (`k8s-config.yaml`) which needs to be populated by you before skaffold can deploy the s3api.
+The application ships with a basic k8s config (currently only configured for development) in the `k8s/` directory.  There you will find a `Dockerfile` and yaml configuration to deploy the pod, service and ingress.  There is also an example configuration yaml (`k8s-config.yaml`) which needs to be populated by you before skaffold can deploy the api.
 
 ## install docker desktop and enable kubernetes
 
@@ -14,7 +14,7 @@ The application ships with a basic k8s config (currently only configured for dev
 
 ## setup ingress controller (do this once on your cluster)
 
-```
+```bash
 kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a0b99ae7c6e49/raw/013f86ab7af23eb014f25ba18e5d24c4fd329689/traefik-rbac.yaml
 kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a0b99ae7c6e49/raw/ff7fd88c504094e18c470b967f707ad6cd80838e/traefik-ds.yaml
 ```
@@ -35,7 +35,7 @@ kubectl apply -f https://gist.githubusercontent.com/fishnix/a94dd54ec72523024f5a
 
 * update your `hosts` file to point spindev.internal.yale.yale.edu to localhost
 
-* use the endpoint `http://<<spindev.internal.yale.edu>>/v1/s3`
+* use the endpoint `http://<<spindev.internal.yale.edu>>/v1/<api>`
 
 Saving your code should rebuild and redeploy your project automatically
 

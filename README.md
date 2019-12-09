@@ -11,22 +11,20 @@ GET /v1/ecs/version
 // Docker Image handlers
 HEAD /v1/ecs/images?image={image}
 
-// Service Orchestration handlers
+// Service handlers
 POST /v1/ecs/{account}/services
-DELETE /v1/ecs/{account}/services
+GET /v1/ecs/{account}/clusters/{cluster}/services[?all=true]
+PUT /v1/ecs/{account}/clusters/{cluster}/services
+DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/events
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
 
 // Clusters handlers
 GET /v1/ecs/{account}/clusters
 POST /v1/ecs/{account}/clusters
 GET /v1/ecs/{account}/clusters/{cluster}
 DELETE /v1/ecs/{account}/clusters/{cluster}
-
-// Services handlers
-GET /v1/ecs/{account}/clusters/{cluster}/services[?all=true]
-POST /v1/ecs/{account}/clusters/{cluster}/services
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
-DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
 
 // Tasks handlers
 GET /v1/ecs/{account}/clusters/{cluster}/tasks
@@ -79,7 +77,7 @@ HEAD `/v1/ecs/images?image={image}`
 | **404 Not Found**             | image wasn't found (or requires auth) |
 | **500 Internal Server Error** | a server error occurred               |
 
-## Orchestration
+## Service Orchestration
 
 The service orchestration endpoints for creating and deleting services allow building and destroying services with one call to the API.
 
@@ -89,7 +87,7 @@ and `CreateServiceInput`, the API will attempt to create the cluster, then the t
 resources.  If you only provide the `CreateServiceInput` with the task definition name, the cluster name and the service registries, it
 will assume those resources already exist and just try to create the service.
 
-Example request body of new cluster, new task definition, new service registry and new service:
+Example request body of new cluster, new task definition, new service registry, repository credentials and the new service:
 
 ```json
 {
@@ -187,59 +185,43 @@ Example request body of new service with existing resources:
 }
 ```
 
-## Clusters
+## Adhoc Requests
+
+### Clusters
 
 Clusters provide groupings of containers.  With `FARGATE`, clusters are simply created with a name parameter.
 
-To create a `cluster`, just `POST` the name to the endpoint:
+`TODO`
 
-```json
-{
-    "name": "myCluster"
-}
-```
-
-## Services
+### Services
 
 `Services` are long lived/scalable tasks launched based on a task definition.  Services can be comprised of multiple `containers` (because multiple containers can be defined in a task definition!).  AWS will restart containers belonging to services when they exit or die.  `Services` can be scaled and can be associated with load balancers.  Tasks that make up a service can have IP addresses, but those addresses change when tasks are restarted.
 
-To create a `service`, just `POST` to the endpoint:
+`TODO`
 
-```json
-{}
-```
-
-## Tasks
+### Tasks
 
 `Tasks`, in contrast to `Services`, should be considered short lived.  They will not automatically be restarted or scaled by AWS and cannot be associated with a load balancer.  `Tasks`, as with `services`, can be made up of multiple containers.  Tasks can have IP addresses, but those addresses change when tasks are restarted.
 
-To create a `task`, just `POST` to the endpoint:
+`TODO`
 
-```json
-{}
-```
-
-## Task Definitions
+### Task Definitions
 
 `Task definitions` describe a set of containers used in a `service` or `task`.
 
-To create a `task definition`, just `POST` to the endpoint:
+`TODO`
 
-```json
-{}
-```
-
-## SSM Parameters
+### SSM Parameters
 
 `Parameters` store string data in AWS SSM parameter store. By default, parameters are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
 
-### Create a param
+#### Create a param
 
 Parameters are automatically creating in the `org` path.  A `prefix` should be specified in the `Name`.
 
 POST `/v1/ecs/{account}/params/{prefix}`
 
-#### Request
+##### Request
 
 [PutParameterInput](https://docs.aws.amazon.com/sdk-for-go/api/service/ssm/#PutParameterInput)
 
@@ -255,7 +237,7 @@ POST `/v1/ecs/{account}/params/{prefix}`
 }
 ```
 
-#### Response
+##### Response
 
 ```json
 {
@@ -271,13 +253,13 @@ POST `/v1/ecs/{account}/params/{prefix}`
 | **404 Not Found**             | account wasn't found                  |
 | **500 Internal Server Error** | a server error occurred               |
 
-### List parameters
+#### List parameters
 
 Listing parameters is limited to the parameters that belong to the *org*. A `prefix` is also required.
 
 GET `/v1/ecs/{account}/params/{prefix}`
 
-#### Response
+##### Response
 
 ```json
 [
@@ -294,13 +276,13 @@ GET `/v1/ecs/{account}/params/{prefix}`
 | **404 Not Found**             | account or prefix wasn't found        |
 | **500 Internal Server Error** | a server error occurred               |
 
-### Show a parameter
+#### Show a parameter
 
 Pass the parameter `prefix` and `param` to get the metadata about a secret.  The `org` will automatically be prepended.
 
 GET `/v1/ecs/{account}/params/{prefix}/{param}`
 
-#### Response
+##### Response
 
 ```json
 {
@@ -335,11 +317,11 @@ GET `/v1/ecs/{account}/params/{prefix}/{param}`
 | **404 Not Found**             | account, param or prefix wasn't found |
 | **500 Internal Server Error** | a server error occurred               |
 
-### Delete a parameter
+#### Delete a parameter
 
 DELETE `/v1/ecs/{account}/params/{prefix}/{param}`
 
-#### Response
+##### Response
 
 ```json
 {"OK"}
@@ -352,11 +334,11 @@ DELETE `/v1/ecs/{account}/params/{prefix}/{param}`
 | **404 Not Found**             | account, param or prefix wasn't found |
 | **500 Internal Server Error** | a server error occurred               |
 
-### Delete all parameters in a prefix
+#### Delete all parameters in a prefix
 
 DELETE `/v1/ecs/{account}/params/{prefix}`
 
-#### Response
+##### Response
 
 ```json
 {
@@ -372,13 +354,13 @@ DELETE `/v1/ecs/{account}/params/{prefix}`
 | **404 Not Found**             | account or prefix wasn't found        |
 | **500 Internal Server Error** | a server error occurred               |
 
-### Update a parameter
+#### Update a parameter
 
 Update the tags and/or value of a parameter.  Pass the `prefix` and the `param`.
 
 PUT `/v1/ecs/{account}/params/{prefix}/{param}`
 
-#### Request
+##### Request
 
 ```json
 {
@@ -390,7 +372,7 @@ PUT `/v1/ecs/{account}/params/{prefix}/{param}`
 }
 ```
 
-#### Response
+##### Response
 
 ```json
 {"OK"}
@@ -403,15 +385,15 @@ PUT `/v1/ecs/{account}/params/{prefix}/{param}`
 | **404 Not Found**             | account, param or prefix wasn't found |
 | **500 Internal Server Error** | a server error occurred               |
 
-## Secrets
+### Secrets
 
 `Secrets` store binary or string data in AWS secrets manager. By default, secrets are encrypted (in AWS) by the `defaultKmsKeyId` given for each `account`.
 
-### Create a secret
+#### Create a secret
 
 POST `/v1/ecs/{account}/secrets`
 
-#### Request
+##### Request
 
 ```json
 {
@@ -420,7 +402,7 @@ POST `/v1/ecs/{account}/secrets`
 }
 ```
 
-#### Response
+##### Response
 
 ```json
 {
@@ -436,14 +418,14 @@ POST `/v1/ecs/{account}/secrets`
 | **400 Bad Request**           | badly formed request            |
 | **500 Internal Server Error** | a server error occurred         |
 
-### List secrets
+#### List secrets
 
 Listing secrets is limited to the secrets that belong to the *org*. Optionally pass `key=value` pairs
 to filter on secret tags.
 
 GET `/v1/ecs/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
-#### Response
+##### Response
 
 ```json
 [
@@ -458,13 +440,13 @@ GET `/v1/ecs/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 | **400 Bad Request**           | badly formed request            |
 | **500 Internal Server Error** | a server error occurred         |
 
-### Show a secret
+#### Show a secret
 
 Pass the secret id to get the metadata about a secret.
 
 GET `/v1/ecs/{account}/secret/{secret}`
 
-#### Response
+##### Response
 
 ```json
 {
@@ -500,14 +482,14 @@ GET `/v1/ecs/{account}/secret/{secret}`
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
-### Delete a secret
+#### Delete a secret
 
 Pass the secret id and an options `window` parameter (in days).  A parameter of `0` will cause the secret
 to be deleted immediately.  Otherwise the grace period must be between `7` and `30`.
 
 DELETE `/v1/ecs/{account}/secret/{secret}[?window=[0|7-30]]`
 
-#### Response
+##### Response
 
 ```json
 {
@@ -524,14 +506,14 @@ DELETE `/v1/ecs/{account}/secret/{secret}[?window=[0|7-30]]`
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
-### Update a secret
+#### Update a secret
 
 Pass the secret id, the new secret string value and/or the list of tags to update. Currently,
 updating binary secrets is not supported, nor is setting the secret version.
 
 PUT `/v1/ecs/{account}/secrets/{secret}`
 
-#### Request
+##### Request
 
 ```json
 {
@@ -545,7 +527,7 @@ PUT `/v1/ecs/{account}/secrets/{secret}`
 }
 ```
 
-#### Response
+##### Response
 
 When only updating tags, you will get an empty response on success. When updating a secret:
 
@@ -563,8 +545,6 @@ When only updating tags, you will get an empty response on success. When updatin
 | **400 Bad Request**           | badly formed request            |
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
-
-
 
 ## Development
 

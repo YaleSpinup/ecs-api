@@ -21,7 +21,6 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceShowHandler).Methods(http.MethodGet)
-
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", s.ServiceEventsHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")
 
