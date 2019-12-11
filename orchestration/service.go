@@ -42,9 +42,6 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	}
 	input.Service.Tags = newTags
 
-	if input.Service.LaunchType == nil {
-		input.Service.LaunchType = DefaultLaunchType
-	}
 	log.Debugf("processing service with input:\n%+v", input.Service)
 	output, err := client.CreateServiceWithContext(ctx, input.Service)
 	if err != nil {

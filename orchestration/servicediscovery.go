@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/servicediscovery"
@@ -108,9 +109,19 @@ func deleteServiceRegistryWithRetry(ctx context.Context, client *servicediscover
 			log.Debugf("attempting to remove service registry: %s", aws.StringValue(serviceArn))
 			err := deleteServiceRegistry(ctx, client, serviceArn)
 			if err != nil {
-				log.Warnf("failed removing service registry %s: %s", aws.StringValue(serviceArn), err)
-				time.Sleep(t)
-				continue
+				if awsErr, ok := err.(awserr.Error); ok {
+					switch aerr := awsErr.Code(); aerr {
+					case servicediscovery.ErrCodeResourceInUse,
+						servicediscovery.ErrCodeResourceLimitExceeded:
+						log.Warnf("unable to remove service registry %s: %s", aws.StringValue(serviceArn), err)
+						time.Sleep(t)
+						continue
+					default:
+						log.Errorf("failed removing service registry %s: %s", aws.StringValue(serviceArn), err)
+						srChan <- "failure"
+						return
+					}
+				}
 			}
 
 			srChan <- "success"
