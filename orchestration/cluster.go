@@ -54,6 +54,7 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 			}
 		}
 
+		// set the default capacity providers if they are not set in the request
 		if input.Cluster.DefaultCapacityProviderStrategy == nil {
 			input.Cluster.DefaultCapacityProviderStrategy = []*ecs.CapacityProviderStrategyItem{
 				&ecs.CapacityProviderStrategyItem{
