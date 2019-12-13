@@ -159,8 +159,10 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 					select {
 					case <-srCtx.Done():
 						log.Errorf("timeout waiting for successful service registry %s deletion", aws.StringValue(r.RegistryArn))
-					case <-srChan:
-						log.Infof("successfully deleted service registry %s", aws.StringValue(r.RegistryArn))
+					case out := <-srChan:
+						if out == "success" {
+							log.Infof("successfully deleted service registry %s", aws.StringValue(r.RegistryArn))
+						}
 					}
 				}
 			}

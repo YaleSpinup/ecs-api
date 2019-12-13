@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
@@ -45,6 +46,29 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 		}
 		input.Cluster.Tags = newTags
 
+		// set the default capacity providers if they are not set in the request
+		if input.Cluster.CapacityProviders == nil {
+			input.Cluster.CapacityProviders = []*string{
+				aws.String("FARGATE"),
+				aws.String("FARGATE_SPOT"),
+			}
+		}
+
+		// set the default capacity providers if they are not set in the request
+		if input.Cluster.DefaultCapacityProviderStrategy == nil {
+			input.Cluster.DefaultCapacityProviderStrategy = []*ecs.CapacityProviderStrategyItem{
+				&ecs.CapacityProviderStrategyItem{
+					Base:             aws.Int64(1),
+					CapacityProvider: aws.String("FARGATE"),
+					Weight:           aws.Int64(0),
+				},
+				&ecs.CapacityProviderStrategyItem{
+					CapacityProvider: aws.String("FARGATE_SPOT"),
+					Weight:           aws.Int64(1),
+				},
+			}
+		}
+
 		cluster, err := createCluster(ctx, client, input.Cluster)
 		if err != nil {
 			return nil, err
@@ -58,6 +82,8 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 
 // createCluster creates a cluster with context and name
 func createCluster(ctx context.Context, client ecsiface.ECSAPI, cluster *ecs.CreateClusterInput) (*ecs.Cluster, error) {
+	log.Debugf("creating cluster with input %+v", cluster)
+
 	output, err := client.CreateClusterWithContext(ctx, cluster)
 	if err != nil {
 		return nil, err
@@ -93,10 +119,8 @@ func getCluster(ctx context.Context, client ecsiface.ECSAPI, name *string) (*ecs
 func deleteCluster(ctx context.Context, client ecsiface.ECSAPI, name *string) error {
 	_, err := client.DeleteClusterWithContext(ctx, &ecs.DeleteClusterInput{Cluster: name})
 	if err != nil {
-		log.Errorf("error deleting cluster %s: %s", aws.StringValue(name), err)
 		return err
 	}
-	log.Infof("successfully deleted cluster %s", aws.StringValue(name))
 	return nil
 }
 
@@ -129,9 +153,23 @@ func deleteClusterWithRetry(ctx context.Context, client ecsiface.ECSAPI, arn *st
 				log.Infof("found cluster %s with registered instance count of 0, attempting to delete", aws.StringValue(cluster.ClusterName))
 				err := deleteCluster(ctx, client, arn)
 				if err != nil {
-					log.Errorf("error removing cluster %s: %s", aws.StringValue(arn), err)
-					time.Sleep(t)
-					continue
+					if awsErr, ok := err.(awserr.Error); ok {
+						switch aerr := awsErr.Code(); aerr {
+						case ecs.ErrCodeClusterContainsContainerInstancesException,
+							ecs.ErrCodeClusterContainsServicesException,
+							ecs.ErrCodeClusterContainsTasksException,
+							ecs.ErrCodeLimitExceededException,
+							ecs.ErrCodeResourceInUseException,
+							ecs.ErrCodeServerException:
+							log.Warnf("unable to remove cluster %s: %s", aws.StringValue(arn), err)
+							time.Sleep(t)
+							continue
+						default:
+							log.Errorf("failed removing cluster %s: %s", aws.StringValue(arn), err)
+							cluChan <- "failure"
+							return
+						}
+					}
 				}
 			}
 
