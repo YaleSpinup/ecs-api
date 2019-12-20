@@ -5,9 +5,17 @@
       "region": "us-east-1",
       "akid": "{{ .spinup_akid }}",
       "secret": "{{ .spinup_secret }}",
-      "defaultSgs": ["{{ .default_sg }}"],
-      "defaultSubnets": ["{{ .default_subnet }}"],
-      "defaultKmsKeyId": "{{ .default_kms_key_id }}"
+      "defaultSgs": ["{{ .spinup_default_sg }}"],
+      "defaultSubnets": ["{{ .spinup_default_subnet }}"],
+      "defaultKmsKeyId": "{{ .spinup_default_kms_key_id }}"
+    },
+    "spinupsec": {
+      "region": "us-east-1",
+      "akid": "{{ .spinupsec_akid }}",
+      "secret": "{{ .spinupsec_secret }}",
+      "defaultSgs": ["{{ .spinupsec_default_sg }}"],
+      "defaultSubnets": ["{{ .spinupsec_default_subnet }}"],
+      "defaultKmsKeyId": "{{ .spinupsec_default_kms_key_id }}"
     }
   },
   "token": "{{ .api_token }}",
