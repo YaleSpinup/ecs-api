@@ -39,7 +39,7 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sgs := []*string{}
-	for _, sg := range ecsService.DefaultSgs {
+	for _, sg := range orchestrator.ECS.DefaultSgs {
 		sgs = append(sgs, aws.String(sg))
 	}
 
@@ -48,7 +48,7 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sus := []*string{}
-	for _, su := range ecsService.DefaultSubnets {
+	for _, su := range orchestrator.ECS.DefaultSubnets {
 		sus = append(sus, aws.String(su))
 	}
 
