@@ -5,6 +5,7 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -40,6 +41,21 @@ type ServiceOrchestrationOutput struct {
 	Service *ecs.Service
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#Service
 	ServiceDiscoveryService *servicediscovery.Service
+}
+
+// ServiceOrchestrationUpdateInput is in the input for service orchestration updates.  The following are supported:
+//   service: desired count, deployment configuration, network configuration and task definition can be updatd
+//	 tags: will be applied to all resources
+type ServiceOrchestrationUpdateInput struct {
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#UpdateServiceInput
+	// Service *ecs.UpdateServiceInput
+	Tags               []*ecs.Tag
+	ForceNewDeployment bool
+}
+
+// ServiceOrchestrationUpdateOutput is the output for service orchestration updates
+type ServiceOrchestrationUpdateOutput struct {
+	Service *ecs.Service
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
@@ -170,4 +186,73 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 	}
 
 	return &ServiceOrchestrationOutput{Service: service}, nil
+}
+
+// UpdateService updates a service and related services
+func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service string, input *ServiceOrchestrationUpdateInput) (*ServiceOrchestrationUpdateOutput, error) {
+	if input.Tags == nil && !input.ForceNewDeployment {
+		return nil, errors.New("expected update")
+	}
+
+	output := &ServiceOrchestrationUpdateOutput{}
+	svc, err := getService(ctx, o.ECS.Service, aws.String(cluster), aws.String(service))
+	if err != nil {
+		return nil, err
+	}
+	output.Service = svc
+
+	// if we have tags to update
+	if input.Tags != nil {
+		newTags := []*ecs.Tag{
+			&ecs.Tag{
+				Key:   aws.String("spinup:org"),
+				Value: aws.String(o.Org),
+			},
+		}
+
+		for _, t := range input.Tags {
+			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+				newTags = append(newTags, t)
+			}
+
+			if aws.StringValue(t.Key) == "spinup:org" || aws.StringValue(t.Key) == "yale:org" {
+				if aws.StringValue(t.Value) != o.Org {
+					msg := fmt.Sprintf("%s/%s is not a part of our org (%s)", cluster, service, o.Org)
+					return output, errors.New(msg)
+				}
+			}
+		}
+		input.Tags = newTags
+
+		// tag service
+		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
+			ResourceArn: svc.ServiceArn,
+			Tags:        input.Tags,
+		}); err != nil {
+			return output, err
+		}
+
+		// tag cluster
+		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
+			ResourceArn: svc.ClusterArn,
+			Tags:        input.Tags,
+		}); err != nil {
+			return output, err
+		}
+	}
+
+	// if we are forcing a new deployment
+	if input.ForceNewDeployment {
+		out, err := o.ECS.Service.UpdateServiceWithContext(ctx, &ecs.UpdateServiceInput{
+			ForceNewDeployment: aws.Bool(true),
+			Service:            svc.ServiceName,
+			Cluster:            svc.ClusterArn,
+		})
+		if err != nil {
+			return output, err
+		}
+		output.Service = out.Service
+	}
+
+	return output, nil
 }

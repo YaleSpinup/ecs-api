@@ -32,43 +32,11 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	account := vars["account"]
 
-	ecsService, ok := s.ecsServices[account]
-	if !ok {
-		msg := fmt.Sprintf("ecs service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
 		return
 	}
-
-	iamService, ok := s.iamServices[account]
-	if !ok {
-		msg := fmt.Sprintf("iam service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
-	sdService, ok := s.sdServices[account]
-	if !ok {
-		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
-	smService, ok := s.smServices[account]
-	if !ok {
-		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
-	orchestrator := orchestration.Orchestrator{
-		ECS:              ecsService,
-		IAM:              iamService,
-		ServiceDiscovery: sdService,
-		SecretsManager:   smService,
-		Token:            uuid.NewV4().String(),
-	}
-
-	orchestration.Org = s.org
 
 	sgs := []*string{}
 	for _, sg := range ecsService.DefaultSgs {
@@ -129,27 +97,6 @@ func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	cluster := vars["cluster"]
 	service := vars["service"]
 
-	ecsService, ok := s.ecsServices[account]
-	if !ok {
-		msg := fmt.Sprintf("ecs service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
-	sdService, ok := s.sdServices[account]
-	if !ok {
-		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
-	smService, ok := s.smServices[account]
-	if !ok {
-		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-		return
-	}
-
 	if cluster == "" {
 		handleError(w, apierror.New(apierror.ErrNotFound, "cluster cannot be empty", nil))
 		return
@@ -167,11 +114,10 @@ func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		recursive = b
 	}
 
-	orchestrator := orchestration.Orchestrator{
-		ECS:              ecsService,
-		ServiceDiscovery: sdService,
-		SecretsManager:   smService,
-		Token:            uuid.NewV4().String(),
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
+		return
 	}
 
 	output, err := orchestrator.DeleteService(r.Context(), &orchestration.ServiceDeleteInput{
@@ -203,15 +149,45 @@ func (s *server) ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	cluster := vars["cluster"]
+	service := vars["service"]
 
-	_, ok := s.ecsServices[account]
-	if !ok {
-		msg := fmt.Sprintf("ecs service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+	body, _ := ioutil.ReadAll(r.Body)
+	log.Debugf("update service (%s/%s) orchestration request body: %s", cluster, service, body)
+
+	var req orchestration.ServiceOrchestrationUpdateInput
+	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
+		log.Error("cannot Decode body into update service input")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+	log.Debugf("decoded request into service (%s/%s) orchestration request:\n%+v", cluster, service, req)
+
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
 		return
 	}
 
-	w.WriteHeader(http.StatusNotImplemented)
+	output, err := orchestrator.UpdateService(r.Context(), cluster, service, &req)
+	if err != nil {
+		log.Errorf("error in service update orchestration: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
 }
 
 // ServiceListHandler gets a list of services in a cluster
@@ -361,6 +337,43 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
+}
+
+func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, error) {
+	log.Debugf("creating new orchestrator for account %s", account)
+
+	ecsService, ok := s.ecsServices[account]
+	if !ok {
+		msg := fmt.Sprintf("ecs service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
+	iamService, ok := s.iamServices[account]
+	if !ok {
+		msg := fmt.Sprintf("iam service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
+	sdService, ok := s.sdServices[account]
+	if !ok {
+		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
+	smService, ok := s.smServices[account]
+	if !ok {
+		msg := fmt.Sprintf("secretsmanager service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
+	return &orchestration.Orchestrator{
+		ECS:              ecsService,
+		IAM:              iamService,
+		SecretsManager:   smService,
+		ServiceDiscovery: sdService,
+		Token:            uuid.NewV4().String(),
+		Org:              s.org,
+	}, nil
 }
 
 // tasksList collects all of the task ids (with the disired state of both running and stopped) for a service

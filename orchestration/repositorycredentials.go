@@ -31,7 +31,7 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 			newTags := []*secretsmanager.Tag{
 				&secretsmanager.Tag{
 					Key:   aws.String("spinup:org"),
-					Value: aws.String(Org),
+					Value: aws.String(o.Org),
 				},
 			}
 
