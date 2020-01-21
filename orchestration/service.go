@@ -31,7 +31,7 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	newTags := []*ecs.Tag{
 		&ecs.Tag{
 			Key:   aws.String("spinup:org"),
-			Value: aws.String(Org),
+			Value: aws.String(o.Org),
 		},
 	}
 

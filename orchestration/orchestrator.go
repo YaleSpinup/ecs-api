@@ -29,8 +29,6 @@ var (
 	DefaultSubnets = []*string{}
 	// DefaultSecurityGroups sets a list of default sgs to attach to ENIs
 	DefaultSecurityGroups = []*string{}
-	// Org is the organization where this orchestration runs
-	Org = ""
 )
 
 // Orchestrator holds the service discovery client, iam client, ecs client, secretsmanager client, input, and output
@@ -45,4 +43,6 @@ type Orchestrator struct {
 	ServiceDiscovery servicediscovery.ServiceDiscovery
 	// Token is a uniqueness token for calls to AWS
 	Token string
+	// Org is the organization where this orchestration runs
+	Org string
 }

@@ -29,7 +29,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		newTags := []*ecs.Tag{
 			&ecs.Tag{
 				Key:   aws.String("spinup:org"),
-				Value: aws.String(Org),
+				Value: aws.String(o.Org),
 			},
 		}
 
@@ -43,7 +43,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		log.Infof("creating task definition %+v", input.TaskDefinition)
 
 		if input.TaskDefinition.ExecutionRoleArn == nil {
-			path := fmt.Sprintf("%s/%s", Org, *input.Cluster.ClusterName)
+			path := fmt.Sprintf("%s/%s", o.Org, *input.Cluster.ClusterName)
 			roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
 			if err != nil {
 				return nil, err

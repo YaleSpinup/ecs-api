@@ -15,7 +15,7 @@ HEAD /v1/ecs/images?image={image}
 POST /v1/ecs/{account}/services
 GET /v1/ecs/{account}/clusters/{cluster}/services[?all=true]
 PUT /v1/ecs/{account}/clusters/{cluster}/services
-DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}
+DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}[?recursive=true]
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/events
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
@@ -184,6 +184,61 @@ Example request body of new service with existing resources:
     }
 }
 ```
+
+### Orchestrate a service update
+
+Service update orchestration currently supports updating tags and/or forcing a redeployment without changing the service.
+
+PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
+
+##### Request
+
+```json
+{
+    "ForceNewDeployment": true,
+    "Tags": [
+        {"Key": "MyKey", "Value": "MyValue"},
+        {"Key": "Application", "Value": "someprefix"},
+    ]
+}
+```
+
+##### Response
+
+The response is the service body.
+
+```json
+TODO
+```
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 OK**                    | okay                                     |
+| **400 Bad Request**           | badly formed request                     |
+| **404 Not Found**             | account, cluster or service wasn't found |
+| **500 Internal Server Error** | a server error occurred                  |
+
+
+### Orchestrate a service delete
+
+Service delete orchestration supports deleting a service or recursively deleting a service and its dependencies.
+
+DELETE `/v1/ecs/{account}/clusters/{cluster}/services/{service}[?recursive=true]`
+
+##### Response
+
+The response is the service body.
+
+```json
+TODO
+```
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 OK**                    | okay                                     |
+| **400 Bad Request**           | badly formed request                     |
+| **404 Not Found**             | account, cluster or service wasn't found |
+| **500 Internal Server Error** | a server error occurred                  |
 
 ## Adhoc Requests
 
