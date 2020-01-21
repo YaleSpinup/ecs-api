@@ -44,7 +44,7 @@ type ServiceOrchestrationOutput struct {
 }
 
 // ServiceOrchestrationUpdateInput is in the input for service orchestration updates.  The following are supported:
-//   service: desired count, deployment configuration, network configuration and task definition can be updatd
+//   service: desired count, deployment configuration, network configuration and task definition can be updated
 //	 tags: will be applied to all resources
 type ServiceOrchestrationUpdateInput struct {
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#UpdateServiceInput
