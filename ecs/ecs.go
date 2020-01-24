@@ -6,12 +6,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	log "github.com/sirupsen/logrus"
 )
 
 // ECS is a wrapper around the aws ECS service with some default config info
 type ECS struct {
-	Service        *ecs.ECS
+	Service        ecsiface.ECSAPI
 	DefaultSgs     []string
 	DefaultSubnets []string
 }

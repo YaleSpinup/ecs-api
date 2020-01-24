@@ -109,22 +109,25 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 // DeleteService takes a service orchestrator, service name and a cluster to delete and removes
 // the service and the service registry
 func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteInput) (*ServiceOrchestrationOutput, error) {
-	service, err := getService(ctx, o.ECS.Service, input.Cluster, input.Service)
+	service, err := o.ECS.GetService(ctx, aws.StringValue(input.Cluster), aws.StringValue(input.Service))
 	if err != nil {
 		return nil, err
 	}
 
 	log.Debugf("processing delete of service %+v", service)
 
-	taskDefinition, err := getTaskDefinition(ctx, o.ECS.Service, service.TaskDefinition)
+	taskDefinition, err := o.ECS.GetTaskDefinition(ctx, service.TaskDefinition)
 	if err != nil {
 		return nil, err
 	}
 
 	log.Infof("removing service '%s'", aws.StringValue(service.ServiceArn))
 
-	err = deleteService(ctx, o.ECS.Service, input)
-	if err != nil {
+	if err = o.ECS.DeleteService(ctx, &ecs.DeleteServiceInput{
+		Cluster: input.Cluster,
+		Service: input.Service,
+		Force:   aws.Bool(true),
+	}); err != nil {
 		log.Errorf("error deleting service %s", err)
 		return nil, err
 	}
@@ -154,7 +157,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 			cluCtx, cluCancel := context.WithTimeout(cleanupCtx, 120*time.Second)
 			defer cluCancel()
 
-			cluChan := deleteClusterWithRetry(cluCtx, o.ECS.Service, service.ClusterArn)
+			cluChan := o.ECS.DeleteClusterWithRetry(cluCtx, service.ClusterArn)
 
 			// wait for a done context
 			select {
@@ -169,7 +172,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 					srCtx, srCancel := context.WithTimeout(cleanupCtx, 120*time.Second)
 					defer srCancel()
 
-					srChan := deleteServiceRegistryWithRetry(srCtx, o.ServiceDiscovery.Service, r.RegistryArn)
+					srChan := o.ServiceDiscovery.DeleteServiceRegistryWithRetry(srCtx, r.RegistryArn)
 
 					// wait for a done context
 					select {
@@ -195,7 +198,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	}
 
 	output := &ServiceOrchestrationUpdateOutput{}
-	svc, err := getService(ctx, o.ECS.Service, aws.String(cluster), aws.String(service))
+	svc, err := o.ECS.GetService(ctx, cluster, service)
 	if err != nil {
 		return nil, err
 	}
