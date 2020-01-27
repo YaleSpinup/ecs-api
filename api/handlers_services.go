@@ -2,23 +2,19 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
 	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 
 	"github.com/gorilla/mux"
 
@@ -262,7 +258,7 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tasks, err := tasksList(r.Context(), ecsService.Service, cluster, service)
+		tasks, err := ecsService.ListTasks(r.Context(), cluster, service, []string{"STOPPED", "RUNNING"})
 		if err != nil {
 			handleError(w, err)
 			return
@@ -337,42 +333,6 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 		Token:            uuid.NewV4().String(),
 		Org:              s.org,
 	}, nil
-}
-
-// tasksList collects all of the task ids (with the disired state of both running and stopped) for a service
-func tasksList(ctx context.Context, es ecsiface.ECSAPI, cluster, service string) ([]*string, error) {
-	tasks := []*string{}
-	runningTaskOutput, err := es.ListTasksWithContext(ctx, &ecs.ListTasksInput{
-		Cluster:     aws.String(cluster),
-		ServiceName: aws.String(service),
-		LaunchType:  aws.String("FARGATE"),
-	})
-	if err != nil {
-		return tasks, err
-	}
-
-	stoppedTaskOutput, err := es.ListTasksWithContext(ctx, &ecs.ListTasksInput{
-		Cluster:       aws.String(cluster),
-		ServiceName:   aws.String(service),
-		LaunchType:    aws.String("FARGATE"),
-		DesiredStatus: aws.String("STOPPED"),
-	})
-	if err != nil {
-		return tasks, err
-	}
-
-	for _, t := range append(runningTaskOutput.TaskArns, stoppedTaskOutput.TaskArns...) {
-		taskArn, err := arn.Parse(aws.StringValue(t))
-		if err != nil {
-			return tasks, err
-		}
-
-		// task resource is the form task/xxxxxxxxxxxxx
-		r := strings.SplitN(taskArn.Resource, "/", 2)
-		tasks = append(tasks, aws.String(r[1]))
-	}
-
-	return tasks, nil
 }
 
 // ServiceEventsHandler gets the events for a service in a cluster
