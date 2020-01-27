@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -12,6 +13,15 @@ import (
 
 // ListTasks collects all of the task ids for a service in a cluster with the given status(s)ß
 func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []string) ([]*string, error) {
+	if cluster == "" || service == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	// default to "RUNNING" status
+	if status == nil {
+		status = []string{"RUNNING"}
+	}
+
 	tasks := []*string{}
 	for _, s := range status {
 		output, err := e.Service.ListTasksWithContext(ctx, &ecs.ListTasksInput{

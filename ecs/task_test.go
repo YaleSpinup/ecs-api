@@ -27,6 +27,36 @@ type taskListTest struct {
 }
 
 var taskListTests = []*taskListTest{
+	// test empty cluster and service
+	&taskListTest{
+		err: apierror.New(apierror.ErrBadRequest, "invalid input", nil),
+	},
+	// test empty service
+	&taskListTest{
+		cluster: "clu0",
+		err:     apierror.New(apierror.ErrBadRequest, "invalid input", nil),
+	},
+	// test empty cluster
+	&taskListTest{
+		service: "svc0",
+		err:     apierror.New(apierror.ErrBadRequest, "invalid input", nil),
+	},
+	// test empty status list
+	&taskListTest{
+		cluster: "clu0",
+		service: "svc0",
+		expected: []*string{
+			aws.String("task2:2"),
+		},
+		tasks: map[string]string{
+			"arn:aws:ecs:us-east-1:1234567890:task/task1:1": "STOPPED",
+			"arn:aws:ecs:us-east-1:1234567890:task/task2:2": "RUNNING",
+			"arn:aws:ecs:us-east-1:1234567890:task/task3:3": "STOPPING",
+			"arn:aws:ecs:us-east-1:1234567890:task/task4:4": "PENDING",
+			"arn:aws:ecs:us-east-1:1234567890:task/task5:5": "FAILED",
+		},
+	},
+	// test single RUNNING status
 	&taskListTest{
 		cluster: "clu1",
 		service: "svc1",
@@ -42,6 +72,7 @@ var taskListTests = []*taskListTest{
 			"arn:aws:ecs:us-east-1:1234567890:task/task5:5": "FAILED",
 		},
 	},
+	// test single STOPPED status
 	&taskListTest{
 		cluster: "clu1",
 		service: "svc2",
@@ -57,6 +88,7 @@ var taskListTests = []*taskListTest{
 			"arn:aws:ecs:us-east-1:1234567890:task/task5:5": "FAILED",
 		},
 	},
+	// test multiple matching status'
 	&taskListTest{
 		cluster: "clu2",
 		service: "svc1",
@@ -74,6 +106,7 @@ var taskListTests = []*taskListTest{
 			"arn:aws:ecs:us-east-1:1234567890:task/task5:5": "FAILED",
 		},
 	},
+	// test no matching statuses
 	&taskListTest{
 		cluster:  "clu2",
 		service:  "svc2",
@@ -85,6 +118,7 @@ var taskListTests = []*taskListTest{
 			"arn:aws:ecs:us-east-1:1234567890:task/task3:3": "RUNNING",
 		},
 	},
+	// test Bad Request from AWS
 	&taskListTest{
 		cluster: "clu2",
 		service: "svc2",

@@ -140,6 +140,11 @@ func TestCreateCluster(t *testing.T) {
 		t.Fatal("expected error from create cluster, got", err, cluster)
 	}
 	t.Log("got error response for bad cluster", err)
+
+	_, err = client.CreateCluster(context.TODO(), &ecs.CreateClusterInput{})
+	if err == nil {
+		t.Fatal("expected error for nil input")
+	}
 }
 
 func TestDeleteCluster(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -14,11 +15,15 @@ import (
 
 // CreateCluster creates a cluster with context and name
 func (e *ECS) CreateCluster(ctx context.Context, cluster *ecs.CreateClusterInput) (*ecs.Cluster, error) {
+	if cluster == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
 	log.Debugf("creating cluster with input %+v", cluster)
 
 	output, err := e.Service.CreateClusterWithContext(ctx, cluster)
 	if err != nil {
-		return nil, err
+		return nil, ErrCode("failed to create cluster "+aws.StringValue(cluster.ClusterName), err)
 	}
 	return output.Cluster, err
 }
