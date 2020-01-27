@@ -38,8 +38,7 @@ func (c *CloudWatchLogs) GetLogEvents(ctx context.Context, input *cloudwatchlogs
 
 	output, err := c.Service.GetLogEventsWithContext(ctx, input)
 	if err != nil {
-		// TODO: return ErrCode("failed to get log events", err)
-		return nil, err
+		return nil, ErrCode("failed to get log events", err)
 	}
 
 	return output, nil
