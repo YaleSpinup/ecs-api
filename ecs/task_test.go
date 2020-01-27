@@ -128,9 +128,23 @@ var taskListTests = []*taskListTest{
 	},
 }
 
+var testTasks = []*ecs.Task{
+	&ecs.Task{
+		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
+		Cpu:        aws.String("2048"),
+		Memory:     aws.String("4096"),
+		TaskArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task/task1:1"),
+	},
+	&ecs.Task{
+		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
+		Cpu:        aws.String("1024"),
+		Memory:     aws.String("4096"),
+		TaskArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task/task2:1"),
+	},
+}
+
 func (m *mockECSClient) ListTasksWithContext(ctx aws.Context, input *ecs.ListTasksInput, opts ...request.Option) (*ecs.ListTasksOutput, error) {
 	if m.err != nil {
-		m.t.Logf("returning error, %s", m.err)
 		return nil, m.err
 	}
 
@@ -152,13 +166,23 @@ func (m *mockECSClient) ListTasksWithContext(ctx aws.Context, input *ecs.ListTas
 	return &ecs.ListTasksOutput{TaskArns: output}, nil
 }
 
+func (m *mockECSClient) DescribeTasksWithContext(ctx aws.Context, input *ecs.DescribeTasksInput, opts ...request.Option) (*ecs.DescribeTasksOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return &ecs.DescribeTasksOutput{
+		Tasks: testTasks,
+	}, nil
+}
+
 func TestListTasks(t *testing.T) {
 	for _, test := range taskListTests {
 		client := ECS{Service: &mockECSClient{t: t, err: test.awsErr}}
-		output, err := client.ListTasks(context.TODO(), test.cluster, test.service, test.status)
+		out, err := client.ListTasks(context.TODO(), test.cluster, test.service, test.status)
 		if test.err == nil && err == nil {
-			if !reflect.DeepEqual(output, test.expected) {
-				t.Errorf("expected output %+v, got %+v", aws.StringValueSlice(test.expected), aws.StringValueSlice(output))
+			if !reflect.DeepEqual(out, test.expected) {
+				t.Errorf("expected output %+v, got %+v", aws.StringValueSlice(test.expected), aws.StringValueSlice(out))
 			}
 		} else if test.err != nil && err == nil {
 			t.Errorf("expected error %s, got nil", test.err)
@@ -171,5 +195,25 @@ func TestListTasks(t *testing.T) {
 				t.Errorf("expected error to be an apierror.Error, got %s", err)
 			}
 		}
+	}
+}
+
+func TestGetTasks(t *testing.T) {
+	client := ECS{Service: &mockECSClient{t: t}}
+
+	out, err := client.GetTasks(context.TODO(), &ecs.DescribeTasksInput{
+		Cluster: aws.String("clu0"),
+		Tasks: []*string{
+			aws.String("task1"),
+			aws.String("task2"),
+		},
+	})
+
+	if err != nil {
+		t.Errorf("expected nil error, got %s", err)
+	}
+
+	if !reflect.DeepEqual(out.Tasks, testTasks) {
+		t.Errorf("expected %+v, got %+v", testTasks, out)
 	}
 }

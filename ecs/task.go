@@ -52,3 +52,17 @@ func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []s
 
 	return tasks, nil
 }
+
+// GetTasks describes the given tasks in the give cluster
+func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	output, err := e.Service.DescribeTasksWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to describe tasks", err)
+	}
+
+	return output, nil
+}

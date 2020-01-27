@@ -10,7 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
 )
 
 // TaskShowHandler gets the details for a task in a cluster
@@ -29,24 +28,22 @@ func (s *server) TaskShowHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if task == "" {
-		w.WriteHeader(http.StatusBadRequest)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "task cannot be empty", nil))
 		return
 	}
 
-	output, err := ecsService.Service.DescribeTasksWithContext(r.Context(), &ecs.DescribeTasksInput{
+	output, err := ecsService.GetTasks(r.Context(), &ecs.DescribeTasksInput{
 		Cluster: aws.String(cluster),
 		Tasks:   aws.StringSlice([]string{task}),
 	})
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, err)
 		return
 	}
 
