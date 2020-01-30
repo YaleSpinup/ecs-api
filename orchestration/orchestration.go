@@ -47,15 +47,23 @@ type ServiceOrchestrationOutput struct {
 //   service: desired count, deployment configuration, network configuration and task definition can be updated
 //	 tags: will be applied to all resources
 type ServiceOrchestrationUpdateInput struct {
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#Cluster
+	ClusterName string
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RegisterTaskDefinitionInput
+	TaskDefinition *ecs.RegisterTaskDefinitionInput
+	// map of container definition names to private repository credentials
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/secretsmanager/#CreateSecretInput
+	Credentials map[string]*secretsmanager.CreateSecretInput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#UpdateServiceInput
-	// Service *ecs.UpdateServiceInput
+	Service            *ecs.UpdateServiceInput
 	Tags               []*ecs.Tag
 	ForceNewDeployment bool
 }
 
 // ServiceOrchestrationUpdateOutput is the output for service orchestration updates
 type ServiceOrchestrationUpdateOutput struct {
-	Service *ecs.Service
+	Service        *ecs.Service
+	TaskDefinition *ecs.TaskDefinition
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
@@ -193,16 +201,86 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 
 // UpdateService updates a service and related services
 func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service string, input *ServiceOrchestrationUpdateInput) (*ServiceOrchestrationUpdateOutput, error) {
-	if input.Tags == nil && !input.ForceNewDeployment {
+	if input.Service == nil && input.TaskDefinition == nil && input.Tags == nil && !input.ForceNewDeployment {
 		return nil, errors.New("expected update")
 	}
 
 	output := &ServiceOrchestrationUpdateOutput{}
-	svc, err := o.ECS.GetService(ctx, cluster, service)
+	activeSvc, err := o.ECS.GetService(ctx, cluster, service)
 	if err != nil {
 		return nil, err
 	}
-	output.Service = svc
+	output.Service = activeSvc
+
+	if input.TaskDefinition != nil {
+		activeTdef, err := o.ECS.GetTaskDefinition(ctx, activeSvc.TaskDefinition)
+		if err != nil {
+			return nil, err
+		}
+
+		// for each container definition in the active task definition, if the active container deinition *has* repository
+		// credentials defined, check for an incoming container definition with the same name that doesn't already have the
+		// credential defined (ie. an override) and set the credentials parameter from the active container definition
+		for _, activeCdef := range activeTdef.ContainerDefinitions {
+			if activeCdef.RepositoryCredentials != nil {
+				for _, newCdef := range input.TaskDefinition.ContainerDefinitions {
+					if aws.StringValue(activeCdef.Name) == aws.StringValue(newCdef.Name) {
+						if newCdef.RepositoryCredentials == nil {
+							log.Debugf("setting repo credentials from active task def/container def: %+v", activeCdef.RepositoryCredentials)
+							newCdef.SetRepositoryCredentials(activeCdef.RepositoryCredentials)
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// set cluster
+		input.ClusterName = cluster
+
+		td, err := o.processTaskDefinitionUpdate(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("orchestrated create of task definition: %+v", td)
+
+		if input.Service == nil {
+			input.Service = &ecs.UpdateServiceInput{}
+		}
+
+		// apply new task definition ARN to the service update
+		input.Service.TaskDefinition = td.TaskDefinitionArn
+		output.TaskDefinition = td
+	}
+
+	if input.Service != nil {
+		// set cluster, service and don't allow overriding the network configuration
+		u := input.Service
+		u.Cluster = activeSvc.ClusterArn
+		u.Service = activeSvc.ServiceArn
+		u.NetworkConfiguration = nil
+
+		out, err := o.ECS.UpdateService(ctx, u)
+		if err != nil {
+			return output, err
+		}
+
+		// override active service with new service
+		activeSvc = out.Service
+
+		output.Service = out.Service
+	} else if input.ForceNewDeployment {
+		out, err := o.ECS.UpdateService(ctx, &ecs.UpdateServiceInput{
+			ForceNewDeployment: aws.Bool(true),
+			Service:            activeSvc.ServiceName,
+			Cluster:            activeSvc.ClusterArn,
+		})
+		if err != nil {
+			return output, err
+		}
+		output.Service = out.Service
+	}
 
 	// if we have tags to update
 	if input.Tags != nil {
@@ -229,7 +307,15 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 		// tag service
 		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
-			ResourceArn: svc.ServiceArn,
+			ResourceArn: activeSvc.ServiceArn,
+			Tags:        input.Tags,
+		}); err != nil {
+			return output, err
+		}
+
+		// tag task definition
+		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
+			ResourceArn: activeSvc.TaskDefinition,
 			Tags:        input.Tags,
 		}); err != nil {
 			return output, err
@@ -237,24 +323,11 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 		// tag cluster
 		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
-			ResourceArn: svc.ClusterArn,
+			ResourceArn: activeSvc.ClusterArn,
 			Tags:        input.Tags,
 		}); err != nil {
 			return output, err
 		}
-	}
-
-	// if we are forcing a new deployment
-	if input.ForceNewDeployment {
-		out, err := o.ECS.Service.UpdateServiceWithContext(ctx, &ecs.UpdateServiceInput{
-			ForceNewDeployment: aws.Bool(true),
-			Service:            svc.ServiceName,
-			Cluster:            svc.ClusterArn,
-		})
-		if err != nil {
-			return output, err
-		}
-		output.Service = out.Service
 	}
 
 	return output, nil

@@ -75,3 +75,35 @@ func (e *ECS) ListServices(ctx context.Context, cluster string) ([]string, error
 
 	return output, nil
 }
+
+// CreateService creates an ECS Service
+func (e *ECS) CreateService(ctx context.Context, input *ecs.CreateServiceInput) (*ecs.CreateServiceOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Debugf("creating service with input:\n%+v", input)
+
+	output, err := e.Service.CreateServiceWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to create service", err)
+	}
+
+	return output, nil
+}
+
+// UpdateService updates an ECS service
+func (e *ECS) UpdateService(ctx context.Context, input *ecs.UpdateServiceInput) (*ecs.UpdateServiceOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Debugf("updating service with input:\n%+v", input)
+
+	output, err := e.Service.UpdateServiceWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to update service", err)
+	}
+
+	return output, nil
+}

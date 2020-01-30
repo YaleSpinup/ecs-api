@@ -69,3 +69,48 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 
 	return nil, errors.New("taskDefinition or service task definition name is required")
 }
+
+// processTaskDefinitionUpdate processes the task definition portion of the input
+func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput) (*ecs.TaskDefinition, error) {
+	if input.TaskDefinition == nil {
+		return nil, errors.New("taskDefinition or service task definition name is required")
+	}
+	newTags := []*ecs.Tag{
+		&ecs.Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String(o.Org),
+		},
+	}
+
+	for _, t := range input.TaskDefinition.Tags {
+		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+			newTags = append(newTags, t)
+		}
+	}
+	input.TaskDefinition.Tags = newTags
+
+	if input.TaskDefinition.ExecutionRoleArn == nil {
+		path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
+		roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+
+		log.Debugf("setting roleARN: %s", roleARN)
+		input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	}
+
+	if len(input.TaskDefinition.RequiresCompatibilities) == 0 {
+		log.Debugf("setting default compatabilities: %+v", DefaultCompatabilities)
+		input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
+	}
+
+	if input.TaskDefinition.NetworkMode == nil {
+		log.Debugf("setting default network mode: %s", aws.StringValue(DefaultNetworkMode))
+		input.TaskDefinition.NetworkMode = DefaultNetworkMode
+	}
+
+	log.Infof("creating task definition %+v", input.TaskDefinition)
+
+	return o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+}
