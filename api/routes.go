@@ -24,29 +24,8 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", s.ServiceEventsHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).Queries("task", "{task}", "container", "{container}")
 
-	// Clusters handlers
-	api.HandleFunc("/{account}/clusters", s.ClusterListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters", s.ClusterCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/clusters/{cluster}", s.ClusterShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}", s.ClusterDeleteHandler).Methods(http.MethodDelete)
-
 	// Tasks handlers
-	api.HandleFunc("/{account}/clusters/{cluster}/tasks", s.TaskListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/tasks", s.TaskCreateHandler).Methods(http.MethodPost)
 	api.HandleFunc("/{account}/clusters/{cluster}/tasks/{task}", s.TaskShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/clusters/{cluster}/tasks/{task}", s.TaskDeleteHandler).Methods(http.MethodDelete)
-
-	// Task definitions handlers
-	api.HandleFunc("/{account}/taskdefs", s.TaskDefListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/taskdefs", s.TaskDefCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/taskdefs/{taskdef}", s.TaskDefShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/taskdefs/{taskdef}", s.TaskDefDeleteHandler).Methods(http.MethodDelete)
-
-	// Service Discovery handlers
-	api.HandleFunc("/{account}/servicediscovery/services", s.ServiceDiscoveryServiceListHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/servicediscovery/services", s.ServiceDiscoveryServiceCreateHandler).Methods(http.MethodPost)
-	api.HandleFunc("/{account}/servicediscovery/services/{id}", s.ServiceDiscoveryServiceShowHandler).Methods(http.MethodGet)
-	api.HandleFunc("/{account}/servicediscovery/services/{id}", s.ServiceDiscoveryServiceDeleteHandler).Methods(http.MethodDelete)
 
 	// Secrets handlers
 	api.HandleFunc("/{account}/secrets", s.SecretListHandler).Methods(http.MethodGet)

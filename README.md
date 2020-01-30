@@ -20,28 +20,8 @@ GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/events
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
 
-// Clusters handlers
-GET /v1/ecs/{account}/clusters
-POST /v1/ecs/{account}/clusters
-GET /v1/ecs/{account}/clusters/{cluster}
-DELETE /v1/ecs/{account}/clusters/{cluster}
-
 // Tasks handlers
-GET /v1/ecs/{account}/clusters/{cluster}/tasks
-POST /v1/ecs/{account}/clusters/{cluster}/tasks
 GET /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
-DELETE /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
-
-// Task definitions handlers
-GET /v1/ecs/{account}/taskdefs
-POST /v1/ecs/{account}/taskdefs
-GET /v1/ecs/{account}/taskdefs/{taskdef}
-DELETE /v1/ecs/{account}/taskdefs/{taskdef}
-
-GET /v1/ecs/{account}/servicediscovery/services
-POST /v1/ecs/{account}/servicediscovery/services
-GET /v1/ecs/{account}/servicediscovery/services/{id}
-DELETE /v1/ecs/{account}/servicediscovery/services/{id}
 
 // Secrets handlers
 GET /v1/ecs/{account}/secrets
@@ -246,25 +226,17 @@ TODO
 
 Clusters provide groupings of containers.  With `FARGATE`, clusters are simply created with a name parameter.
 
-`TODO`
-
 ### Services
 
 `Services` are long lived/scalable tasks launched based on a task definition.  Services can be comprised of multiple `containers` (because multiple containers can be defined in a task definition!).  AWS will restart containers belonging to services when they exit or die.  `Services` can be scaled and can be associated with load balancers.  Tasks that make up a service can have IP addresses, but those addresses change when tasks are restarted.
-
-`TODO`
 
 ### Tasks
 
 `Tasks`, in contrast to `Services`, should be considered short lived.  They will not automatically be restarted or scaled by AWS and cannot be associated with a load balancer.  `Tasks`, as with `services`, can be made up of multiple containers.  Tasks can have IP addresses, but those addresses change when tasks are restarted.
 
-`TODO`
-
 ### Task Definitions
 
 `Task definitions` describe a set of containers used in a `service` or `task`.
-
-`TODO`
 
 ### SSM Parameters
 

@@ -1,4 +1,4 @@
-package orchestration
+package ecs
 
 import (
 	"context"
@@ -10,6 +10,34 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/ecs"
+)
+
+var (
+	goodContainerDefs = []*ecs.ContainerDefinition{
+		&ecs.ContainerDefinition{
+			Name:  aws.String("webserver"),
+			Image: aws.String("nginx:alpine"),
+		},
+		&ecs.ContainerDefinition{
+			Name:  aws.String("testDef1"),
+			Image: aws.String("secretImage1"),
+		},
+		&ecs.ContainerDefinition{
+			Name:  aws.String("testDef2"),
+			Image: aws.String("secretImage2"),
+		},
+	}
+
+	goodTd = &ecs.TaskDefinition{
+		Compatibilities:      aws.StringSlice([]string{"EC2", "FARGATE"}),
+		ContainerDefinitions: goodContainerDefs,
+		Cpu:                  aws.String("256"),
+		Family:               aws.String("goodtd"),
+		Memory:               aws.String("512"),
+		Revision:             aws.Int64(666),
+		Status:               aws.String("ACTIVE"),
+		TaskDefinitionArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task-definition/goodtd:666"),
+	}
 )
 
 func (m *mockECSClient) RegisterTaskDefinitionWithContext(ctx aws.Context, input *ecs.RegisterTaskDefinitionInput, opts ...request.Option) (*ecs.RegisterTaskDefinitionOutput, error) {
@@ -34,10 +62,10 @@ func (m *mockECSClient) DescribeTaskDefinitionWithContext(ctx aws.Context, input
 }
 
 func TestCreateTaskDefinition(t *testing.T) {
-	client := &mockECSClient{}
+	client := ECS{Service: &mockECSClient{t: t}}
 
 	// test a boring task definition
-	td, err := createTaskDefinition(context.TODO(), client, &ecs.RegisterTaskDefinitionInput{Family: aws.String("goodtd")})
+	td, err := client.CreateTaskDefinition(context.TODO(), &ecs.RegisterTaskDefinitionInput{Family: aws.String("goodtd")})
 	if err != nil {
 		t.Fatal("expected no error from create task definition, got:", err)
 	}
@@ -47,14 +75,14 @@ func TestCreateTaskDefinition(t *testing.T) {
 	}
 
 	// test an error task definition
-	td, err = createTaskDefinition(context.TODO(), client, &ecs.RegisterTaskDefinitionInput{})
+	td, err = client.CreateTaskDefinition(context.TODO(), &ecs.RegisterTaskDefinitionInput{})
 	if err == nil {
 		t.Fatal("expected error from create task definition, got", err, td)
 	}
 	t.Log("got expected error response for bad task definition", err)
 
 	// test a task definition with custom compatabilities
-	td, err = createTaskDefinition(context.TODO(), client, &ecs.RegisterTaskDefinitionInput{
+	td, err = client.CreateTaskDefinition(context.TODO(), &ecs.RegisterTaskDefinitionInput{
 		Family:                  aws.String("goodtd"),
 		RequiresCompatibilities: aws.StringSlice([]string{"FOOBAR"}),
 	})
@@ -68,8 +96,8 @@ func TestCreateTaskDefinition(t *testing.T) {
 }
 
 func TestDescribeTaskDefinition(t *testing.T) {
-	client := &mockECSClient{}
-	td, err := getTaskDefinition(context.TODO(), client, aws.String("goodtd"))
+	client := ECS{Service: &mockECSClient{t: t}}
+	td, err := client.GetTaskDefinition(context.TODO(), aws.String("goodtd"))
 	if err != nil {
 		t.Fatal("expected no error from describe task definition, got:", err)
 	}
@@ -79,7 +107,7 @@ func TestDescribeTaskDefinition(t *testing.T) {
 	}
 
 	// test an error task definition
-	td, err = getTaskDefinition(context.TODO(), client, aws.String("badtd"))
+	td, err = client.GetTaskDefinition(context.TODO(), aws.String("badtd"))
 	if err == nil {
 		t.Fatal("expected error from create task definition, got", err, td)
 	}

@@ -10,7 +10,29 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+)
+
+var (
+	goodContainerDefs = []*ecs.ContainerDefinition{
+		&ecs.ContainerDefinition{
+			Name:  aws.String("webserver"),
+			Image: aws.String("nginx:alpine"),
+		},
+		&ecs.ContainerDefinition{
+			Name:  aws.String("testDef1"),
+			Image: aws.String("secretImage1"),
+		},
+		&ecs.ContainerDefinition{
+			Name:  aws.String("testDef2"),
+			Image: aws.String("secretImage2"),
+		},
+	}
+
+	tdInput = &ecs.RegisterTaskDefinitionInput{
+		ContainerDefinitions: goodContainerDefs,
+	}
 )
 
 func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secretsmanager.CreateSecretInput, opts ...request.Option) (*secretsmanager.CreateSecretOutput, error) {

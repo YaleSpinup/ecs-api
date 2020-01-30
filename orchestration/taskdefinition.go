@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,11 +15,9 @@ import (
 // the service object, it is used.  Otherwise, if the task definition is defined as input, it will be created.  If neither
 // is true, an error is returned.
 func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, error) {
-	client := o.ECS.Service
-
 	if input.Service.TaskDefinition != nil {
 		log.Infof("using provided task definition %s", aws.StringValue(input.Service.TaskDefinition))
-		taskDefinition, err := getTaskDefinition(ctx, client, input.Service.TaskDefinition)
+		taskDefinition, err := o.ECS.GetTaskDefinition(ctx, input.Service.TaskDefinition)
 		if err != nil {
 			return nil, err
 		}
@@ -52,7 +49,15 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 			input.TaskDefinition.ExecutionRoleArn = &roleARN
 		}
 
-		taskDefinition, err := createTaskDefinition(ctx, client, input.TaskDefinition)
+		if len(input.TaskDefinition.RequiresCompatibilities) == 0 {
+			input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
+		}
+
+		if input.TaskDefinition.NetworkMode == nil {
+			input.TaskDefinition.NetworkMode = DefaultNetworkMode
+		}
+
+		taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
 		if err != nil {
 			return nil, err
 		}
@@ -63,35 +68,4 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 	}
 
 	return nil, errors.New("taskDefinition or service task definition name is required")
-}
-
-// createTaskDefinition creates a task definition with context and input
-func createTaskDefinition(ctx context.Context, client ecsiface.ECSAPI, input *ecs.RegisterTaskDefinitionInput) (*ecs.TaskDefinition, error) {
-	if len(input.RequiresCompatibilities) == 0 {
-		input.RequiresCompatibilities = DefaultCompatabilities
-	}
-
-	if input.NetworkMode == nil {
-		input.NetworkMode = DefaultNetworkMode
-	}
-
-	output, err := client.RegisterTaskDefinitionWithContext(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	return output.TaskDefinition, err
-}
-
-// getTaskDefinition gets a task definition with context by name
-func getTaskDefinition(ctx context.Context, client ecsiface.ECSAPI, name *string) (*ecs.TaskDefinition, error) {
-	output, err := client.DescribeTaskDefinitionWithContext(ctx, &ecs.DescribeTaskDefinitionInput{
-		TaskDefinition: name,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return output.TaskDefinition, err
 }

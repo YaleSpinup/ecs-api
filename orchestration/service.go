@@ -2,12 +2,10 @@ package orchestration
 
 import (
 	"context"
-	"errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -49,34 +47,4 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	}
 
 	return output.Service, nil
-}
-
-// getService describes an ECS service in a cluster by the service name
-func getService(ctx context.Context, client ecsiface.ECSAPI, cluster, service *string) (*ecs.Service, error) {
-	output, err := client.DescribeServicesWithContext(ctx, &ecs.DescribeServicesInput{
-		Cluster:  cluster,
-		Services: []*string{service},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if len(output.Services) != 1 {
-		return nil, errors.New("unexpected service length in describe services")
-	}
-
-	return output.Services[0], nil
-}
-
-// deleteService removes an ECS service in a cluster by the service name (forcefully)
-func deleteService(ctx context.Context, client ecsiface.ECSAPI, input *ServiceDeleteInput) error {
-	output, err := client.DeleteServiceWithContext(ctx, &ecs.DeleteServiceInput{
-		Cluster: input.Cluster,
-		Service: input.Service,
-		Force:   aws.Bool(true),
-	})
-
-	log.Debugf("output from delete service:\n%+v", output)
-	return err
 }

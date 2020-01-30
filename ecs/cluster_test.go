@@ -1,4 +1,4 @@
-package orchestration
+package ecs
 
 import (
 	"context"
@@ -11,6 +11,37 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/ecs"
+)
+
+var (
+	goodClu = &ecs.Cluster{
+		ActiveServicesCount:               aws.Int64(1),
+		ClusterArn:                        aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/goodclu"),
+		ClusterName:                       aws.String("goodclu"),
+		PendingTasksCount:                 aws.Int64(1),
+		RegisteredContainerInstancesCount: aws.Int64(1),
+		RunningTasksCount:                 aws.Int64(1),
+		Status:                            aws.String("ACTIVE"),
+	}
+
+	badClu = &ecs.Cluster{
+		ActiveServicesCount:               aws.Int64(1),
+		ClusterArn:                        aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/badclu"),
+		ClusterName:                       aws.String("badclu"),
+		PendingTasksCount:                 aws.Int64(1),
+		RegisteredContainerInstancesCount: aws.Int64(0),
+		RunningTasksCount:                 aws.Int64(0),
+		Status:                            aws.String("ACTIVE"),
+	}
+
+	retryableCluErrs = []awserr.Error{
+		awserr.New(ecs.ErrCodeClusterContainsContainerInstancesException, "ClusterContainsContainerInstancesException", nil),
+		awserr.New(ecs.ErrCodeClusterContainsServicesException, "ClusterContainsServicesException", nil),
+		awserr.New(ecs.ErrCodeClusterContainsTasksException, "ClusterContainsTasksException", nil),
+		awserr.New(ecs.ErrCodeLimitExceededException, "LimitExceededException", nil),
+		awserr.New(ecs.ErrCodeResourceInUseException, "ResourceInUseException", nil),
+		awserr.New(ecs.ErrCodeServerException, "ServerException", nil),
+	}
 )
 
 func (m *mockECSClient) CreateClusterWithContext(ctx aws.Context, input *ecs.CreateClusterInput, opts ...request.Option) (*ecs.CreateClusterOutput, error) {
@@ -94,8 +125,8 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 }
 
 func TestCreateCluster(t *testing.T) {
-	client := &mockECSClient{t: t}
-	cluster, err := createCluster(context.TODO(), client, &ecs.CreateClusterInput{ClusterName: aws.String("goodclu")})
+	client := ECS{Service: &mockECSClient{t: t}}
+	cluster, err := client.CreateCluster(context.TODO(), &ecs.CreateClusterInput{ClusterName: aws.String("goodclu")})
 	if err != nil {
 		t.Fatal("expected no error from create cluster, got", err)
 	}
@@ -104,34 +135,44 @@ func TestCreateCluster(t *testing.T) {
 		t.Fatalf("Expected %+v\nGot %+v", goodClu, cluster)
 	}
 
-	cluster, err = createCluster(context.TODO(), client, &ecs.CreateClusterInput{ClusterName: aws.String("badclu")})
+	cluster, err = client.CreateCluster(context.TODO(), &ecs.CreateClusterInput{ClusterName: aws.String("badclu")})
 	if err == nil {
 		t.Fatal("expected error from create cluster, got", err, cluster)
 	}
 	t.Log("got error response for bad cluster", err)
+
+	_, err = client.CreateCluster(context.TODO(), &ecs.CreateClusterInput{})
+	if err == nil {
+		t.Fatal("expected error for nil input")
+	}
 }
 
 func TestDeleteCluster(t *testing.T) {
-	client := &mockECSClient{t: t}
-	err := deleteCluster(context.TODO(), client, aws.String("goodclu"))
+	client := ECS{Service: &mockECSClient{t: t}}
+	err := client.DeleteCluster(context.TODO(), aws.String("goodclu"))
 	if err != nil {
 		t.Fatal("expected no error from delete cluster, got", err)
 	}
 
-	client.err = awserr.New(ecs.ErrCodeClusterContainsContainerInstancesException, "doin stuff", nil)
-	err = deleteCluster(context.TODO(), client, aws.String("goodclu"))
+	client = ECS{
+		Service: &mockECSClient{
+			t:   t,
+			err: awserr.New(ecs.ErrCodeClusterContainsContainerInstancesException, "doin stuff", nil),
+		},
+	}
+	err = client.DeleteCluster(context.TODO(), aws.String("goodclu"))
 	if err == nil {
 		t.Fatal("expected error from delete cluster, got nil")
 	}
 }
 
 func TestDeleteClusterWithRetry(t *testing.T) {
-	client := &mockECSClient{t: t}
+	client := ECS{Service: &mockECSClient{t: t}}
 
 	ctx1, cancel1 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel1()
 
-	cluChan1 := deleteClusterWithRetry(ctx1, client, aws.String("badclu"))
+	cluChan1 := client.DeleteClusterWithRetry(ctx1, aws.String("badclu"))
 	select {
 	case <-ctx1.Done():
 		t.Fatal("unexpected context timeout")
@@ -142,7 +183,7 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel2()
 
-	cluChan2 := deleteClusterWithRetry(ctx2, client, aws.String("goodclu"))
+	cluChan2 := client.DeleteClusterWithRetry(ctx2, aws.String("goodclu"))
 	select {
 	case <-ctx2.Done():
 		t.Log("got expected context timeout")
@@ -153,8 +194,13 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 	ctx3, cancel3 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel3()
 
-	client.err = awserr.New(ecs.ErrCodeUpdateInProgressException, "wont fix", nil)
-	cluChan3 := deleteClusterWithRetry(ctx3, client, aws.String("missing"))
+	client = ECS{
+		Service: &mockECSClient{
+			t:   t,
+			err: awserr.New(ecs.ErrCodeUpdateInProgressException, "wont fix", nil),
+		},
+	}
+	cluChan3 := client.DeleteClusterWithRetry(ctx3, aws.String("missing"))
 	select {
 	case <-ctx3.Done():
 		t.Fatal("unexpected context timeout")
@@ -168,8 +214,13 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 
-		client.err = e
-		cluChan := deleteClusterWithRetry(ctx3, client, aws.String("goodclu"))
+		client = ECS{
+			Service: &mockECSClient{
+				t:   t,
+				err: e,
+			},
+		}
+		cluChan := client.DeleteClusterWithRetry(ctx3, aws.String("goodclu"))
 		select {
 		case <-ctx.Done():
 			t.Logf("expected context timeout for error code %s", e.Code())
@@ -181,8 +232,8 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 }
 
 func TestGetCluster(t *testing.T) {
-	client := &mockECSClient{t: t}
-	cluster, err := getCluster(context.TODO(), client, aws.String("goodclu"))
+	client := ECS{Service: &mockECSClient{t: t}}
+	cluster, err := client.GetCluster(context.TODO(), aws.String("goodclu"))
 	if err != nil {
 		t.Fatal("expected no error from get cluster, got", err)
 	}
@@ -191,7 +242,7 @@ func TestGetCluster(t *testing.T) {
 		t.Fatalf("Expected %+v\nGot %+v", goodClu, cluster)
 	}
 
-	cluster, err = getCluster(context.TODO(), client, aws.String("missingclu"))
+	cluster, err = client.GetCluster(context.TODO(), aws.String("missingclu"))
 	t.Log("got cluster response for missing cluster", cluster)
 	if err == nil {
 		t.Fatal("expected error from get missing cluster, got nil")
@@ -199,15 +250,20 @@ func TestGetCluster(t *testing.T) {
 		t.Fatalf("expected error 'cluster missingclu not found' from get cluster, got '%s'", err)
 	}
 
-	_, err = getCluster(context.TODO(), client, aws.String("multiclu"))
+	_, err = client.GetCluster(context.TODO(), aws.String("multiclu"))
 	if err == nil {
 		t.Fatal("expected error from get for multiple clusters, got nil")
 	} else if err.Error() != "unexpected number of clusters returned" {
 		t.Fatalf("expected error 'cluster missingclu not found' from get cluster, got '%s'", err)
 	}
 
-	client.err = awserr.New(ecs.ErrCodeUpdateInProgressException, "wont fix", nil)
-	_, err = getCluster(context.TODO(), client, aws.String("goodclu"))
+	client = ECS{
+		Service: &mockECSClient{
+			t:   t,
+			err: awserr.New(ecs.ErrCodeUpdateInProgressException, "wont fix", nil),
+		},
+	}
+	_, err = client.GetCluster(context.TODO(), aws.String("goodclu"))
 	if err == nil {
 		t.Fatal("expected error from get cluster, got nil")
 	}
