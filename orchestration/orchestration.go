@@ -124,11 +124,6 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 
 	log.Debugf("processing delete of service %+v", service)
 
-	taskDefinition, err := o.ECS.GetTaskDefinition(ctx, service.TaskDefinition)
-	if err != nil {
-		return nil, err
-	}
-
 	log.Infof("removing service '%s'", aws.StringValue(service.ServiceArn))
 
 	if err = o.ECS.DeleteService(ctx, &ecs.DeleteServiceInput{
@@ -146,21 +141,6 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 		log.Infof("removing '%s' dependencies recursively, asynchronously", aws.StringValue(service.ServiceArn))
 		go func() {
 			cleanupCtx := context.Background()
-
-			// TODO: if we want to share repository credentials, we need to look for multiple
-			// container definitions using the same credentials.
-			for _, cd := range taskDefinition.ContainerDefinitions {
-				log.Debugf("cleaning '%s' container definition '%s' components", aws.StringValue(service.ServiceArn), aws.StringValue(cd.Name))
-				if cd.RepositoryCredentials != nil && aws.StringValue(cd.RepositoryCredentials.CredentialsParameter) != "" {
-					credsArn := aws.StringValue(cd.RepositoryCredentials.CredentialsParameter)
-					_, err = o.SecretsManager.DeleteSecret(cleanupCtx, credsArn, 0)
-					if err != nil {
-						log.Errorf("failed to delete secretsmanager secret '%s' for %s", credsArn, aws.StringValue(service.ServiceArn))
-					} else {
-						log.Infof("successfully deleted secretsmanager secret '%s'", credsArn)
-					}
-				}
-			}
 
 			cluCtx, cluCancel := context.WithTimeout(cleanupCtx, 120*time.Second)
 			defer cluCancel()
@@ -190,6 +170,57 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 						if out == "success" {
 							log.Infof("successfully deleted service registry %s", aws.StringValue(r.RegistryArn))
 						}
+					}
+				}
+			}
+
+			// get the active task definition to find the task definition family
+			taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
+			if err != nil {
+				log.Errorf("failed to get active task definition '%s': %s", aws.StringValue(service.TaskDefinition), err)
+			} else {
+				// list all of the revisions in the task definition family
+				taskDefinitionRevisions, err := o.ECS.ListTaskDefinitionRevisions(cleanupCtx, taskDefinition.Family)
+				if err != nil {
+					log.Errorf("failed to get a list of task definition revisions to delete")
+				} else {
+					for _, revision := range taskDefinitionRevisions {
+
+						taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
+						if err != nil {
+							log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
+							continue
+						}
+
+						deletedCredentials := make(map[string]struct{})
+						// for each task definition revision in the task definition family, delete any existing repository credentials, keeping track
+						// of ones we delete so we don't try to re-delete them.
+						// TODO: if we want to share repository credentials, we need to look for multiple container definitions using the same credentials.
+						for _, cd := range taskDefinition.ContainerDefinitions {
+							log.Debugf("cleaning '%s' container definition '%s' components", aws.StringValue(service.ServiceArn), aws.StringValue(cd.Name))
+
+							if cd.RepositoryCredentials != nil && aws.StringValue(cd.RepositoryCredentials.CredentialsParameter) != "" {
+								credsArn := aws.StringValue(cd.RepositoryCredentials.CredentialsParameter)
+
+								if _, ok := deletedCredentials[credsArn]; !ok {
+									_, err = o.SecretsManager.DeleteSecret(cleanupCtx, credsArn, 0)
+									if err != nil {
+										log.Errorf("failed to delete secretsmanager secret '%s' for %s", credsArn, aws.StringValue(service.ServiceArn))
+									} else {
+										deletedCredentials[credsArn] = struct{}{}
+										log.Infof("successfully deleted secretsmanager secret '%s'", credsArn)
+									}
+								}
+							}
+						}
+
+						out, err := o.ECS.DeleteTaskDefinition(cleanupCtx, aws.String(revision))
+						if err != nil {
+							log.Errorf("failed to delete task definition '%s': %s", revision, err)
+						} else {
+							log.Debugf("successfully deleted task definition revision %s: %+v", revision, out)
+						}
+
 					}
 				}
 			}
