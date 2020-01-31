@@ -167,11 +167,17 @@ Example request body of new service with existing resources:
 
 ### Orchestrate a service update
 
-Service update orchestration currently supports updating tags and/or forcing a redeployment without changing the service.
+Service update orchestration currently supports:
+
+* updating tags
+* forcing a redeployment without changing the service
+* updating the task definition and redeploying
 
 PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
 
 ##### Request
+
+###### Update the tags for an existing service and force a redeployment
 
 ```json
 {
@@ -180,6 +186,33 @@ PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
         {"Key": "MyKey", "Value": "MyValue"},
         {"Key": "Application", "Value": "someprefix"},
     ]
+}
+```
+
+###### Update the task definition and redeploy an existing service
+
+```json
+{
+    "TaskDefinition": {
+        "family": "supercool-service",
+        "cpu": "256",
+        "memory": "1024",
+        "containerdefinitions": [
+            {
+                "environment": [{
+                    "name": "API_HOST",
+                    "value": "localhost"
+                  },{
+                    "name": "API_PORT",
+                    "value": "1234"
+                  }],
+                "name": "webserver",
+                "image": "nginx:alpine",
+                "ports": [80,443]
+            }
+        ]
+    },
+    "ForceRedeploy": true
 }
 ```
 

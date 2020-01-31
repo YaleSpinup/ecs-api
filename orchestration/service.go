@@ -11,7 +11,6 @@ import (
 
 // processService processes the service input.  It normalizes inputs and creates the ECS service.
 func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Service, error) {
-	client := o.ECS.Service
 	if input.Service.ClientToken == nil {
 		input.Service.ClientToken = aws.String(o.Token)
 	}
@@ -41,7 +40,7 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	input.Service.Tags = newTags
 
 	log.Debugf("processing service with input:\n%+v", input.Service)
-	output, err := client.CreateServiceWithContext(ctx, input.Service)
+	output, err := o.ECS.CreateService(ctx, input.Service)
 	if err != nil {
 		return nil, err
 	}
