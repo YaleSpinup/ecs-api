@@ -286,12 +286,26 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	}
 
 	if input.Service != nil {
-		// set cluster and service, disallow assigning public IP
+		// set cluster and service, disallow assigning public IP, default to active service network config
 		u := input.Service
 		u.Cluster = activeSvc.ClusterArn
 		u.Service = activeSvc.ServiceArn
 		if u.NetworkConfiguration != nil && u.NetworkConfiguration.AwsvpcConfiguration != nil {
-			u.NetworkConfiguration.AwsvpcConfiguration.AssignPublicIp = aws.String("DISABLED")
+			subnets := activeSvc.NetworkConfiguration.AwsvpcConfiguration.Subnets
+			if u.NetworkConfiguration.AwsvpcConfiguration.Subnets != nil {
+				subnets = u.NetworkConfiguration.AwsvpcConfiguration.Subnets
+			}
+
+			sgs := activeSvc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
+			if u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups != nil {
+				sgs = u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
+			}
+
+			u.NetworkConfiguration.AwsvpcConfiguration = &ecs.AwsVpcConfiguration{
+				AssignPublicIp: aws.String("DISABLED"),
+				Subnets:        subnets,
+				SecurityGroups: sgs,
+			}
 		}
 
 		out, err := o.ECS.UpdateService(ctx, u)
