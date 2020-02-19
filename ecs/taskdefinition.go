@@ -20,6 +20,8 @@ func (e *ECS) CreateTaskDefinition(ctx context.Context, input *ecs.RegisterTaskD
 		return nil, ErrCode("failed to create task definition", err)
 	}
 
+	log.Debugf("got output from RegisterTaskDefinition: %+v", output)
+
 	return output.TaskDefinition, err
 }
 
@@ -35,6 +37,8 @@ func (e *ECS) DeleteTaskDefinition(ctx context.Context, taskdefinition *string) 
 	if err != nil {
 		return nil, ErrCode("failed to delete task definition", err)
 	}
+
+	log.Debugf("got output from DeregisterTaskDefinition: %+v", output)
 
 	return output.TaskDefinition, err
 }
@@ -54,6 +58,8 @@ func (e *ECS) GetTaskDefinition(ctx context.Context, taskdefinition *string) (*e
 	if err != nil {
 		return nil, ErrCode("failed to get task definition", err)
 	}
+
+	log.Debugf("got output from DescribeTaskDefinition: %+v", output)
 
 	return output.TaskDefinition, err
 }

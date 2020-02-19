@@ -242,8 +242,14 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	serviceTags, err := ecsService.ListTags(r.Context(), aws.StringValue(serviceOutput.ServiceArn))
+	if err != nil {
+		handleError(w, err)
+	}
+
 	var j []byte
 	if !all {
+		serviceOutput.Tags = serviceTags
 		j, err = json.Marshal(serviceOutput)
 		if err != nil {
 			handleError(w, err)
@@ -279,11 +285,13 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 			ServiceEndpoint *string
 			Tasks           []*string
 			TaskDefinition  *ecs.TaskDefinition
+			Tags            []*ecs.Tag
 		}{
 			Service:         serviceOutput,
 			ServiceEndpoint: serviceDiscoveryEndpoint,
 			Tasks:           tasks,
 			TaskDefinition:  tdOutput,
+			Tags:            serviceTags,
 		}
 
 		j, err = json.Marshal(output)
