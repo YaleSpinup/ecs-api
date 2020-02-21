@@ -1,6 +1,9 @@
 package ecs
 
 import (
+	"context"
+
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -37,4 +40,24 @@ func NewSession(account common.Account) ECS {
 type KeyValuePair struct {
 	Key   string
 	Value string
+}
+
+// ListTags returns the list of tags for any ECS rsource
+func (e *ECS) ListTags(ctx context.Context, arn string) ([]*ecs.Tag, error) {
+	if arn == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	input := ecs.ListTagsForResourceInput{
+		ResourceArn: aws.String(arn),
+	}
+
+	output, err := e.Service.ListTagsForResourceWithContext(ctx, &input)
+	if err != nil {
+		return nil, ErrCode("failed to delete service", err)
+	}
+
+	log.Debugf("got list of tags for arn '%s': %+v", arn, output)
+
+	return output.Tags, nil
 }

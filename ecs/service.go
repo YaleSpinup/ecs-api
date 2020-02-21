@@ -21,6 +21,8 @@ func (e *ECS) GetService(ctx context.Context, cluster, service string) (*ecs.Ser
 		return nil, ErrCode("failed to get service", err)
 	}
 
+	log.Debugf("got service from DescribeServices: %+v", output)
+
 	if len(output.Services) != 1 {
 		return nil, apierror.New(apierror.ErrBadRequest, "unexpected service length in describe services", nil)
 	}
@@ -40,6 +42,7 @@ func (e *ECS) DeleteService(ctx context.Context, input *ecs.DeleteServiceInput) 
 	}
 
 	log.Debugf("output from delete service:\n%+v", output)
+
 	return err
 }
 
