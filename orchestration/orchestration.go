@@ -250,15 +250,6 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 			return nil, err
 		}
 
-		// if we have credentials passed with the update, process those credentials and apply the results to the input
-		if input.Credentials != nil {
-			creds, err := o.processRepositoryCredentialsUpdate(ctx, input)
-			if err != nil {
-				return nil, err
-			}
-			output.Credentials = creds
-		}
-
 		// for each container definition in the active task definition, if the active container deinition *has* repository
 		// credentials defined, check for an incoming container definition with the same name that doesn't already have the
 		// credential defined (ie. an override) and set the credentials parameter from the active container definition
@@ -274,6 +265,15 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 					}
 				}
 			}
+		}
+
+		// if we have credentials passed with the update, process those credentials and apply the results to the input
+		if input.Credentials != nil {
+			creds, err := o.processRepositoryCredentialsUpdate(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+			output.Credentials = creds
 		}
 
 		// set cluster
