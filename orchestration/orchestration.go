@@ -64,6 +64,7 @@ type ServiceOrchestrationUpdateInput struct {
 type ServiceOrchestrationUpdateOutput struct {
 	Service        *ecs.Service
 	TaskDefinition *ecs.TaskDefinition
+	Credentials    map[string]interface{}
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
@@ -264,6 +265,15 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 					}
 				}
 			}
+		}
+
+		// if we have credentials passed with the update, process those credentials and apply the results to the input
+		if input.Credentials != nil {
+			creds, err := o.processRepositoryCredentialsUpdate(ctx, input)
+			if err != nil {
+				return nil, err
+			}
+			output.Credentials = creds
 		}
 
 		// set cluster

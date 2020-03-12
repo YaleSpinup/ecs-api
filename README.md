@@ -172,6 +172,7 @@ Service update orchestration currently supports:
 * updating tags
 * forcing a redeployment without changing the service
 * updating the task definition and redeploying
+* updating the service parameters (like replica count)
 
 PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
 
@@ -211,6 +212,90 @@ PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
                 "ports": [80,443]
             }
         ]
+    },
+    "ForceRedeploy": true
+}
+```
+
+###### Update the service replica count
+
+```json
+{
+    "Service": {
+        "DesiredCount": 1
+    }
+}
+```
+
+###### Add a container definition with credentials
+
+The example below adds a `privateapi` container definition with the associated *new* credentials, or adds credentials to an existing `privateapi`
+container definition.  If repository credentials are passed with a container definition (see the next example), the credentials will either be
+kept and continue to be associated with the container definition (if no associated credentials are passed in the `credentials` map) or the value of
+the secret with that ARN will be *overwritten* by the credentials passed in the `credentials` map if they exist!
+
+```json
+{
+    "TaskDefinition": {
+        "family": "supercool-service",
+        "cpu": "256",
+        "memory": "1024",
+        "containerdefinitions": [
+            {
+                "name": "webserver",
+                "image": "nginx:alpine"
+            },
+            {
+                "name": "privateapi",
+                "image": "myorg/privateapi:latest"
+            }
+        ]
+    },
+    "credentials": {
+        "privateapi": {
+            "Name": "privateapi-cred-1",
+            "SecretString": "{\"username\" : \"myorguser\",\"password\" : \"super-sekret-password-string\"}",
+            "Description": "privateapi-creds",
+            "tags": [
+                {"Key": "MyKey", "Value": "MyValue"},
+                {"Key": "Application", "Value": "someprefix"},
+            ]
+        }
+    },
+    "ForceRedeploy": true
+}
+```
+
+###### Update a container definitions credentials
+
+In this example, the `privateapi` container definition exists and we want to update the credentials.  By passing the repository credentials ARN
+along with the container definition, this instructs the API to attempt to update that secret from the passed `credentials` map.  If no associated
+credential exists in the `credentials` map, the container definition will be updated to use the passed credentials ARN.
+
+```json
+{
+    "TaskDefinition": {
+        "family": "supercool-service",
+        "cpu": "256",
+        "memory": "1024",
+        "containerdefinitions": [
+            {
+                "name": "webserver",
+                "image": "nginx:alpine"
+            },
+            {
+                "name": "privateapi",
+                "image": "myorg/privateapi:latest",
+                "repositorycredentials": {
+                    "credentialsparameter": "arn:aws:secretsmanager:us-east-1:12345678:secret:privateapi-cred-1-Ol7mhU"
+                }
+            }
+        ]
+    },
+    "credentials": {
+        "privateapi": {
+            "SecretString": "{\"username\" : \"myorguser\",\"password\" : \"new-super-sekret-password-string\"}",
+        }
     },
     "ForceRedeploy": true
 }
