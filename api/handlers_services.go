@@ -309,6 +309,12 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, error) {
 	log.Debugf("creating new orchestrator for account %s", account)
 
+	cwlService, ok := s.cwLogsServices[account]
+	if !ok {
+		msg := fmt.Sprintf("cloudwatchkigs service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
 	ecsService, ok := s.ecsServices[account]
 	if !ok {
 		msg := fmt.Sprintf("ecs service not found for account: %s", account)
@@ -334,6 +340,7 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 	}
 
 	return &orchestration.Orchestrator{
+		CloudWatchLogs:   cwlService,
 		ECS:              ecsService,
 		IAM:              iamService,
 		SecretsManager:   smService,
