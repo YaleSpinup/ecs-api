@@ -59,7 +59,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 			input.TaskDefinition.NetworkMode = DefaultNetworkMode
 		}
 
-		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.Service.ServiceName), input.TaskDefinition.Tags)
+		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +121,7 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		input.TaskDefinition.NetworkMode = DefaultNetworkMode
 	}
 
-	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.Service.Service), input.TaskDefinition.Tags)
+	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
 	if err != nil {
 		return nil, err
 	}
