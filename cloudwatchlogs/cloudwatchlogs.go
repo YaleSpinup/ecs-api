@@ -43,3 +43,31 @@ func (c *CloudWatchLogs) GetLogEvents(ctx context.Context, input *cloudwatchlogs
 
 	return output, nil
 }
+
+// CreateLogGroup creates a cloudwatchlogs log group
+func (c *CloudWatchLogs) CreateLogGroup(ctx context.Context, input *cloudwatchlogs.CreateLogGroupInput) error {
+	if input == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	_, err := c.Service.CreateLogGroupWithContext(ctx, input)
+	if err != nil {
+		return ErrCode("failed to create log group", err)
+	}
+
+	return nil
+}
+
+// UpdateRetention changes the retention (in days) for logs in a log group
+func (c *CloudWatchLogs) UpdateRetention(ctx context.Context, input *cloudwatchlogs.PutRetentionPolicyInput) error {
+	if input == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	_, err := c.Service.PutRetentionPolicyWithContext(ctx, input)
+	if err != nil {
+		return ErrCode("failed to update retention policy for log group", err)
+	}
+
+	return nil
+}

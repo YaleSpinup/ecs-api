@@ -3,6 +3,7 @@
 package orchestration
 
 import (
+	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/ecs"
 	"github.com/YaleSpinup/ecs-api/iam"
 	"github.com/YaleSpinup/ecs-api/secretsmanager"
@@ -29,10 +30,13 @@ var (
 	DefaultSubnets = []*string{}
 	// DefaultSecurityGroups sets a list of default sgs to attach to ENIs
 	DefaultSecurityGroups = []*string{}
+	// DefaultCloudwatchLogsRetention sets the detfault retention (in days) for logs in cloudwatch
+	DefaultCloudwatchLogsRetention = aws.Int64(int64(365))
 )
 
 // Orchestrator holds the service discovery client, iam client, ecs client, secretsmanager client, input, and output
 type Orchestrator struct {
+	CloudWatchLogs cloudwatchlogs.CloudWatchLogs
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#ECS
 	ECS ecs.ECS
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/iam/#IAM

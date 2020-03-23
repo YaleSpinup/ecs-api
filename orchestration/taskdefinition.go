@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 
+	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	log "github.com/sirupsen/logrus"
 )
@@ -55,6 +57,15 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 
 		if input.TaskDefinition.NetworkMode == nil {
 			input.TaskDefinition.NetworkMode = DefaultNetworkMode
+		}
+
+		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, cd := range input.TaskDefinition.ContainerDefinitions {
+			cd.SetLogConfiguration(logConfiguration)
 		}
 
 		taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
@@ -110,7 +121,59 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		input.TaskDefinition.NetworkMode = DefaultNetworkMode
 	}
 
+	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, cd := range input.TaskDefinition.ContainerDefinitions {
+		cd.SetLogConfiguration(logConfiguration)
+	}
+
 	log.Infof("creating task definition %+v", input.TaskDefinition)
 
 	return o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+}
+
+func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, streamPrefix string, tags []*ecs.Tag) (*ecs.LogConfiguration, error) {
+	if logGroup == "" {
+		return nil, errors.New("cloudwatch logs group name cannot be empty")
+	}
+
+	var tagsMap = make(map[string]*string)
+	for _, tag := range tags {
+		tagsMap[aws.StringValue(tag.Key)] = tag.Value
+	}
+
+	err := o.CloudWatchLogs.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
+		LogGroupName: aws.String(logGroup),
+		Tags:         tagsMap,
+	})
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			case cloudwatchlogs.ErrCodeResourceAlreadyExistsException:
+				log.Warnf("cloudwatch log group already exists, continuing: (%s)", err)
+			default:
+				return nil, err
+			}
+		}
+	}
+
+	if err := o.CloudWatchLogs.UpdateRetention(ctx, &cloudwatchlogs.PutRetentionPolicyInput{
+		LogGroupName:    aws.String(logGroup),
+		RetentionInDays: DefaultCloudwatchLogsRetention,
+	}); err != nil {
+		return nil, err
+	}
+
+	return &ecs.LogConfiguration{
+		LogDriver: aws.String("awslogs"),
+		Options: map[string]*string{
+			"awslogs-region":        aws.String("us-east-1"),
+			"awslogs-create-group":  aws.String("true"),
+			"awslogs-group":         aws.String(logGroup),
+			"awslogs-stream-prefix": aws.String(streamPrefix),
+		},
+	}, nil
 }
