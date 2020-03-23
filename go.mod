@@ -6,6 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.29.5
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/golang/protobuf v1.3.3 // indirect
+	github.com/google/uuid v1.1.1
 	github.com/gorilla/handlers v1.4.2
 	github.com/gorilla/mux v1.7.4
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect

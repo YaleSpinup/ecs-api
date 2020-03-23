@@ -158,13 +158,13 @@ func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, st
 				return nil, err
 			}
 		}
-	} else {
-		if err := o.CloudWatchLogs.UpdateRetention(ctx, &cloudwatchlogs.PutRetentionPolicyInput{
-			LogGroupName:    aws.String(logGroup),
-			RetentionInDays: DefaultCloudwatchLogsRetention,
-		}); err != nil {
-			return nil, err
-		}
+	}
+
+	if err := o.CloudWatchLogs.UpdateRetention(ctx, &cloudwatchlogs.PutRetentionPolicyInput{
+		LogGroupName:    aws.String(logGroup),
+		RetentionInDays: DefaultCloudwatchLogsRetention,
+	}); err != nil {
+		return nil, err
 	}
 
 	return &ecs.LogConfiguration{

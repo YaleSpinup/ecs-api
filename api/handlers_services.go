@@ -311,7 +311,7 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 
 	cwlService, ok := s.cwLogsServices[account]
 	if !ok {
-		msg := fmt.Sprintf("cloudwatchkigs service not found for account: %s", account)
+		msg := fmt.Sprintf("cloudwatchlogs service not found for account: %s", account)
 		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
 	}
 
