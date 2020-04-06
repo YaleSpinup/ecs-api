@@ -19,6 +19,9 @@ DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}[?recursive=true]
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/events
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
 
 // Tasks handlers
 GET /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
@@ -72,17 +75,7 @@ Example request body of new cluster, new task definition, new service registry, 
 ```json
 {
     "cluster": {
-        "clustername": "myclu",
-        "tags": [
-            {
-                "Key": "CreatedBy",
-                "Value": "netid"
-            },
-            {
-                "Key": "OS",
-                "Value": "container"
-            }
-        ]
+        "clustername": "myclu"
     },
     "taskdefinition": {
         "family": "webservers",
@@ -138,12 +131,19 @@ Example request body of new cluster, new task definition, new service registry, 
         "webserver": {
             "Name": "myapp-webserver-cred",
             "SecretString": "{\"username\" : \"supahman\",\"password\" : \"dontkryptonitemebro\"}",
-            "Description": "myapp-webserver-cred",
-            "tags": [
-                {"Key": "Application", "Value": "myapp" }
-            ]
+            "Description": "myapp-webserver-cred"
         }
     },
+    "tags": [
+        {
+            "Key": "CreatedBy",
+            "Value": "netid"
+        },
+        {
+            "Key": "OS",
+            "Value": "container"
+        }
+    ]
 }
 ```
 
@@ -255,13 +255,9 @@ the secret with that ARN will be *overwritten* by the credentials passed in the 
         "privateapi": {
             "Name": "privateapi-cred-1",
             "SecretString": "{\"username\" : \"myorguser\",\"password\" : \"super-sekret-password-string\"}",
-            "Description": "privateapi-creds",
-            "tags": [
-                {"Key": "MyKey", "Value": "MyValue"},
-                {"Key": "Application", "Value": "someprefix"},
-            ]
+            "Description": "privateapi-creds"
         }
-    },
+    }
     "ForceRedeploy": true
 }
 ```
@@ -693,13 +689,13 @@ When only updating tags, you will get an empty response on success. When updatin
 
 ## Development
 
-- Install Go v1.11 or newer
-- Enable Go modules: `export GO111MODULE=on`
-- Create a config: `cp -p config/config.example.json config/config.json`
-- Edit `config.json` and update the parameters
-- Run `go run .` to start the app locally while developing
-- Run `go test ./...` to run all tests
-- Run `go build ./...` to build the binary
+* Install Go v1.11 or newer
+* Enable Go modules: `export GO111MODULE=on`
+* Create a config: `cp -p config/config.example.json config/config.json`
+* Edit `config.json` and update the parameters
+* Run `go run .` to start the app locally while developing
+* Run `go test ./...` to run all tests
+* Run `go build ./...` to build the binary
 
 ## Author
 

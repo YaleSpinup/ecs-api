@@ -392,6 +392,10 @@ func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	service := vars["service"]
 	task := vars["task"]
 	container := vars["container"]
+	start := vars["start"]
+	end := vars["end"]
+	limit := vars["limit"]
+	seq := vars["seq"]
 
 	logService, ok := s.cwLogsServices[account]
 	if !ok {
@@ -403,10 +407,45 @@ func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	logStream := fmt.Sprintf("%s/%s/%s", service, container, task)
 	log.Debugf("getting events for log group/stream: %s/%s", cluster, logStream)
 
-	output, err := logService.GetLogEvents(r.Context(), &cloudwatchlogs.GetLogEventsInput{
+	input := cloudwatchlogs.GetLogEventsInput{
 		LogGroupName:  aws.String(cluster),
 		LogStreamName: aws.String(logStream),
-	})
+	}
+
+	if limit != "" {
+		l, err := strconv.ParseInt(limit, 10, 64)
+		if err != nil {
+			msg := fmt.Sprintf("failed to parse limit as int64: %s", limit)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+			return
+		}
+		input.Limit = aws.Int64(l)
+	}
+
+	if seq != "" {
+		input.NextToken = aws.String(seq)
+		input.StartFromHead = aws.Bool(true)
+	}
+
+	if start != "" && end != "" {
+		s, err := strconv.ParseInt(start, 10, 64)
+		if err != nil {
+			msg := fmt.Sprintf("failed to parse start time as int64: %s", start)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+			return
+		}
+		input.StartTime = aws.Int64(s)
+
+		e, err := strconv.ParseInt(end, 10, 64)
+		if err != nil {
+			msg := fmt.Sprintf("failed to parse end time as int64: %s", end)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+			return
+		}
+		input.EndTime = aws.Int64(e)
+	}
+
+	output, err := logService.GetLogEvents(r.Context(), &input)
 	if err != nil {
 		handleError(w, err)
 		return

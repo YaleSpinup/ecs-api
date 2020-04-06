@@ -15,32 +15,24 @@ import (
 // will be returned.
 func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, error) {
 	client := o.ECS
-	if input.Service.Cluster != nil {
-		log.Infof("Using provided cluster name (input.Service.Cluster) %s", aws.StringValue(input.Service.Cluster))
+	if input.Service != nil && input.Service.Cluster != nil {
+		log.Infof("using provided cluster name (input.Service.Cluster) %s", aws.StringValue(input.Service.Cluster))
 
 		cluster, err := client.GetCluster(ctx, input.Service.Cluster)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugf("Got cluster %+v", cluster)
+		log.Debugf("got cluster %+v", cluster)
 		return cluster, nil
-	} else if input.Cluster != nil {
-		log.Infof("Creating cluster %s", aws.StringValue(input.Cluster.ClusterName))
+	}
 
-		newTags := []*ecs.Tag{
-			&ecs.Tag{
-				Key:   aws.String("spinup:org"),
-				Value: aws.String(o.Org),
-			},
+	if input.Cluster != nil {
+		ecsTags := make([]*ecs.Tag, len(input.Tags))
+		for i, t := range input.Tags {
+			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
 		}
-
-		for _, t := range input.Cluster.Tags {
-			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-				newTags = append(newTags, t)
-			}
-		}
-		input.Cluster.Tags = newTags
+		input.Cluster.Tags = ecsTags
 
 		// set the default capacity providers if they are not set in the request
 		if input.Cluster.CapacityProviders == nil {
@@ -69,9 +61,10 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 		if err != nil {
 			return nil, err
 		}
-		log.Debugf("Created cluster %+v", cluster)
+		log.Debugf("created cluster %+v", cluster)
 		input.Service.Cluster = cluster.ClusterName
 		return cluster, nil
 	}
-	return nil, errors.New("A new or existing cluster is required")
+
+	return nil, errors.New("a new or existing cluster is required")
 }

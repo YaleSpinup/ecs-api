@@ -15,6 +15,8 @@ func (e *ECS) CreateTaskDefinition(ctx context.Context, input *ecs.RegisterTaskD
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
+	log.Infof("creating task definition '%s'", aws.StringValue(input.Family))
+
 	output, err := e.Service.RegisterTaskDefinitionWithContext(ctx, input)
 	if err != nil {
 		return nil, ErrCode("failed to create task definition", err)
@@ -31,7 +33,7 @@ func (e *ECS) DeleteTaskDefinition(ctx context.Context, taskdefinition *string) 
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("deregistering task definition '%s'", aws.StringValue(taskdefinition))
+	log.Infof("deregistering task definition '%s'", aws.StringValue(taskdefinition))
 
 	output, err := e.Service.DeregisterTaskDefinitionWithContext(ctx, &ecs.DeregisterTaskDefinitionInput{TaskDefinition: taskdefinition})
 	if err != nil {
@@ -49,7 +51,7 @@ func (e *ECS) GetTaskDefinition(ctx context.Context, taskdefinition *string) (*e
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("getting details about task definition '%s'", aws.StringValue(taskdefinition))
+	log.Infof("getting details about task definition '%s'", aws.StringValue(taskdefinition))
 
 	output, err := e.Service.DescribeTaskDefinitionWithContext(ctx, &ecs.DescribeTaskDefinitionInput{
 		TaskDefinition: taskdefinition,
@@ -70,7 +72,7 @@ func (e *ECS) ListTaskDefinitionRevisions(ctx context.Context, family *string) (
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("listing task definition revisions with family '%s'", aws.StringValue(family))
+	log.Infof("listing task definition revisions with family '%s'", aws.StringValue(family))
 
 	input := ecs.ListTaskDefinitionsInput{
 		FamilyPrefix: family,

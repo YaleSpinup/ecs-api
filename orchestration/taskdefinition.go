@@ -25,19 +25,11 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		}
 		return taskDefinition, nil
 	} else if input.TaskDefinition != nil {
-		newTags := []*ecs.Tag{
-			&ecs.Tag{
-				Key:   aws.String("spinup:org"),
-				Value: aws.String(o.Org),
-			},
+		ecsTags := make([]*ecs.Tag, len(input.Tags))
+		for i, t := range input.Tags {
+			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
 		}
-
-		for _, t := range input.TaskDefinition.Tags {
-			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-				newTags = append(newTags, t)
-			}
-		}
-		input.TaskDefinition.Tags = newTags
+		input.TaskDefinition.Tags = ecsTags
 
 		log.Infof("creating task definition %+v", input.TaskDefinition)
 
@@ -59,7 +51,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 			input.TaskDefinition.NetworkMode = DefaultNetworkMode
 		}
 
-		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
+		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.Tags)
 		if err != nil {
 			return nil, err
 		}
@@ -82,29 +74,16 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 }
 
 // processTaskDefinitionUpdate processes the task definition portion of the input
-func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput) (*ecs.TaskDefinition, error) {
+func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput, active *ServiceOrchestrationUpdateOutput) error {
 	if input.TaskDefinition == nil {
-		return nil, errors.New("taskDefinition or service task definition name is required")
+		return errors.New("taskDefinition or service task definition name is required")
 	}
-	newTags := []*ecs.Tag{
-		&ecs.Tag{
-			Key:   aws.String("spinup:org"),
-			Value: aws.String(o.Org),
-		},
-	}
-
-	for _, t := range input.TaskDefinition.Tags {
-		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-			newTags = append(newTags, t)
-		}
-	}
-	input.TaskDefinition.Tags = newTags
 
 	if input.TaskDefinition.ExecutionRoleArn == nil {
 		path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
 		roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		log.Debugf("setting roleARN: %s", roleARN)
@@ -121,9 +100,9 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		input.TaskDefinition.NetworkMode = DefaultNetworkMode
 	}
 
-	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.TaskDefinition.Tags)
+	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.Tags)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, cd := range input.TaskDefinition.ContainerDefinitions {
@@ -132,10 +111,23 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 
 	log.Infof("creating task definition %+v", input.TaskDefinition)
 
-	return o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+	out, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+	if err != nil {
+		return err
+	}
+	active.TaskDefinition = out
+
+	if input.Service == nil {
+		input.Service = &ecs.UpdateServiceInput{}
+	}
+
+	// apply new task definition ARN to the service update
+	input.Service.TaskDefinition = active.TaskDefinition.TaskDefinitionArn
+
+	return nil
 }
 
-func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, streamPrefix string, tags []*ecs.Tag) (*ecs.LogConfiguration, error) {
+func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, streamPrefix string, tags []*Tag) (*ecs.LogConfiguration, error) {
 	if logGroup == "" {
 		return nil, errors.New("cloudwatch logs group name cannot be empty")
 	}

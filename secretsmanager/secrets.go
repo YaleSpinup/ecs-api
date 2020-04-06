@@ -31,12 +31,14 @@ func (s *SecretsManager) CreateSecret(ctx context.Context, input *secretsmanager
 		return nil, ErrCode("failed to create secret", err)
 	}
 
+	log.Debugf("create secret output: %+v", out)
+
 	return out, nil
 }
 
 // ListSecretsWithFilter lists all of the secrets with a passed filter function
 func (s *SecretsManager) ListSecretsWithFilter(ctx context.Context, filter func(*secretsmanager.SecretListEntry) bool) ([]*string, error) {
-	log.Info("listing secretsmanager secrets")
+	log.Info("listing secretsmanager secrets with filter")
 	secrets := []*string{}
 
 	i := 0
@@ -61,6 +63,8 @@ func (s *SecretsManager) ListSecretsWithFilter(ctx context.Context, filter func(
 		i++
 	}
 
+	log.Debugf("returning list of secrets: %+v", secrets)
+
 	return secrets, nil
 }
 
@@ -71,7 +75,7 @@ func (s *SecretsManager) GetSecretMetaDataWithFilter(ctx context.Context, id str
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Infof("describing secretsmanager secret %s", id)
+	log.Infof("describing secretsmanager secret %s with filter", id)
 
 	out, err := s.Service.DescribeSecretWithContext(ctx, &secretsmanager.DescribeSecretInput{SecretId: aws.String(id)})
 	if err != nil {
@@ -79,6 +83,7 @@ func (s *SecretsManager) GetSecretMetaDataWithFilter(ctx context.Context, id str
 	}
 
 	if filter(out) {
+		log.Debugf("returning secret metadata %+v", out)
 		return out, nil
 	}
 
@@ -91,7 +96,7 @@ func (s *SecretsManager) DeleteSecret(ctx context.Context, id string, window int
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Infof("Deleting secret %s with window %d", id, window)
+	log.Infof("deleting secret %s with window %d", id, window)
 
 	input := secretsmanager.DeleteSecretInput{SecretId: aws.String(id)}
 	if window == 0 {
@@ -108,6 +113,8 @@ func (s *SecretsManager) DeleteSecret(ctx context.Context, id string, window int
 		msg := fmt.Sprintf("failed to delete secret with id %s", id)
 		return nil, ErrCode(msg, err)
 	}
+
+	log.Debugf("returning delete secret output %+v", out)
 
 	return out, nil
 }
@@ -133,6 +140,8 @@ func (s *SecretsManager) UpdateSecret(ctx context.Context, input *secretsmanager
 		return nil, ErrCode("failed to update secret", err)
 	}
 
+	log.Debugf("returning secret update output %+v", out)
+
 	return out, nil
 }
 
@@ -142,7 +151,7 @@ func (s *SecretsManager) UpdateSecretTags(ctx context.Context, id string, tags [
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Infof("updating secret %s", id)
+	log.Infof("tagging secret %s", id)
 
 	_, err := s.Service.TagResourceWithContext(ctx, &secretsmanager.TagResourceInput{
 		SecretId: aws.String(id),

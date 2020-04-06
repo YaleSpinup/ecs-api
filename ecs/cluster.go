@@ -19,7 +19,7 @@ func (e *ECS) CreateCluster(ctx context.Context, cluster *ecs.CreateClusterInput
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("creating cluster with input %+v", cluster)
+	log.Infof("creating cluster %s", aws.StringValue(cluster.ClusterName))
 
 	output, err := e.Service.CreateClusterWithContext(ctx, cluster)
 	if err != nil {
@@ -30,6 +30,12 @@ func (e *ECS) CreateCluster(ctx context.Context, cluster *ecs.CreateClusterInput
 
 // GetCluster gets the details of a cluster with context by the cluster name
 func (e *ECS) GetCluster(ctx context.Context, name *string) (*ecs.Cluster, error) {
+	if name == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting cluster %s", aws.StringValue(name))
+
 	output, err := e.Service.DescribeClustersWithContext(ctx, &ecs.DescribeClustersInput{
 		Clusters: []*string{name},
 	})
@@ -54,6 +60,12 @@ func (e *ECS) GetCluster(ctx context.Context, name *string) (*ecs.Cluster, error
 
 // DeleteCluster deletes a(n empty) cluster
 func (e *ECS) DeleteCluster(ctx context.Context, name *string) error {
+	if name == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("deleting cluster %s", aws.StringValue(name))
+
 	_, err := e.Service.DeleteClusterWithContext(ctx, &ecs.DeleteClusterInput{Cluster: name})
 	if err != nil {
 		return err
@@ -63,6 +75,8 @@ func (e *ECS) DeleteCluster(ctx context.Context, name *string) error {
 
 // DeleteClusterWithRetry continues to retry deleting a cluster until the context is cancelled or it succeeds
 func (e *ECS) DeleteClusterWithRetry(ctx context.Context, arn *string) chan string {
+	log.Infof("deleting cluster %s with retry", aws.StringValue(arn))
+
 	cluChan := make(chan string, 1)
 	go func() {
 		t := 1 * time.Second

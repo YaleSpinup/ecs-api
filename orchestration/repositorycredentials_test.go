@@ -289,12 +289,12 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 	}
 
 	var tests = []struct {
-		input  []*secretsmanager.Tag
+		input  []*Tag
 		output []*secretsmanager.Tag
 	}{
 		{
-			input: []*secretsmanager.Tag{
-				&secretsmanager.Tag{
+			input: []*Tag{
+				&Tag{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
@@ -303,25 +303,17 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 				&secretsmanager.Tag{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
-				},
-				&secretsmanager.Tag{
-					Key:   aws.String("spinup:org"),
-					Value: aws.String("testOrg"),
 				},
 			},
 		},
 		{
-			input: []*secretsmanager.Tag{
-				&secretsmanager.Tag{
+			input: []*Tag{
+				&Tag{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
-				&secretsmanager.Tag{
+				&Tag{
 					Key:   aws.String("spinup:org"),
-					Value: aws.String("someOtherOrg"),
-				},
-				&secretsmanager.Tag{
-					Key:   aws.String("yale:org"),
 					Value: aws.String("someOtherOrg"),
 				},
 			},
@@ -332,7 +324,7 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 				},
 				&secretsmanager.Tag{
 					Key:   aws.String("spinup:org"),
-					Value: aws.String("testOrg"),
+					Value: aws.String("someOtherOrg"),
 				},
 			},
 		},
@@ -341,9 +333,16 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 	for _, test := range tests {
 		out := o.processSecretsmanagerTags(test.input)
 
+		if !reflect.DeepEqual(test.output, out) {
+			t.Errorf("expected %+v, got %+v", test.output, out)
+		}
+
 		for _, tag := range test.output {
 			exists := false
+			t.Logf("testing for test tag key: %v, value: %v", tag.Key, tag.Value)
+
 			for _, otag := range out {
+				t.Logf("testing output tag key: %v, value: %v", otag.Key, otag.Value)
 				if aws.StringValue(otag.Key) == aws.StringValue(tag.Key) {
 					value := aws.StringValue(tag.Value)
 					ovalue := aws.StringValue(otag.Value)
