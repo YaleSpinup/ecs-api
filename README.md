@@ -18,10 +18,9 @@ PUT /v1/ecs/{account}/clusters/{cluster}/services
 DELETE /v1/ecs/{account}/clusters/{cluster}/services/{service}[?recursive=true]
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/events
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"
-GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
+
+// Log handlers
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="{task}"&container="{container}[&limit={limit}][&seq={seq}][&start={start}&end={end}]"
 
 // Tasks handlers
 GET /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
@@ -257,7 +256,7 @@ the secret with that ARN will be *overwritten* by the credentials passed in the 
             "SecretString": "{\"username\" : \"myorguser\",\"password\" : \"super-sekret-password-string\"}",
             "Description": "privateapi-creds"
         }
-    }
+    },
     "ForceRedeploy": true
 }
 ```
@@ -333,6 +332,23 @@ TODO
 | **400 Bad Request**           | badly formed request                     |
 | **404 Not Found**             | account, cluster or service wasn't found |
 | **500 Internal Server Error** | a server error occurred                  |
+
+
+#### Get logs for a task
+
+GET `/v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"....`
+
+Get the logs for a container running in a task belonging to a service, running in a cluster belonging to an account.  The request can be for just the task and container, in which case up to 10,000 (or 1MB) of the most recent log messages will be returned.  A limit can be passed to limit the number of records returned, and a sequence token, `seq` can be passed to support paging.  Additionally, `start` and `end` times can be passed in milliseconds from the unix epoch.  More details can be found [in the documentation][https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_GetLogEvents.html]
+
+##### Examples
+
+```
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"
+GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
+```
 
 ## Adhoc Requests
 

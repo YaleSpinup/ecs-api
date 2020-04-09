@@ -22,14 +22,10 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}", s.ServiceShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/events", s.ServiceEventsHandler).Methods(http.MethodGet)
+
+	// Log handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).
 		Queries("task", "{task}", "container", "{container}")
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).
-		Queries("task", "{task}", "container", "{container}", "limit", "{limit}", "seq", "{seq}")
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).
-		Queries("task", "{task}", "container", "{container}", "start", "{start}", "end", "{end}")
-	api.HandleFunc("/{account}/clusters/{cluster}/services/{service}/logs", s.ServiceLogsHandler).Methods(http.MethodGet).
-		Queries("task", "{task}", "container", "{container}", "start", "{start}", "end", "{end}", "limit", "{limit}", "seq", "{seq}")
 
 	// Tasks handlers
 	api.HandleFunc("/{account}/clusters/{cluster}/tasks/{task}", s.TaskShowHandler).Methods(http.MethodGet)

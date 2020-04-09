@@ -392,10 +392,6 @@ func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	service := vars["service"]
 	task := vars["task"]
 	container := vars["container"]
-	start := vars["start"]
-	end := vars["end"]
-	limit := vars["limit"]
-	seq := vars["seq"]
 
 	logService, ok := s.cwLogsServices[account]
 	if !ok {
@@ -412,39 +408,12 @@ func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 		LogStreamName: aws.String(logStream),
 	}
 
-	if limit != "" {
-		l, err := strconv.ParseInt(limit, 10, 64)
-		if err != nil {
-			msg := fmt.Sprintf("failed to parse limit as int64: %s", limit)
-			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
-			return
-		}
-		input.Limit = aws.Int64(l)
+	if err := parseLogQuery(r, &input); err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "failed to parse log query", err))
+		return
 	}
 
-	if seq != "" {
-		input.NextToken = aws.String(seq)
-		input.StartFromHead = aws.Bool(true)
-	}
-
-	if start != "" && end != "" {
-		s, err := strconv.ParseInt(start, 10, 64)
-		if err != nil {
-			msg := fmt.Sprintf("failed to parse start time as int64: %s", start)
-			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
-			return
-		}
-		input.StartTime = aws.Int64(s)
-
-		e, err := strconv.ParseInt(end, 10, 64)
-		if err != nil {
-			msg := fmt.Sprintf("failed to parse end time as int64: %s", end)
-			handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
-			return
-		}
-		input.EndTime = aws.Int64(e)
-	}
-
+	log.Debugf("requesting log events with input: %+v", input)
 	output, err := logService.GetLogEvents(r.Context(), &input)
 	if err != nil {
 		handleError(w, err)
@@ -460,4 +429,46 @@ func (s *server) ServiceLogsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
+}
+
+// parseLogQuery processes the query parameters for logs
+func parseLogQuery(r *http.Request, input *cloudwatchlogs.GetLogEventsInput) error {
+	for name, values := range r.URL.Query() {
+		switch name {
+		case "container", "task":
+			log.Debugf("ignoring %s parameter", name)
+		case "limit":
+			limit := values[0]
+			log.Debugf("processing limit value '%s'", limit)
+			l, err := strconv.ParseInt(limit, 10, 64)
+			if err != nil {
+				return err
+			}
+			input.Limit = aws.Int64(l)
+		case "seq":
+			seq := values[0]
+			log.Debugf("processing sequence value '%s'", seq)
+			input.NextToken = aws.String(seq)
+			input.StartFromHead = aws.Bool(true)
+		case "start":
+			start := values[0]
+			log.Debugf("processing start value '%s'", start)
+			s, err := strconv.ParseInt(start, 10, 64)
+			if err != nil {
+				return err
+			}
+			input.StartTime = aws.Int64(s)
+		case "end":
+			end := values[0]
+			log.Debugf("processing end value '%s'", end)
+			e, err := strconv.ParseInt(end, 10, 64)
+			if err != nil {
+				return err
+			}
+			input.EndTime = aws.Int64(e)
+		default:
+			log.Warnf("unexpected query parameter '%s'", name)
+		}
+	}
+	return nil
 }
