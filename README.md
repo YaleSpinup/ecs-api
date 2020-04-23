@@ -37,6 +37,9 @@ DELETE /v1/ecs/{account}/params/{prefix}
 GET /v1/ecs/{account}/params/{prefix}/{param}
 DELETE /v1/ecs/{account}/params/{prefix}/{param}
 PUT /v1/ecs//{account}/params/{prefix}/{param}
+
+// Load balancer handlers
+GET /v1/ecs/{account}/lgs?space={space}
 ```
 
 ## Docker Image verification
@@ -690,6 +693,27 @@ When only updating tags, you will get an empty response on success. When updatin
 | **400 Bad Request**           | badly formed request            |
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
+
+
+#### List load balancers (target groups) for a space
+
+GET `/v1/ecs/{account}/lgs?space={space}`
+
+##### Response
+
+```json
+{
+    "test-tg-1": "arn:aws:elasticloadbalancing:us-east-1:1234567890:targetgroup/test-tg-1/0987654321",
+    "test-tg-2": "arn:aws:elasticloadbalancing:us-east-1:1234567890:targetgroup/test-tg-2/0987654321"
+}
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **500 Internal Server Error** | a server error occurred               |
+
 
 ## Development
 
