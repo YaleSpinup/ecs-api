@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// LoadBalancerListHandler lists the target groups with the appropriate org and spaceid
 func (s *server) LoadBalancerListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)

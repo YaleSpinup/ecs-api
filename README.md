@@ -39,7 +39,7 @@ DELETE /v1/ecs/{account}/params/{prefix}/{param}
 PUT /v1/ecs//{account}/params/{prefix}/{param}
 
 // Load balancer handlers
-GET /v1/ecs/{account}/lgs?space={space}
+GET /v1/ecs/{account}/lbs?space={space}
 ```
 
 ## Docker Image verification
@@ -697,7 +697,7 @@ When only updating tags, you will get an empty response on success. When updatin
 
 #### List load balancers (target groups) for a space
 
-GET `/v1/ecs/{account}/lgs?space={space}`
+GET `/v1/ecs/{account}/lbs?space={space}`
 
 ##### Response
 
