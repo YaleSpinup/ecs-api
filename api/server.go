@@ -10,7 +10,9 @@ import (
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/YaleSpinup/ecs-api/ecs"
+	"github.com/YaleSpinup/ecs-api/elbv2"
 	"github.com/YaleSpinup/ecs-api/iam"
+	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/YaleSpinup/ecs-api/secretsmanager"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 	"github.com/YaleSpinup/ecs-api/ssm"
@@ -21,38 +23,44 @@ import (
 )
 
 type server struct {
-	sdServices     map[string]servicediscovery.ServiceDiscovery
-	smServices     map[string]secretsmanager.SecretsManager
-	ssmServices    map[string]ssm.SSM
-	ecsServices    map[string]ecs.ECS
-	iamServices    map[string]iam.IAM
-	cwLogsServices map[string]cloudwatchlogs.CloudWatchLogs
-	router         *mux.Router
-	version        common.Version
-	org            string
+	cwLogsServices       map[string]cloudwatchlogs.CloudWatchLogs
+	ecsServices          map[string]ecs.ECS
+	elbv2Services        map[string]elbv2.ELBV2API
+	iamServices          map[string]iam.IAM
+	rgTaggingAPIServices map[string]resourcegroupstaggingapi.ResourceGroupsTaggingAPI
+	sdServices           map[string]servicediscovery.ServiceDiscovery
+	smServices           map[string]secretsmanager.SecretsManager
+	ssmServices          map[string]ssm.SSM
+	router               *mux.Router
+	version              common.Version
+	org                  string
 }
 
 // NewServer creates a new server and starts it
 func NewServer(config common.Config) error {
 	s := server{
-		sdServices:     make(map[string]servicediscovery.ServiceDiscovery),
-		ecsServices:    make(map[string]ecs.ECS),
-		cwLogsServices: make(map[string]cloudwatchlogs.CloudWatchLogs),
-		smServices:     make(map[string]secretsmanager.SecretsManager),
-		iamServices:    make(map[string]iam.IAM),
-		ssmServices:    make(map[string]ssm.SSM),
-		router:         mux.NewRouter(),
-		version:        config.Version,
-		org:            config.Org,
+		cwLogsServices:       make(map[string]cloudwatchlogs.CloudWatchLogs),
+		ecsServices:          make(map[string]ecs.ECS),
+		elbv2Services:        make(map[string]elbv2.ELBV2API),
+		iamServices:          make(map[string]iam.IAM),
+		rgTaggingAPIServices: make(map[string]resourcegroupstaggingapi.ResourceGroupsTaggingAPI),
+		sdServices:           make(map[string]servicediscovery.ServiceDiscovery),
+		smServices:           make(map[string]secretsmanager.SecretsManager),
+		ssmServices:          make(map[string]ssm.SSM),
+		router:               mux.NewRouter(),
+		version:              config.Version,
+		org:                  config.Org,
 	}
 
 	for name, c := range config.Accounts {
 		log.Debugf("Creating new services for account '%s' with key '%s' in region '%s'", name, c.Akid, c.Region)
-		s.sdServices[name] = servicediscovery.NewSession(c)
-		s.ecsServices[name] = ecs.NewSession(c)
 		s.cwLogsServices[name] = cloudwatchlogs.NewSession(c)
-		s.smServices[name] = secretsmanager.NewSession(c)
+		s.ecsServices[name] = ecs.NewSession(c)
+		s.elbv2Services[name] = elbv2.NewSession(c)
 		s.iamServices[name] = iam.NewSession(c)
+		s.rgTaggingAPIServices[name] = resourcegroupstaggingapi.NewSession(c)
+		s.sdServices[name] = servicediscovery.NewSession(c)
+		s.smServices[name] = secretsmanager.NewSession(c)
 		s.ssmServices[name] = ssm.NewSession(c)
 	}
 

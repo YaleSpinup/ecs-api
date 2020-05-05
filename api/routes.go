@@ -41,4 +41,7 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamShowHandler).Methods(http.MethodGet)
 	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamDeleteHandler).Methods(http.MethodDelete)
 	api.HandleFunc("/{account}/params/{prefix}/{param}", s.ParamUpdateHandler).Methods(http.MethodPut)
+
+	// ALB/NLB Target group handlers
+	api.HandleFunc("/{account}/lbs", s.LoadBalancerListHandler).Methods(http.MethodGet).Queries("space", "{space}")
 }
