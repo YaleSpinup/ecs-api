@@ -285,28 +285,6 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 			input.TaskDefinition.Tags = active.Service.Tags
 		}
 
-		// TODO: remove this logic, I don't think we ended up using/needing it and its confusing.
-		// // for each container definition in the active task definition, if the active container deinition *has* repository
-		// // credentials defined, check for an incoming container definition with the same name that doesn't already have the
-		// // credential defined (ie. an override) and set the credentials parameter from the active container definition
-		// activeCreds := make(map[string]*string)
-		// for _, cdef := range active.TaskDefinition.ContainerDefinitions {
-		// 	if cdef.RepositoryCredentials != nil && cdef.RepositoryCredentials.CredentialsParameter != nil {
-		// 		cname := aws.StringValue(cdef.Name)
-		// 		activeCreds[cname] = cdef.RepositoryCredentials.CredentialsParameter
-		// 	}
-		// }
-		//
-		// for _, cdef := range input.TaskDefinition.ContainerDefinitions {
-		// 	cname := aws.StringValue(cdef.Name)
-		// 	if creds, ok := activeCreds[cname]; ok && cdef.RepositoryCredentials == nil {
-		// 		log.Debugf("setting credentials from active task def/container def %s: %+v", cname, creds)
-		// 		cdef.SetRepositoryCredentials(&ecs.RepositoryCredentials{
-		// 			CredentialsParameter: creds,
-		// 		})
-		// 	}
-		// }
-
 		// if we have credentials passed with the update, process those credentials and apply the results to the input
 		if input.Credentials != nil {
 			creds, err := o.processRepositoryCredentialsUpdate(ctx, input)
