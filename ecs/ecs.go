@@ -61,3 +61,19 @@ func (e *ECS) ListTags(ctx context.Context, arn string) ([]*ecs.Tag, error) {
 
 	return output.Tags, nil
 }
+
+func (e *ECS) TagResource(ctx context.Context, input *ecs.TagResourceInput) error {
+	if input == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("tagging ecs resource %s", aws.StringValue(input.ResourceArn))
+
+	_, err := e.Service.TagResourceWithContext(ctx, input)
+	if err != nil {
+		return ErrCode("failed to tag resource", err)
+	}
+
+	log.Debugf("tagged resource with input %+v", input)
+	return nil
+}

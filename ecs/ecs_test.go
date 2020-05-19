@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/YaleSpinup/ecs-api/apierror"
 	"github.com/YaleSpinup/ecs-api/common"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -57,6 +58,14 @@ func (m *mockECSClient) ListTagsForResourceWithContext(ctx aws.Context, input *e
 	return nil, errors.New("Failed get test resource tags")
 }
 
+func (m *mockECSClient) TagResourceWithContext(ctx aws.Context, input *ecs.TagResourceInput, opts ...request.Option) (*ecs.TagResourceOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return &ecs.TagResourceOutput{}, nil
+}
+
 func TestNewSession(t *testing.T) {
 	e := NewSession(common.Account{})
 	to := reflect.TypeOf(e).String()
@@ -90,5 +99,37 @@ func TestListTags(t *testing.T) {
 	_, err = client.ListTags(context.TODO(), "myarn")
 	if err == nil {
 		t.Fatal("expected error from list tags, got nil")
+	}
+}
+
+func TestTagResource(t *testing.T) {
+	client := ECS{Service: &mockECSClient{t: t}}
+
+	tests := []struct {
+		input *ecs.TagResourceInput
+		err   error
+	}{
+		{
+			input: nil,
+			err:   apierror.New(apierror.ErrBadRequest, "invalid input", nil),
+		},
+		{
+			input: &ecs.TagResourceInput{},
+			err:   nil,
+		},
+	}
+
+	for _, test := range tests {
+		t.Logf("testing with %+v", test)
+		err := client.TagResource(context.TODO(), test.input)
+		if err != nil && test.err != nil {
+			if err.Error() != test.err.Error() {
+				t.Errorf("expected error to be %s, got %s", test.err, err)
+			}
+		} else if err == nil && test.err != nil {
+			t.Errorf("expected error %s, got nil", test.err)
+		} else if err != nil && test.err == nil {
+			t.Errorf("expected nil error, got %s", err)
+		}
 	}
 }

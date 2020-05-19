@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	log "github.com/sirupsen/logrus"
 )
 
 // ListTasks collects all of the task ids for a service in a cluster with the given status(s)ß
@@ -21,6 +22,8 @@ func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []s
 	if status == nil {
 		status = []string{"RUNNING"}
 	}
+
+	log.Infof("listing tasks in %s/%s with status %s", cluster, service, strings.Join(status, ","))
 
 	tasks := []*string{}
 	for _, s := range status {
@@ -58,6 +61,8 @@ func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*ecs
 	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
+
+	log.Infof("getting cluster %s tasks  %s", aws.StringValue(input.Cluster), strings.Join(aws.StringValueSlice(input.Tasks), ","))
 
 	output, err := e.Service.DescribeTasksWithContext(ctx, input)
 	if err != nil {

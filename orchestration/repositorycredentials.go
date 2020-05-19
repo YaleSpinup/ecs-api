@@ -28,13 +28,11 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 		} else if secret, ok := input.Credentials[name]; ok {
 			log.Infof("creating repository credentials secret for container definition: %s", name)
 
-			secret.Tags = o.processSecretsmanagerTags(secret.Tags)
+			secret.Tags = o.processSecretsmanagerTags(input.Tags)
 			out, err := client.CreateSecret(ctx, secret)
 			if err != nil {
 				return nil, err
 			}
-
-			log.Debugf("output: %+v", out)
 
 			log.Infof("setting repository credentials secret for container definition: %s to %s", name, aws.StringValue(out.ARN))
 
@@ -65,6 +63,8 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 		name := aws.StringValue(cd.Name)
 		log.Debugf("processing container definition %s", name)
 		if secret, ok := input.Credentials[name]; ok {
+			// if the credentials parameter is specified in the container definition, assume we are updating
+			// the credentia in place.  otherwise, assume we are creating a *new* secret/credential
 			if cd.RepositoryCredentials != nil && cd.RepositoryCredentials.CredentialsParameter != nil {
 				secretArn := cd.RepositoryCredentials.CredentialsParameter
 				log.Infof("updating repository credentials secret '%s' for container definition: %s", name, aws.StringValue(secretArn))
@@ -85,7 +85,12 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 			} else {
 				log.Infof("creating new repository credentials secret for container definition: %s", name)
 
-				secret.Tags = o.processSecretsmanagerTags(secret.Tags)
+				smTags := make([]*secretsmanager.Tag, len(input.TaskDefinition.Tags))
+				for i, t := range input.TaskDefinition.Tags {
+					smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
+				}
+				secret.Tags = smTags
+
 				out, err := client.CreateSecret(ctx, secret)
 				if err != nil {
 					return nil, err
@@ -106,20 +111,15 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	return creds, nil
 }
 
-func (o *Orchestrator) processSecretsmanagerTags(tags []*secretsmanager.Tag) []*secretsmanager.Tag {
+func (o *Orchestrator) processSecretsmanagerTags(tags []*Tag) []*secretsmanager.Tag {
 	log.Debugf("processing secretsmanager tag list %+v", tags)
-	newTags := []*secretsmanager.Tag{
-		&secretsmanager.Tag{
-			Key:   aws.String("spinup:org"),
-			Value: aws.String(o.Org),
-		},
+
+	smTags := make([]*secretsmanager.Tag, len(tags))
+	for i, t := range tags {
+		smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
 	}
 
-	for _, t := range tags {
-		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-			newTags = append(newTags, t)
-		}
-	}
-	log.Debugf("returning processed secretsmanager tag list %+v", newTags)
-	return newTags
+	log.Debugf("returning processed secretsmanager tag list %+v", smTags)
+
+	return smTags
 }

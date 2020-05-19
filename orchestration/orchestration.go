@@ -16,6 +16,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Tag struct {
+	Key   *string
+	Value *string
+}
+
 // ServiceOrchestrationInput encapsulates a single request for a service
 type ServiceOrchestrationInput struct {
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#CreateClusterInput
@@ -29,6 +34,8 @@ type ServiceOrchestrationInput struct {
 	Service *ecs.CreateServiceInput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#CreateServiceInput
 	ServiceRegistry *servicediscovery.CreateServiceInput
+	// slice of tags to be applied to all resources
+	Tags []*Tag
 }
 
 // ServiceOrchestrationOutput is the output structure for service orchestration
@@ -56,7 +63,7 @@ type ServiceOrchestrationUpdateInput struct {
 	Credentials map[string]*secretsmanager.CreateSecretInput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#UpdateServiceInput
 	Service            *ecs.UpdateServiceInput
-	Tags               []*ecs.Tag
+	Tags               []*Tag
 	ForceNewDeployment bool
 }
 
@@ -65,6 +72,7 @@ type ServiceOrchestrationUpdateOutput struct {
 	Service        *ecs.Service
 	TaskDefinition *ecs.TaskDefinition
 	Credentials    map[string]interface{}
+	Tags           []*Tag
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
@@ -80,6 +88,12 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 	if input.Service == nil {
 		return nil, errors.New("service definition is required")
 	}
+
+	ct, err := cleanTags(o.Org, input.Tags)
+	if err != nil {
+		return nil, err
+	}
+	input.Tags = ct
 
 	output := &ServiceOrchestrationOutput{}
 	cluster, err := o.processCluster(ctx, input)
@@ -237,34 +251,38 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 		return nil, errors.New("expected update")
 	}
 
-	output := &ServiceOrchestrationUpdateOutput{}
-	activeSvc, err := o.ECS.GetService(ctx, cluster, service)
+	// set cluster
+	input.ClusterName = cluster
+
+	active := &ServiceOrchestrationUpdateOutput{}
+
+	// get active service
+	svc, err := o.ECS.GetService(ctx, cluster, service)
 	if err != nil {
 		return nil, err
 	}
-	output.Service = activeSvc
+
+	// GetService doesn't include tag information, lets add it
+	tags, err := o.ECS.ListTags(ctx, aws.StringValue(svc.ServiceArn))
+	if err != nil {
+		return nil, err
+	}
+	svc.Tags = tags
+
+	active.Service = svc
+	log.Debugf("active service: %+v", active.Service)
 
 	if input.TaskDefinition != nil {
-		activeTdef, err := o.ECS.GetTaskDefinition(ctx, activeSvc.TaskDefinition)
+		// get the active task def
+		tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
 		if err != nil {
 			return nil, err
 		}
+		active.TaskDefinition = tdef
 
-		// for each container definition in the active task definition, if the active container deinition *has* repository
-		// credentials defined, check for an incoming container definition with the same name that doesn't already have the
-		// credential defined (ie. an override) and set the credentials parameter from the active container definition
-		for _, activeCdef := range activeTdef.ContainerDefinitions {
-			if activeCdef.RepositoryCredentials != nil {
-				for _, newCdef := range input.TaskDefinition.ContainerDefinitions {
-					if aws.StringValue(activeCdef.Name) == aws.StringValue(newCdef.Name) {
-						if newCdef.RepositoryCredentials == nil {
-							log.Debugf("setting repo credentials from active task def/container def: %+v", activeCdef.RepositoryCredentials)
-							newCdef.SetRepositoryCredentials(activeCdef.RepositoryCredentials)
-						}
-						break
-					}
-				}
-			}
+		// if the tags are empty for the task definition, apply the existing tags
+		if input.TaskDefinition.Tags == nil {
+			input.TaskDefinition.Tags = active.Service.Tags
 		}
 
 		// if we have credentials passed with the update, process those credentials and apply the results to the input
@@ -273,119 +291,108 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 			if err != nil {
 				return nil, err
 			}
-			output.Credentials = creds
+			active.Credentials = creds
+			log.Debugf("processed update of repository credentials: %+v", active.Credentials)
 		}
 
-		// set cluster
-		input.ClusterName = cluster
+		if err := o.processTaskDefinitionUpdate(ctx, input, active); err != nil {
+			return nil, err
+		}
 
-		td, err := o.processTaskDefinitionUpdate(ctx, input)
+		log.Debugf("processed update of task definition: %+v", active.TaskDefinition)
+	}
+
+	// process updating the service
+	if err = o.processServiceUpdate(ctx, input, active); err != nil {
+		return nil, err
+	}
+	log.Debugf("processed update of service: %+v", active.Service)
+
+	// if we have tags to update
+	if input.Tags != nil {
+		log.Infof("updating tags for service %s and components", aws.StringValue(active.Service.ServiceName))
+
+		input.Tags, err = cleanTags(o.Org, input.Tags)
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugf("orchestrated create of task definition: %+v", td)
-
-		if input.Service == nil {
-			input.Service = &ecs.UpdateServiceInput{}
+		ecsTags := make([]*ecs.Tag, len(input.Tags))
+		smTags := make([]*secretsmanager.Tag, len(input.Tags))
+		for i, t := range input.Tags {
+			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
+			smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
 		}
-
-		// apply new task definition ARN to the service update
-		input.Service.TaskDefinition = td.TaskDefinitionArn
-		output.TaskDefinition = td
-	}
-
-	if input.Service != nil {
-		// set cluster and service, disallow assigning public IP, default to active service network config
-		u := input.Service
-		u.Cluster = activeSvc.ClusterArn
-		u.Service = activeSvc.ServiceArn
-		if u.NetworkConfiguration != nil && u.NetworkConfiguration.AwsvpcConfiguration != nil {
-			subnets := activeSvc.NetworkConfiguration.AwsvpcConfiguration.Subnets
-			if u.NetworkConfiguration.AwsvpcConfiguration.Subnets != nil {
-				subnets = u.NetworkConfiguration.AwsvpcConfiguration.Subnets
-			}
-
-			sgs := activeSvc.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
-			if u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups != nil {
-				sgs = u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
-			}
-
-			u.NetworkConfiguration.AwsvpcConfiguration = &ecs.AwsVpcConfiguration{
-				AssignPublicIp: aws.String("DISABLED"),
-				Subnets:        subnets,
-				SecurityGroups: sgs,
-			}
-		}
-
-		out, err := o.ECS.UpdateService(ctx, u)
-		if err != nil {
-			return output, err
-		}
-
-		// override active service with new service
-		activeSvc = out.Service
-
-		output.Service = out.Service
-	} else if input.ForceNewDeployment {
-		out, err := o.ECS.UpdateService(ctx, &ecs.UpdateServiceInput{
-			ForceNewDeployment: aws.Bool(true),
-			Service:            activeSvc.ServiceName,
-			Cluster:            activeSvc.ClusterArn,
-		})
-		if err != nil {
-			return output, err
-		}
-		output.Service = out.Service
-	}
-
-	// if we have tags to update
-	if input.Tags != nil {
-		newTags := []*ecs.Tag{
-			&ecs.Tag{
-				Key:   aws.String("spinup:org"),
-				Value: aws.String(o.Org),
-			},
-		}
-
-		for _, t := range input.Tags {
-			if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-				newTags = append(newTags, t)
-			}
-
-			if aws.StringValue(t.Key) == "spinup:org" || aws.StringValue(t.Key) == "yale:org" {
-				if aws.StringValue(t.Value) != o.Org {
-					msg := fmt.Sprintf("%s/%s is not a part of our org (%s)", cluster, service, o.Org)
-					return output, errors.New(msg)
-				}
-			}
-		}
-		input.Tags = newTags
 
 		// tag service
-		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
-			ResourceArn: activeSvc.ServiceArn,
-			Tags:        input.Tags,
+		if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: active.Service.ServiceArn,
+			Tags:        ecsTags,
 		}); err != nil {
-			return output, err
+			return nil, err
 		}
 
 		// tag task definition
-		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
-			ResourceArn: activeSvc.TaskDefinition,
-			Tags:        input.Tags,
+		if err = o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: active.Service.TaskDefinition,
+			Tags:        ecsTags,
 		}); err != nil {
-			return output, err
+			return nil, err
 		}
 
 		// tag cluster
-		if _, err = o.ECS.Service.TagResourceWithContext(ctx, &ecs.TagResourceInput{
-			ResourceArn: activeSvc.ClusterArn,
-			Tags:        input.Tags,
+		if err = o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+			ResourceArn: active.Service.ClusterArn,
+			Tags:        ecsTags,
 		}); err != nil {
-			return output, err
+			return nil, err
+		}
+
+		// tag secrets
+		// but first we need the active task definition
+		if active.TaskDefinition == nil {
+			// get the active task def
+			tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
+			if err != nil {
+				return nil, err
+			}
+			active.TaskDefinition = tdef
+		}
+
+		for _, containerDef := range active.TaskDefinition.ContainerDefinitions {
+			repositoryCredentials := containerDef.RepositoryCredentials
+			if repositoryCredentials != nil && repositoryCredentials.CredentialsParameter != nil {
+				credentialsArn := aws.StringValue(repositoryCredentials.CredentialsParameter)
+				if err := o.SecretsManager.UpdateSecretTags(ctx, credentialsArn, smTags); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
-	return output, nil
+	return active, nil
+}
+
+func cleanTags(org string, tags []*Tag) ([]*Tag, error) {
+	cleanTags := []*Tag{
+		&Tag{
+			Key:   aws.String("spinup:org"),
+			Value: aws.String(org),
+		},
+	}
+
+	for _, t := range tags {
+		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
+			cleanTags = append(cleanTags, &Tag{Key: t.Key, Value: t.Value})
+		}
+
+		if aws.StringValue(t.Key) == "spinup:org" || aws.StringValue(t.Key) == "yale:org" {
+			if aws.StringValue(t.Value) != org {
+				msg := fmt.Sprintf("not a part of our org (%s)", org)
+				return nil, errors.New(msg)
+			}
+		}
+	}
+
+	return cleanTags, nil
 }

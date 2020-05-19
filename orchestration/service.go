@@ -25,19 +25,15 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 		}
 	}
 
-	newTags := []*ecs.Tag{
-		&ecs.Tag{
-			Key:   aws.String("spinup:org"),
-			Value: aws.String(o.Org),
-		},
+	if input.Service.PropagateTags == nil {
+		input.Service.PropagateTags = aws.String("SERVICE")
 	}
 
-	for _, t := range input.Service.Tags {
-		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-			newTags = append(newTags, t)
-		}
+	ecsTags := make([]*ecs.Tag, len(input.Tags))
+	for i, t := range input.Tags {
+		ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
 	}
-	input.Service.Tags = newTags
+	input.Service.Tags = ecsTags
 
 	log.Debugf("processing service with input:\n%+v", input.Service)
 	output, err := o.ECS.CreateService(ctx, input.Service)
@@ -46,4 +42,51 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	}
 
 	return output.Service, nil
+}
+
+// processServiceUpdate processes the service update input.  It normalizes inputs and updates and/or redeploys the service.
+func (o *Orchestrator) processServiceUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput, active *ServiceOrchestrationUpdateOutput) error {
+	if input.Service != nil {
+		// set cluster and service, disallow assigning public IP, default to active service network config
+		u := input.Service
+		u.Cluster = active.Service.ClusterArn
+		u.Service = active.Service.ServiceArn
+		if u.NetworkConfiguration != nil && u.NetworkConfiguration.AwsvpcConfiguration != nil {
+			subnets := active.Service.NetworkConfiguration.AwsvpcConfiguration.Subnets
+			if u.NetworkConfiguration.AwsvpcConfiguration.Subnets != nil {
+				subnets = u.NetworkConfiguration.AwsvpcConfiguration.Subnets
+			}
+
+			sgs := active.Service.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
+			if u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups != nil {
+				sgs = u.NetworkConfiguration.AwsvpcConfiguration.SecurityGroups
+			}
+
+			u.NetworkConfiguration.AwsvpcConfiguration = &ecs.AwsVpcConfiguration{
+				AssignPublicIp: aws.String("DISABLED"),
+				Subnets:        subnets,
+				SecurityGroups: sgs,
+			}
+		}
+
+		out, err := o.ECS.UpdateService(ctx, u)
+		if err != nil {
+			return err
+		}
+
+		// override active service with new service
+		active.Service = out.Service
+	} else if input.ForceNewDeployment {
+		out, err := o.ECS.UpdateService(ctx, &ecs.UpdateServiceInput{
+			ForceNewDeployment: aws.Bool(true),
+			Service:            active.Service.ServiceName,
+			Cluster:            active.Service.ClusterArn,
+		})
+		if err != nil {
+			return err
+		}
+		active.Service = out.Service
+	}
+
+	return nil
 }

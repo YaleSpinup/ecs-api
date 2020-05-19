@@ -5,9 +5,12 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 func ErrCode(msg string, err error) error {
+	log.Debugf("processing error code with message '%s' and error '%s'", msg, err)
+
 	if aerr, ok := errors.Cause(err).(awserr.Error); ok {
 		switch aerr.Code() {
 		case

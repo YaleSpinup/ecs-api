@@ -11,6 +11,12 @@ import (
 
 // GetService describes an ECS service in a cluster by the service name
 func (e *ECS) GetService(ctx context.Context, cluster, service string) (*ecs.Service, error) {
+	if cluster == "" || service == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting details about service %s/%s", cluster, service)
+
 	output, err := e.Service.DescribeServicesWithContext(ctx, &ecs.DescribeServicesInput{
 		Cluster: aws.String(cluster),
 		Services: []*string{
@@ -36,6 +42,8 @@ func (e *ECS) DeleteService(ctx context.Context, input *ecs.DeleteServiceInput) 
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
+	log.Infof("deleting service %s/%s ", aws.StringValue(input.Cluster), aws.StringValue(input.Service))
+
 	output, err := e.Service.DeleteServiceWithContext(ctx, input)
 	if err != nil {
 		return ErrCode("failed to delete service", err)
@@ -51,6 +59,8 @@ func (e *ECS) ListServices(ctx context.Context, cluster string) ([]string, error
 	if cluster == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
+
+	log.Infof("listing services in cluster %s ", cluster)
 
 	input := ecs.ListServicesInput{
 		Cluster:    aws.String(cluster),
@@ -85,7 +95,7 @@ func (e *ECS) CreateService(ctx context.Context, input *ecs.CreateServiceInput) 
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("creating service with input:\n%+v", input)
+	log.Infof("creating service %s/%s", aws.StringValue(input.Cluster), aws.StringValue(input.ServiceName))
 
 	output, err := e.Service.CreateServiceWithContext(ctx, input)
 	if err != nil {
@@ -101,7 +111,7 @@ func (e *ECS) UpdateService(ctx context.Context, input *ecs.UpdateServiceInput) 
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Debugf("updating service with input:\n%+v", input)
+	log.Infof("updating service %s/%s", aws.StringValue(input.Cluster), aws.StringValue(input.Service))
 
 	output, err := e.Service.UpdateServiceWithContext(ctx, input)
 	if err != nil {
