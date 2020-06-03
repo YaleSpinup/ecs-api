@@ -12,19 +12,25 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type Credentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 // Verifier is an image verification client
 type Verifier struct {
-	Client *http.Client
-	Name   string
-	Scheme string
-	Domain string
-	Host   string
-	Path   string
-	Tag    string
+	Client      *http.Client
+	Credentials *Credentials
+	Domain      string
+	Host        string
+	Name        string
+	Path        string
+	Scheme      string
+	Tag         string
 }
 
 // NewVerifier creates an image verification struct from an image input string
-func NewVerifier(input string, insecure bool) (*Verifier, error) {
+func NewVerifier(input string, auth []byte, insecure bool) (*Verifier, error) {
 	log.Infof("creating new verifier from '%s'", input)
 
 	verifier := Verifier{}
@@ -35,6 +41,15 @@ func NewVerifier(input string, insecure bool) (*Verifier, error) {
 	} else {
 		log.Debugf("setting scheme to https")
 		verifier.Scheme = "https"
+	}
+
+	if auth != nil {
+		creds := &Credentials{}
+		if err := json.Unmarshal(auth, creds); err != nil {
+			return nil, err
+		}
+		verifier.Credentials = creds
+		log.Debug("setting credentials for authentication")
 	}
 
 	// parse the reference input
@@ -88,6 +103,11 @@ func (v *Verifier) Verify(ctx context.Context) (bool, error) {
 		return false, errors.Wrap(err, "unable to create new request for "+url)
 	}
 	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+
+	if creds := v.Credentials; creds != nil {
+		log.Debugf("setting basic auth for initial request (username: %s)", creds.Username)
+		req.SetBasicAuth(creds.Username, creds.Password)
+	}
 
 	// make the HTTP request to the registry
 	res, err := v.Client.Do(req)
@@ -175,6 +195,11 @@ func (v *Verifier) bearerTokenAuth(ctx context.Context, header string) (string, 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create new request for "+url)
+	}
+
+	if creds := v.Credentials; creds != nil {
+		log.Debugf("setting basic auth in bearer token processing (username: %s)", creds.Username)
+		req.SetBasicAuth(creds.Username, creds.Password)
 	}
 
 	res, err := v.Client.Do(req)

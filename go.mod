@@ -17,5 +17,6 @@ require (
 	github.com/prometheus/procfs v0.0.11 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.5.0
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
 	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
 )

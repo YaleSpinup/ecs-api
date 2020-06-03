@@ -12,8 +12,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+var creds = []byte(
+	`{
+		"username": "tfue",
+		"password": "undergroundcity"
+	}`)
+
 var verifierTestCases = []struct {
 	input      string
+	auth       []byte
 	err        error
 	verifier   *Verifier
 	exists     bool
@@ -175,42 +182,48 @@ var verifierTestCases = []struct {
 	},
 	{
 		input: "cloudmatin.io/sochill/datalibrary",
+		auth:  creds,
 		verifier: &Verifier{
-			Domain: "cloudmatin.io",
-			Name:   "cloudmatin.io/sochill/datalibrary",
-			Host:   "cloudmatin.io",
-			Tag:    "latest",
-			Scheme: "https",
-			Path:   "sochill/datalibrary",
-			Client: http.DefaultClient,
+			Credentials: &Credentials{Username: "tfue", Password: "undergroundcity"},
+			Domain:      "cloudmatin.io",
+			Name:        "cloudmatin.io/sochill/datalibrary",
+			Host:        "cloudmatin.io",
+			Tag:         "latest",
+			Scheme:      "https",
+			Path:        "sochill/datalibrary",
+			Client:      http.DefaultClient,
 		},
 		exists:     false,
 		statusCode: http.StatusTeapot,
 	},
 	{
 		input: "cloudmatin.io/sochill/datalibrary:latest",
+		auth:  creds,
 		verifier: &Verifier{
-			Domain: "cloudmatin.io",
-			Name:   "cloudmatin.io/sochill/datalibrary",
-			Host:   "cloudmatin.io",
-			Tag:    "latest",
-			Scheme: "https",
-			Path:   "sochill/datalibrary",
-			Client: http.DefaultClient,
+			Credentials: &Credentials{Username: "tfue", Password: "undergroundcity"},
+			Domain:      "cloudmatin.io",
+			Name:        "cloudmatin.io/sochill/datalibrary",
+			Host:        "cloudmatin.io",
+			Tag:         "latest",
+			Scheme:      "https",
+			Path:        "sochill/datalibrary",
+			Client:      http.DefaultClient,
 		},
 		exists:     false,
 		statusCode: http.StatusBadRequest,
 	},
 	{
 		input: "cloudmatin.io/sochill/datalibrary:12.13.14",
+		auth:  creds,
 		verifier: &Verifier{
-			Domain: "cloudmatin.io",
-			Name:   "cloudmatin.io/sochill/datalibrary",
-			Host:   "cloudmatin.io",
-			Tag:    "12.13.14",
-			Scheme: "https",
-			Path:   "sochill/datalibrary",
-			Client: http.DefaultClient,
+			Credentials: &Credentials{Username: "tfue", Password: "undergroundcity"},
+			Domain:      "cloudmatin.io",
+			Name:        "cloudmatin.io/sochill/datalibrary",
+			Host:        "cloudmatin.io",
+			Tag:         "12.13.14",
+			Scheme:      "https",
+			Path:        "sochill/datalibrary",
+			Client:      http.DefaultClient,
 		},
 		exists:     false,
 		statusCode: http.StatusNotFound,
@@ -221,7 +234,7 @@ func TestNewVerifier(t *testing.T) {
 	for _, v := range verifierTestCases {
 		t.Logf("testing with testverifier %+v", v)
 
-		verifier, err := NewVerifier(v.input, false)
+		verifier, err := NewVerifier(v.input, v.auth, false)
 		t.Logf("got %+v, %s", v, reflect.TypeOf(verifier).String())
 
 		if err != v.err {

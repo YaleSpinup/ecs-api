@@ -5,10 +5,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestTokenMiddleware(t *testing.T) {
-	psk := "sometesttoken"
+	psk := []byte("sometesttoken")
+	tokenHeader, _ := bcrypt.GenerateFromPassword(psk, bcrypt.DefaultCost)
 
 	// Test handler that just returns 200 OK
 	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +60,7 @@ func TestTokenMiddleware(t *testing.T) {
 	// Test a private URL _with_ an auth-token
 	client := &http.Client{}
 	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/private", server.URL), nil)
-	req.Header.Add("X-Auth-Token", psk)
+	req.Header.Add("X-Auth-Token", string(tokenHeader))
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatal(err)
