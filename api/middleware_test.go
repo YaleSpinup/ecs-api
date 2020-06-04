@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -88,6 +89,136 @@ func TestTokenMiddleware(t *testing.T) {
 	for k, v := range testHeaders {
 		if h, ok := resp.Header[k]; !ok || h[0] != v {
 			t.Errorf("Expected response header %s from OPTIONS request to be %s, got %s", k, v, h[0])
+		}
+	}
+}
+
+func BenchmarkTokenMiddlewarePub(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+
+	psk := []byte("0232ecdb-8ce2-4125-808b-8056b24d3a49")
+
+	// Test handler that just returns 200 OK
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	pubUrls := map[string]string{
+		"/public": "public",
+		"/bar":    "public",
+		"/baz":    "public",
+	}
+
+	// Start a new server with our token middleware and test handler
+	server := httptest.NewServer(TokenMiddleware(psk, pubUrls, okHandler))
+	defer server.Close()
+
+	for n := 0; n < b.N; n++ {
+		// Test a private URL _with_ an auth-token
+		client := &http.Client{}
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/public", server.URL), nil)
+		_, err := client.Do(req)
+		if err != nil {
+			log.Errorf("unexpected error: %s", err)
+		}
+	}
+}
+
+func BenchmarkTokenMiddlewarePrivMinCost(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+
+	psk := []byte("0232ecdb-8ce2-4125-808b-8056b24d3a49")
+	tokenHeader, _ := bcrypt.GenerateFromPassword(psk, bcrypt.MinCost)
+
+	// Test handler that just returns 200 OK
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	pubUrls := map[string]string{
+		"/public": "public",
+		"/bar":    "public",
+		"/baz":    "public",
+	}
+
+	// Start a new server with our token middleware and test handler
+	server := httptest.NewServer(TokenMiddleware(psk, pubUrls, okHandler))
+	defer server.Close()
+
+	for n := 0; n < b.N; n++ {
+		// Test a private URL _with_ an auth-token
+		client := &http.Client{}
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/private", server.URL), nil)
+		req.Header.Add("X-Auth-Token", string(tokenHeader))
+		_, err := client.Do(req)
+		if err != nil {
+			log.Errorf("unexpected error: %s", err)
+		}
+	}
+}
+
+func BenchmarkTokenMiddlewarePrivDefCost(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+
+	psk := []byte("0232ecdb-8ce2-4125-808b-8056b24d3a49")
+	tokenHeader, _ := bcrypt.GenerateFromPassword(psk, bcrypt.DefaultCost)
+
+	// Test handler that just returns 200 OK
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	pubUrls := map[string]string{
+		"/public": "public",
+		"/bar":    "public",
+		"/baz":    "public",
+	}
+
+	// Start a new server with our token middleware and test handler
+	server := httptest.NewServer(TokenMiddleware(psk, pubUrls, okHandler))
+	defer server.Close()
+
+	for n := 0; n < b.N; n++ {
+		// Test a private URL _with_ an auth-token
+		client := &http.Client{}
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/private", server.URL), nil)
+		req.Header.Add("X-Auth-Token", string(tokenHeader))
+		_, err := client.Do(req)
+		if err != nil {
+			log.Errorf("unexpected error: %s", err)
+		}
+	}
+}
+
+func BenchmarkTokenMiddlewarePrivCostSix(b *testing.B) {
+	log.SetLevel(log.ErrorLevel)
+
+	psk := []byte("0232ecdb-8ce2-4125-808b-8056b24d3a49")
+	tokenHeader, _ := bcrypt.GenerateFromPassword(psk, 6)
+
+	// Test handler that just returns 200 OK
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	pubUrls := map[string]string{
+		"/public": "public",
+		"/bar":    "public",
+		"/baz":    "public",
+	}
+
+	// Start a new server with our token middleware and test handler
+	server := httptest.NewServer(TokenMiddleware(psk, pubUrls, okHandler))
+	defer server.Close()
+
+	for n := 0; n < b.N; n++ {
+		// Test a private URL _with_ an auth-token
+		client := &http.Client{}
+		req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/private", server.URL), nil)
+		req.Header.Add("X-Auth-Token", string(tokenHeader))
+		_, err := client.Do(req)
+		if err != nil {
+			log.Errorf("unexpected error: %s", err)
 		}
 	}
 }
