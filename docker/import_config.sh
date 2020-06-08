@@ -12,7 +12,6 @@ if [ -n "$SSMPATH" ]; then
   fi
   deco validate ssm://${SSMPATH} || exit 1
   deco run ssm://${SSMPATH}
-  rm -f deco-config.json config.encrypted
 else
   echo "ERROR: SSMPATH variable not set!"
   exit 1
