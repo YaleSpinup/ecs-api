@@ -53,6 +53,16 @@ codes mean the image is available.
 
 HEAD `/v1/ecs/images?image={image}`
 
+Passing the `X-Registry-Auth` header with a base64 encoded JSON payload will attempt to authenticate to the registry using the passed credentials.
+
+The JSON payload should be of the form:
+
+```json
+{"username": "foouser", "password": "foopass"}
+```
+
+*Note:* Header values are **not** URL encoded.
+
 #### Response
 
 | Response Code                 | Definition                            |

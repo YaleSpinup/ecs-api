@@ -76,7 +76,7 @@ func NewServer(config common.Config) error {
 	if config.ListenAddress == "" {
 		config.ListenAddress = ":8080"
 	}
-	handler := handlers.RecoveryHandler()(handlers.LoggingHandler(os.Stdout, TokenMiddleware(config.Token, publicURLs, s.router)))
+	handler := handlers.RecoveryHandler()(handlers.LoggingHandler(os.Stdout, TokenMiddleware([]byte(config.Token), publicURLs, s.router)))
 	srv := &http.Server{
 		Handler:      handler,
 		Addr:         config.ListenAddress,

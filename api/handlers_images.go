@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"github.com/YaleSpinup/ecs-api/apierror"
@@ -17,7 +18,17 @@ func (s *server) ImageVerificationHandler(w http.ResponseWriter, r *http.Request
 
 	log.Debugf("verifying image '%s' from query", image)
 
-	verifier, err := registry.NewVerifier(image, false)
+	var auth []byte
+	if a := r.Header.Get("X-Registry-Auth"); a != "" {
+		var err error
+		auth, err = base64.StdEncoding.DecodeString(a)
+		if err != nil {
+			handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode registry authentication header", err))
+			return
+		}
+	}
+
+	verifier, err := registry.NewVerifier(image, auth, false)
 	if err != nil {
 		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to create new image verifier", err))
 		return

@@ -14,21 +14,19 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-RUN go build -trimpath -o /go/api -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+RUN go build -trimpath -o /app/api.out -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+RUN /app/api.out -version
 
 # final stage
-FROM alpine
-MAINTAINER Camden Fisher <camden.fisher@yale.edu>
+FROM python:3-alpine
 
 WORKDIR /app
-COPY --from=build-env /go/api /app/api
+COPY --from=build-env /app/api.out /app/api
 RUN chmod 555 /app/api
 
-RUN apk add --no-cache bash ca-certificates wget python gettext && \
-    wget -nv "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" && \
-    unzip awscli-bundle.zip && \
-    ./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws && \
-    /usr/local/bin/aws --version
+RUN apk add --no-cache bash ca-certificates && \
+    pip3 install awscli --upgrade && \
+    aws --version
 
 # Install Deco
 ARG DECO_VERSION=0.3.1

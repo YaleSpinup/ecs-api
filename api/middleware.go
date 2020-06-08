@@ -5,10 +5,11 @@ import (
 	"net/url"
 
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TokenMiddleware checks the tokens for non-public URLs
-func TokenMiddleware(psk string, public map[string]string, h http.Handler) http.Handler {
+func TokenMiddleware(psk []byte, public map[string]string, h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		log.Debug("Processing token middleware for protected URLs")
 
@@ -35,9 +36,7 @@ func TokenMiddleware(psk string, public map[string]string, h http.Handler) http.
 			log.Infof("Authenticating token for protected URL '%s'", r.URL)
 
 			htoken := r.Header.Get("X-Auth-Token")
-			if psk == htoken {
-				log.Debugf("Authenticating preshared token '%s' for '%s'", htoken, r.URL)
-			} else {
+			if err := bcrypt.CompareHashAndPassword([]byte(htoken), psk); err != nil {
 				log.Warnf("Unable to authenticate session for '%s' with '%s'", r.URL, htoken)
 				w.WriteHeader(http.StatusForbidden)
 				return
