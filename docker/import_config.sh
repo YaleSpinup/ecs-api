@@ -5,9 +5,9 @@
 
 if [ -n "$SSMPATH" ]; then
   echo "Getting config file from SSM Parameter Store (${SSMPATH}) ..."
-  aws --version
+  deco version
   if [[ $? -ne 0 ]]; then
-    echo "ERROR: aws-cli not found!"
+    echo "ERROR: deco not found!"
     exit 1
   fi
   deco validate ssm://${SSMPATH} || exit 1
