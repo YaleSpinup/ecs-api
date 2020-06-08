@@ -58,7 +58,7 @@ Passing the `X-Registry-Auth` header with a base64 encoded JSON payload will att
 The JSON payload should be of the form:
 
 ```json
-{"username": "foouser", "passwxord": "foopass"}
+{"username": "foouser", "password": "foopass"}
 ```
 
 *Note:* Header values are **not** URL encoded.
