@@ -10,8 +10,8 @@ if [ -n "$SSMPATH" ]; then
     echo "ERROR: deco not found!"
     exit 1
   fi
-  deco validate ssm://${SSMPATH} || exit 1
-  deco run ssm://${SSMPATH}
+  deco validate -e ssm://${SSMPATH} || exit 1
+  deco run -e ssm://${SSMPATH}
 else
   echo "ERROR: SSMPATH variable not set!"
   exit 1
