@@ -12,10 +12,15 @@ import (
 // processRepositoryCredentials processes the Credentials portion of the input.  If existing repository credentials are
 // provided with the task definition, they are used.  Otherwise, if the credentials are defined as input, they are created
 // in the secretsmanager service.  If neither is true, nil is returned.
-func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *ServiceOrchestrationInput) (map[string]*secretsmanager.CreateSecretOutput, error) {
+func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *ServiceOrchestrationInput) (map[string]*secretsmanager.CreateSecretOutput, rollbackFunc, error) {
+	rbfunc := func(ctx context.Context) error {
+		log.Infof("processRepositoryCredentials rollback, nothing to do")
+		return nil
+	}
+
 	if len(input.Credentials) == 0 {
 		log.Debugf("no private repository credentials passed")
-		return nil, nil
+		return nil, rbfunc, nil
 	}
 
 	client := o.SecretsManager
@@ -31,7 +36,7 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 			secret.Tags = o.processSecretsmanagerTags(input.Tags)
 			out, err := client.CreateSecret(ctx, secret)
 			if err != nil {
-				return nil, err
+				return nil, rbfunc, err
 			}
 
 			log.Infof("setting repository credentials secret for container definition: %s to %s", name, aws.StringValue(out.ARN))
@@ -44,7 +49,26 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 		}
 	}
 
-	return creds, nil
+	rbfunc = func(ctx context.Context) error {
+		for _, secret := range creds {
+			id := aws.StringValue(secret.ARN)
+
+			log.Debugf("rolling back secret %s", id)
+
+			out, err := client.DeleteSecret(ctx, id, 0)
+			if err != nil {
+				log.Errorf("failed deleting secret %s: %s", id, err)
+			}
+
+			log.Infof("successfully rolled back secret: %s", aws.StringValue(out.ARN))
+		}
+
+		return nil
+	}
+
+	log.Debugf("returning creds: %+v", creds)
+
+	return creds, rbfunc, nil
 }
 
 // processRepositoryCredentialsUpdate processes the passed in repository credentials and applies them appropriately.  If the

@@ -28,21 +28,21 @@ type taskListTest struct {
 
 var taskListTests = []*taskListTest{
 	// test empty cluster and service
-	&taskListTest{
+	{
 		err: apierror.New(apierror.ErrBadRequest, "invalid input", nil),
 	},
 	// test empty service
-	&taskListTest{
+	{
 		cluster: "clu0",
 		err:     apierror.New(apierror.ErrBadRequest, "invalid input", nil),
 	},
 	// test empty cluster
-	&taskListTest{
+	{
 		service: "svc0",
 		err:     apierror.New(apierror.ErrBadRequest, "invalid input", nil),
 	},
 	// test empty status list
-	&taskListTest{
+	{
 		cluster: "clu0",
 		service: "svc0",
 		expected: []*string{
@@ -57,7 +57,7 @@ var taskListTests = []*taskListTest{
 		},
 	},
 	// test single RUNNING status
-	&taskListTest{
+	{
 		cluster: "clu1",
 		service: "svc1",
 		status:  []string{"RUNNING"},
@@ -73,7 +73,7 @@ var taskListTests = []*taskListTest{
 		},
 	},
 	// test single STOPPED status
-	&taskListTest{
+	{
 		cluster: "clu1",
 		service: "svc2",
 		status:  []string{"STOPPED"},
@@ -89,7 +89,7 @@ var taskListTests = []*taskListTest{
 		},
 	},
 	// test multiple matching status'
-	&taskListTest{
+	{
 		cluster: "clu2",
 		service: "svc1",
 		status:  []string{"STOPPING", "PENDING", "FAILED"},
@@ -107,7 +107,7 @@ var taskListTests = []*taskListTest{
 		},
 	},
 	// test no matching statuses
-	&taskListTest{
+	{
 		cluster:  "clu2",
 		service:  "svc2",
 		status:   []string{"STOPPING", "PENDING", "FAILED"},
@@ -119,7 +119,7 @@ var taskListTests = []*taskListTest{
 		},
 	},
 	// test Bad Request from AWS
-	&taskListTest{
+	{
 		cluster: "clu2",
 		service: "svc2",
 		status:  []string{"RUNNING"},
@@ -129,13 +129,13 @@ var taskListTests = []*taskListTest{
 }
 
 var testTasks = []*ecs.Task{
-	&ecs.Task{
+	{
 		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
 		Cpu:        aws.String("2048"),
 		Memory:     aws.String("4096"),
 		TaskArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task/task1:1"),
 	},
-	&ecs.Task{
+	{
 		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
 		Cpu:        aws.String("1024"),
 		Memory:     aws.String("4096"),

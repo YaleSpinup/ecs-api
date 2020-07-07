@@ -30,15 +30,15 @@ func newmockECSClient(t *testing.T, err error) ecsiface.ECSAPI {
 }
 
 var testResourceTags = []*ecs.Tag{
-	&ecs.Tag{
+	{
 		Key:   aws.String("foo"),
 		Value: aws.String("bar"),
 	},
-	&ecs.Tag{
+	{
 		Key:   aws.String("fiz"),
 		Value: aws.String("biz"),
 	},
-	&ecs.Tag{
+	{
 		Key:   aws.String("fuz"),
 		Value: aws.String("boz"),
 	},

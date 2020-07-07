@@ -29,7 +29,7 @@ var testRole = iam.Role{
 var testPolicyDoc = PolicyDoc{
 	Version: "2012-10-17",
 	Statement: []PolicyStatement{
-		PolicyStatement{
+		{
 			Effect: "Allow",
 			Action: []string{
 				"logs:CreateLogGroup",

@@ -16,15 +16,15 @@ import (
 
 var (
 	goodContainerDefs = []*ecs.ContainerDefinition{
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("webserver"),
 			Image: aws.String("nginx:alpine"),
 		},
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("testDef1"),
 			Image: aws.String("secretImage1"),
 		},
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("testDef2"),
 			Image: aws.String("secretImage2"),
 		},

@@ -22,21 +22,21 @@ var secretMeta1 = &secretsmanager.DescribeSecretOutput{
 	Name:            aws.String("Secret01"),
 	LastChangedDate: &now,
 	Tags: []*secretsmanager.Tag{
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String("test"),
 		},
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("Application"),
 			Value: aws.String("Spinup"),
 		},
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("Foo"),
 			Value: aws.String("Bar"),
 		},
 	},
 	VersionIdsToStages: map[string][]*string{
-		"00000000-1111-2222-3333-444444444444": []*string{
+		"00000000-1111-2222-3333-444444444444": {
 			aws.String("AWSCURRENT"),
 		},
 	},
@@ -47,17 +47,17 @@ var secretMeta2 = &secretsmanager.DescribeSecretOutput{
 	Name:            aws.String("Secret02"),
 	LastChangedDate: &now,
 	Tags: []*secretsmanager.Tag{
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String("test"),
 		},
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("Application"),
 			Value: aws.String("Spinup"),
 		},
 	},
 	VersionIdsToStages: map[string][]*string{
-		"00000000-1111-2222-3333-444444444444": []*string{
+		"00000000-1111-2222-3333-444444444444": {
 			aws.String("AWSCURRENT"),
 		},
 	},
@@ -68,77 +68,77 @@ var secretMeta3 = &secretsmanager.DescribeSecretOutput{
 	Name:            aws.String("Secret03"),
 	LastChangedDate: &now,
 	Tags: []*secretsmanager.Tag{
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String("prod"),
 		},
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("Application"),
 			Value: aws.String("Spinup"),
 		},
 	},
 	VersionIdsToStages: map[string][]*string{
-		"00000000-1111-2222-3333-444444444444": []*string{
+		"00000000-1111-2222-3333-444444444444": {
 			aws.String("AWSCURRENT"),
 		},
 	},
 }
 
 var secretList1 = []*secretsmanager.SecretListEntry{
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret01-abcdefg"),
 		Name: aws.String("Secret01"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret02-abcdefg"),
 		Name: aws.String("Secret02"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret03-abcdefg"),
 		Name: aws.String("Secret03"),
 	},
 }
 
 var secretList2 = []*secretsmanager.SecretListEntry{
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret11-abcdefg"),
 		Name: aws.String("Secret11"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret12-abcdefg"),
 		Name: aws.String("Secret12"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret13-abcdefg"),
 		Name: aws.String("Secret13"),
 	},
 }
 
 var secretList3 = []*secretsmanager.SecretListEntry{
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret21-abcdefg"),
 		Name: aws.String("Secret21"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret22-abcdefg"),
 		Name: aws.String("Secret22"),
 	},
-	&secretsmanager.SecretListEntry{
+	{
 		ARN:  aws.String("arn:aws:secretsmanager:us-east-1:00000000000:secret:Secret23-abcdefg"),
 		Name: aws.String("Secret23"),
 	},
 }
 
 var testSecretsList = []*secretsmanager.ListSecretsOutput{
-	&secretsmanager.ListSecretsOutput{
+	{
 		SecretList: secretList1,
 		NextToken:  aws.String("1"),
 	},
-	&secretsmanager.ListSecretsOutput{
+	{
 		SecretList: secretList2,
 		NextToken:  aws.String("2"),
 	},
-	&secretsmanager.ListSecretsOutput{
+	{
 		SecretList: secretList3,
 	},
 }
@@ -495,11 +495,11 @@ func TestUpdateSecretTags(t *testing.T) {
 	s := SecretsManager{Service: newmockSecretsManagerClient(t, nil)}
 
 	tags := []*secretsmanager.Tag{
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("foo"),
 			Value: aws.String("bar"),
 		},
-		&secretsmanager.Tag{
+		{
 			Key:   aws.String("baz"),
 			Value: aws.String("biz"),
 		},

@@ -90,7 +90,7 @@ func (s *server) ParamCreateHandler(w http.ResponseWriter, r *http.Request) {
 	input.Name = aws.String(path)
 
 	newTags := []*ssm.Tag{
-		&ssm.Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String(s.org),
 		},
