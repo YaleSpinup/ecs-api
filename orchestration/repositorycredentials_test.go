@@ -33,6 +33,10 @@ var (
 	tdInput = &ecs.RegisterTaskDefinitionInput{
 		ContainerDefinitions: goodContainerDefs,
 	}
+
+	svcInput = &ecs.CreateServiceInput{
+		Cluster: aws.String("getAClu1"),
+	}
 )
 
 func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secretsmanager.CreateSecretInput, opts ...request.Option) (*secretsmanager.CreateSecretOutput, error) {
@@ -63,6 +67,7 @@ func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secre
 func TestProcessRepositoryCredentials(t *testing.T) {
 	o := Orchestrator{
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+		Org:            "mock",
 	}
 	out, _, err := o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{})
 	if err != nil {
@@ -76,6 +81,7 @@ func TestProcessRepositoryCredentials(t *testing.T) {
 	out, _, err = o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{
 		TaskDefinition: tdInput,
 		Credentials:    credentialsMapIn,
+		Service:        svcInput,
 	})
 	if err != nil {
 		t.Errorf("expected nil error for processRepositoryCredentials, got %s", err)
@@ -143,6 +149,7 @@ func (m *mockSMClient) PutSecretValueWithContext(ctx context.Context, input *sec
 func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	o := Orchestrator{
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+		Org:            "mock",
 	}
 
 	baseTdefInput := ecs.RegisterTaskDefinitionInput{
@@ -201,7 +208,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 						Name:  aws.String("privateapi"),
 						Image: aws.String("privateapi:latest"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:secret credentials"),
+							CredentialsParameter: aws.String("arn:spinup/mock/secret credentials"),
 						},
 					},
 				},

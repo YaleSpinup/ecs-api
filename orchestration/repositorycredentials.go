@@ -26,26 +26,40 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 	client := o.SecretsManager
 	creds := make(map[string]*secretsmanager.CreateSecretOutput, len(input.Credentials))
 	for _, cd := range input.TaskDefinition.ContainerDefinitions {
-		name := aws.StringValue(cd.Name)
-		log.Debugf("processing container definition %s", name)
+		containerName := aws.StringValue(cd.Name)
+		log.Debugf("processing container definition %s", containerName)
+
 		if cd.RepositoryCredentials != nil {
-			log.Infof("using respository credentials referenced in container definition %s: %s", name, cd.RepositoryCredentials.String())
-		} else if secret, ok := input.Credentials[name]; ok {
-			log.Infof("creating repository credentials secret for container definition: %s", name)
+			log.Infof("using respository credentials referenced in container definition %s: %s", containerName, cd.RepositoryCredentials.String())
+		} else if secret, ok := input.Credentials[containerName]; ok {
+			log.Infof("creating repository credentials secret for container definition: %s", containerName)
 
 			secret.Tags = o.processSecretsmanagerTags(input.Tags)
+
+			org := ""
+			if o.Org != "" {
+				org = o.Org + "/"
+			}
+
+			cluster := ""
+			if input.Service != nil && input.Service.Cluster != nil {
+				cluster = aws.StringValue(input.Service.Cluster) + "/"
+			}
+
+			secret.Name = aws.String("spinup/" + org + cluster + aws.StringValue(secret.Name))
+
 			out, err := client.CreateSecret(ctx, secret)
 			if err != nil {
 				return nil, rbfunc, err
 			}
 
-			log.Infof("setting repository credentials secret for container definition: %s to %s", name, aws.StringValue(out.ARN))
+			log.Infof("setting repository credentials secret for container definition: %s to %s", containerName, aws.StringValue(out.ARN))
 
 			cd.SetRepositoryCredentials(&ecs.RepositoryCredentials{CredentialsParameter: out.ARN})
 
-			creds[name] = out
+			creds[containerName] = out
 		} else {
-			log.Infof("assuming container definition %s references a public image, no credentials included", name)
+			log.Infof("assuming container definition %s references a public image, no credentials included", containerName)
 		}
 	}
 
@@ -84,14 +98,14 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	client := o.SecretsManager
 	creds := make(map[string]interface{}, len(input.Credentials))
 	for _, cd := range input.TaskDefinition.ContainerDefinitions {
-		name := aws.StringValue(cd.Name)
-		log.Debugf("processing container definition %s", name)
-		if secret, ok := input.Credentials[name]; ok {
+		containerName := aws.StringValue(cd.Name)
+		log.Debugf("processing container definition %s", containerName)
+		if secret, ok := input.Credentials[containerName]; ok {
 			// if the credentials parameter is specified in the container definition, assume we are updating
 			// the credentia in place.  otherwise, assume we are creating a *new* secret/credential
 			if cd.RepositoryCredentials != nil && cd.RepositoryCredentials.CredentialsParameter != nil {
 				secretArn := cd.RepositoryCredentials.CredentialsParameter
-				log.Infof("updating repository credentials secret '%s' for container definition: %s", name, aws.StringValue(secretArn))
+				log.Infof("updating repository credentials secret '%s' for container definition: %s", containerName, aws.StringValue(secretArn))
 
 				secretUpdate := secretsmanager.PutSecretValueInput{
 					ClientRequestToken: secret.ClientRequestToken,
@@ -105,15 +119,27 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 				}
 
 				log.Debugf("output: %+v", out)
-				creds[name] = out
+				creds[containerName] = out
 			} else {
-				log.Infof("creating new repository credentials secret for container definition: %s", name)
+				log.Infof("creating new repository credentials secret for container definition: %s", containerName)
 
 				smTags := make([]*secretsmanager.Tag, len(input.TaskDefinition.Tags))
 				for i, t := range input.TaskDefinition.Tags {
 					smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
 				}
 				secret.Tags = smTags
+
+				org := ""
+				if o.Org != "" {
+					org = o.Org + "/"
+				}
+
+				cluster := ""
+				if input.Service != nil && input.Service.Cluster != nil {
+					cluster = aws.StringValue(input.Service.Cluster) + "/"
+				}
+
+				secret.Name = aws.String("spinup/" + org + cluster + aws.StringValue(secret.Name))
 
 				out, err := client.CreateSecret(ctx, secret)
 				if err != nil {
@@ -122,13 +148,13 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 
 				log.Debugf("output: %+v", out)
 
-				log.Infof("setting repository credentials secret for container definition: %s to %s", name, aws.StringValue(out.ARN))
+				log.Infof("setting repository credentials secret for container definition: %s to %s", containerName, aws.StringValue(out.ARN))
 
 				cd.SetRepositoryCredentials(&ecs.RepositoryCredentials{CredentialsParameter: out.ARN})
-				creds[name] = out
+				creds[containerName] = out
 			}
 		} else {
-			log.Infof("assuming container definition %s references a public image, no credentials included", name)
+			log.Infof("assuming container definition %s references a public image, no credentials included", containerName)
 		}
 	}
 
