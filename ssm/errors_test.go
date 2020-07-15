@@ -3,7 +3,7 @@ package ssm
 import (
 	"testing"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/pkg/errors"

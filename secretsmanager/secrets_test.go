@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 )
 
 var now = time.Now()

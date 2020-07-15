@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
