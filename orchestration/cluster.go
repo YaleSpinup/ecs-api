@@ -3,6 +3,8 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -13,18 +15,24 @@ import (
 // processCluster processes the cluster portion of the input.  If the cluster is defined on ths service object
 // it will be used, otherwise if the ClusterName is given, it will be created.  If neither is provided, an error
 // will be returned.
-func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, error) {
+func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Cluster, rollbackFunc, error) {
+	rbfunc := func(_ context.Context) error {
+		log.Infof("processCluster rollback, nothing to do")
+		return nil
+	}
+
 	client := o.ECS
 	if input.Service != nil && input.Service.Cluster != nil {
 		log.Infof("using provided cluster name (input.Service.Cluster) %s", aws.StringValue(input.Service.Cluster))
 
 		cluster, err := client.GetCluster(ctx, input.Service.Cluster)
 		if err != nil {
-			return nil, err
+			return nil, rbfunc, err
 		}
 
 		log.Debugf("got cluster %+v", cluster)
-		return cluster, nil
+
+		return cluster, rbfunc, nil
 	}
 
 	if input.Cluster != nil {
@@ -45,12 +53,12 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 		// set the default capacity providers if they are not set in the request
 		if input.Cluster.DefaultCapacityProviderStrategy == nil {
 			input.Cluster.DefaultCapacityProviderStrategy = []*ecs.CapacityProviderStrategyItem{
-				&ecs.CapacityProviderStrategyItem{
+				{
 					Base:             aws.Int64(1),
 					CapacityProvider: aws.String("FARGATE"),
 					Weight:           aws.Int64(0),
 				},
-				&ecs.CapacityProviderStrategyItem{
+				{
 					CapacityProvider: aws.String("FARGATE_SPOT"),
 					Weight:           aws.Int64(1),
 				},
@@ -59,12 +67,27 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 
 		cluster, err := client.CreateCluster(ctx, input.Cluster)
 		if err != nil {
-			return nil, err
+			return nil, rbfunc, err
 		}
-		log.Debugf("created cluster %+v", cluster)
 		input.Service.Cluster = cluster.ClusterName
-		return cluster, nil
+
+		rbfunc = func(ctx context.Context) error {
+			cluCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+			defer cancel()
+
+			cluChan := client.DeleteClusterWithRetry(ctx, cluster.ClusterArn)
+			select {
+			case <-cluCtx.Done():
+				return fmt.Errorf("timeout waiting for successful cluster %s rollback", aws.StringValue(cluster.ClusterArn))
+			case <-cluChan:
+				log.Infof("successfully rolled back cluster %s", aws.StringValue(cluster.ClusterArn))
+			}
+
+			return nil
+		}
+
+		return cluster, rbfunc, nil
 	}
 
-	return nil, errors.New("a new or existing cluster is required")
+	return nil, rbfunc, errors.New("a new or existing cluster is required")
 }

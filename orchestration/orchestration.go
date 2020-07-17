@@ -42,6 +42,9 @@ type ServiceOrchestrationInput struct {
 type ServiceOrchestrationOutput struct {
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#Cluster
 	Cluster *ecs.Cluster
+	// map of container definition names to private repository credentials
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/secretsmanager/#CreateSecretOutput
+	Credentials map[string]*secretsmanager.CreateSecretOutput
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#TaskDefinition
 	TaskDefinition *ecs.TaskDefinition
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#Service
@@ -95,36 +98,50 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 	}
 	input.Tags = ct
 
+	// setup err var, rollback function list and defer execution, note that we depend on the err variable defined above this
+	var rollBackTasks []rollbackFunc
+	defer func() {
+		if err != nil {
+			log.Errorf("recovering from error: %s, executing %d rollback tasks", err, len(rollBackTasks))
+			go rollBack(&rollBackTasks)
+		}
+	}()
+
 	output := &ServiceOrchestrationOutput{}
-	cluster, err := o.processCluster(ctx, input)
+	cluster, rbfunc, err := o.processCluster(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Cluster = cluster
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	creds, err := o.processRepositoryCredentials(ctx, input)
+	creds, rbfunc, err := o.processRepositoryCredentials(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("%+v", creds)
+	output.Credentials = creds
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	td, err := o.processTaskDefinition(ctx, input)
+	td, rbfunc, err := o.processTaskDefinition(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.TaskDefinition = td
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	sr, err := o.processServiceRegistry(ctx, input)
+	sr, rbfunc, err := o.processServiceRegistry(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.ServiceDiscoveryService = sr
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	service, err := o.processService(ctx, input)
+	service, rbfunc, err := o.processService(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Service = service
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
 	return output, nil
 }
@@ -375,7 +392,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 func cleanTags(org string, tags []*Tag) ([]*Tag, error) {
 	cleanTags := []*Tag{
-		&Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String(org),
 		},

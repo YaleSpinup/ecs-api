@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -25,6 +25,9 @@ func (e *ECS) CreateCluster(ctx context.Context, cluster *ecs.CreateClusterInput
 	if err != nil {
 		return nil, ErrCode("failed to create cluster "+aws.StringValue(cluster.ClusterName), err)
 	}
+
+	log.Debugf("created cluster %+v", output)
+
 	return output.Cluster, err
 }
 
@@ -43,6 +46,8 @@ func (e *ECS) GetCluster(ctx context.Context, name *string) (*ecs.Cluster, error
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugf("describe cluster output %+v", output)
 
 	if len(output.Failures) > 0 {
 		log.Warnf("describe clusters %s returned failures %+v", aws.StringValue(name), output.Failures)
@@ -111,7 +116,8 @@ func (e *ECS) DeleteClusterWithRetry(ctx context.Context, arn *string) chan stri
 							ecs.ErrCodeClusterContainsTasksException,
 							ecs.ErrCodeLimitExceededException,
 							ecs.ErrCodeResourceInUseException,
-							ecs.ErrCodeServerException:
+							ecs.ErrCodeServerException,
+							ecs.ErrCodeUpdateInProgressException:
 							log.Warnf("unable to remove cluster %s: %s", aws.StringValue(arn), err)
 							time.Sleep(t)
 							continue

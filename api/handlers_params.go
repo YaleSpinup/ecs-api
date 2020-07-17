@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 
@@ -90,7 +90,7 @@ func (s *server) ParamCreateHandler(w http.ResponseWriter, r *http.Request) {
 	input.Name = aws.String(path)
 
 	newTags := []*ssm.Tag{
-		&ssm.Tag{
+		{
 			Key:   aws.String("spinup:org"),
 			Value: aws.String(s.org),
 		},

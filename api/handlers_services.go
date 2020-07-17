@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
 	"github.com/pkg/errors"
 
@@ -33,24 +33,6 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		handleError(w, err)
 		return
-	}
-
-	sgs := []*string{}
-	for _, sg := range orchestrator.ECS.DefaultSgs {
-		sgs = append(sgs, aws.String(sg))
-	}
-
-	if len(sgs) > 0 {
-		orchestration.DefaultSecurityGroups = sgs
-	}
-
-	sus := []*string{}
-	for _, su := range orchestrator.ECS.DefaultSubnets {
-		sus = append(sus, aws.String(su))
-	}
-
-	if len(sus) > 0 {
-		orchestration.DefaultSubnets = sus
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)
@@ -340,13 +322,16 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 	}
 
 	return &orchestration.Orchestrator{
-		CloudWatchLogs:   cwlService,
-		ECS:              ecsService,
-		IAM:              iamService,
-		SecretsManager:   smService,
-		ServiceDiscovery: sdService,
-		Token:            uuid.NewV4().String(),
-		Org:              s.org,
+		CloudWatchLogs:        cwlService,
+		ECS:                   ecsService,
+		IAM:                   iamService,
+		SecretsManager:        smService,
+		ServiceDiscovery:      sdService,
+		DefaultSecurityGroups: ecsService.DefaultSgs,
+		DefaultSubnets:        ecsService.DefaultSubnets,
+		DefaultPublic:         "DISABLED",
+		Token:                 uuid.NewV4().String(),
+		Org:                   s.org,
 	}, nil
 }
 

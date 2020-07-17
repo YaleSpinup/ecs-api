@@ -16,15 +16,15 @@ import (
 
 var (
 	goodContainerDefs = []*ecs.ContainerDefinition{
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("webserver"),
 			Image: aws.String("nginx:alpine"),
 		},
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("testDef1"),
 			Image: aws.String("secretImage1"),
 		},
-		&ecs.ContainerDefinition{
+		{
 			Name:  aws.String("testDef2"),
 			Image: aws.String("secretImage2"),
 		},
@@ -32,6 +32,10 @@ var (
 
 	tdInput = &ecs.RegisterTaskDefinitionInput{
 		ContainerDefinitions: goodContainerDefs,
+	}
+
+	svcInput = &ecs.CreateServiceInput{
+		Cluster: aws.String("getAClu1"),
 	}
 )
 
@@ -63,8 +67,9 @@ func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secre
 func TestProcessRepositoryCredentials(t *testing.T) {
 	o := Orchestrator{
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+		Org:            "mock",
 	}
-	out, err := o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{})
+	out, _, err := o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{})
 	if err != nil {
 		t.Errorf("expected nil error for processRepositoryCredentials, got %s", err)
 	}
@@ -73,9 +78,10 @@ func TestProcessRepositoryCredentials(t *testing.T) {
 		t.Errorf("expected nil output for empty repository credentials, got %+v", out)
 	}
 
-	out, err = o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{
+	out, _, err = o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{
 		TaskDefinition: tdInput,
 		Credentials:    credentialsMapIn,
+		Service:        svcInput,
 	})
 	if err != nil {
 		t.Errorf("expected nil error for processRepositoryCredentials, got %s", err)
@@ -143,6 +149,7 @@ func (m *mockSMClient) PutSecretValueWithContext(ctx context.Context, input *sec
 func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	o := Orchestrator{
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+		Org:            "mock",
 	}
 
 	baseTdefInput := ecs.RegisterTaskDefinitionInput{
@@ -150,11 +157,11 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 		Cpu:    aws.String("256"),
 		Memory: aws.String("512"),
 		ContainerDefinitions: []*ecs.ContainerDefinition{
-			&ecs.ContainerDefinition{
+			{
 				Name:  aws.String("nginx"),
 				Image: aws.String("nginx:alpine"),
 			},
-			&ecs.ContainerDefinition{
+			{
 				Name:  aws.String("privateapi"),
 				Image: aws.String("privateapi:latest"),
 			},
@@ -183,7 +190,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 			desc:    "new creds from map",
 			tdinput: baseTdefInput,
 			credentialsMap: map[string]*secretsmanager.CreateSecretInput{
-				"privateapi": &secretsmanager.CreateSecretInput{
+				"privateapi": {
 					Name:         aws.String("secret credentials"),
 					SecretString: aws.String("ssssshhhh!"),
 				},
@@ -193,15 +200,15 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				Cpu:    aws.String("256"),
 				Memory: aws.String("512"),
 				ContainerDefinitions: []*ecs.ContainerDefinition{
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("nginx"),
 						Image: aws.String("nginx:alpine"),
 					},
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("privateapi"),
 						Image: aws.String("privateapi:latest"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:secret credentials"),
+							CredentialsParameter: aws.String("arn:spinup/mock/secret credentials"),
 						},
 					},
 				},
@@ -214,11 +221,11 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				Cpu:    aws.String("256"),
 				Memory: aws.String("512"),
 				ContainerDefinitions: []*ecs.ContainerDefinition{
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("nginx"),
 						Image: aws.String("nginx:alpine"),
 					},
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("privateapi"),
 						Image: aws.String("privateapi:latest"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
@@ -228,7 +235,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				},
 			},
 			credentialsMap: map[string]*secretsmanager.CreateSecretInput{
-				"privateapi": &secretsmanager.CreateSecretInput{
+				"privateapi": {
 					Name:         aws.String("secret credentials"),
 					SecretString: aws.String("ssssshhhh!"),
 				},
@@ -238,11 +245,11 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				Cpu:    aws.String("256"),
 				Memory: aws.String("512"),
 				ContainerDefinitions: []*ecs.ContainerDefinition{
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("nginx"),
 						Image: aws.String("nginx:alpine"),
 					},
-					&ecs.ContainerDefinition{
+					{
 						Name:  aws.String("privateapi"),
 						Image: aws.String("privateapi:latest"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
@@ -294,13 +301,13 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 	}{
 		{
 			input: []*Tag{
-				&Tag{
+				{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
 			},
 			output: []*secretsmanager.Tag{
-				&secretsmanager.Tag{
+				{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
@@ -308,21 +315,21 @@ func TestProcessSecretsmanagerTags(t *testing.T) {
 		},
 		{
 			input: []*Tag{
-				&Tag{
+				{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
-				&Tag{
+				{
 					Key:   aws.String("spinup:org"),
 					Value: aws.String("someOtherOrg"),
 				},
 			},
 			output: []*secretsmanager.Tag{
-				&secretsmanager.Tag{
+				{
 					Key:   aws.String("foo"),
 					Value: aws.String("bar"),
 				},
-				&secretsmanager.Tag{
+				{
 					Key:   aws.String("spinup:org"),
 					Value: aws.String("someOtherOrg"),
 				},

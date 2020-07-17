@@ -21,7 +21,7 @@ var (
 		Id:   aws.String("srv-goodsd"),
 		DnsConfig: &servicediscovery.DnsConfig{
 			DnsRecords: []*servicediscovery.DnsRecord{
-				&servicediscovery.DnsRecord{
+				{
 					TTL:  aws.Int64(30),
 					Type: aws.String("A"),
 				},
@@ -79,7 +79,7 @@ func TestCreateServiceDiscovery(t *testing.T) {
 		Name: aws.String("goodsd"),
 		DnsConfig: &servicediscovery.DnsConfig{
 			DnsRecords: []*servicediscovery.DnsRecord{
-				&servicediscovery.DnsRecord{
+				{
 					TTL:  aws.Int64(30),
 					Type: aws.String("A"),
 				},

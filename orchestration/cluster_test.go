@@ -13,17 +13,17 @@ import (
 )
 
 var testClusters = []*ecs.Cluster{
-	&ecs.Cluster{
+	{
 		ActiveServicesCount: aws.Int64(0),
 		ClusterArn:          aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/cluster0"),
 		ClusterName:         aws.String("cluster0"),
 		DefaultCapacityProviderStrategy: []*ecs.CapacityProviderStrategyItem{
-			&ecs.CapacityProviderStrategyItem{
+			{
 				Base:             aws.Int64(1),
 				CapacityProvider: aws.String("FARGATE"),
 				Weight:           aws.Int64(0),
 			},
-			&ecs.CapacityProviderStrategyItem{
+			{
 				CapacityProvider: aws.String("FARGATE_SPOT"),
 				Weight:           aws.Int64(1),
 			},
@@ -33,18 +33,18 @@ var testClusters = []*ecs.Cluster{
 		RunningTasksCount:                 aws.Int64(0),
 		Status:                            aws.String("ACTIVE"),
 	},
-	&ecs.Cluster{
+	{
 		ActiveServicesCount: aws.Int64(1),
 		CapacityProviders:   []*string{aws.String("FARGATE")},
 		ClusterArn:          aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/cluster1"),
 		ClusterName:         aws.String("cluster1"),
 		DefaultCapacityProviderStrategy: []*ecs.CapacityProviderStrategyItem{
-			&ecs.CapacityProviderStrategyItem{
+			{
 				Base:             aws.Int64(1),
 				CapacityProvider: aws.String("FARGATE"),
 				Weight:           aws.Int64(0),
 			},
-			&ecs.CapacityProviderStrategyItem{
+			{
 				CapacityProvider: aws.String("FARGATE_SPOT"),
 				Weight:           aws.Int64(1),
 			},
@@ -54,18 +54,18 @@ var testClusters = []*ecs.Cluster{
 		RunningTasksCount:                 aws.Int64(1),
 		Status:                            aws.String("ACTIVE"),
 	},
-	&ecs.Cluster{
+	{
 		ActiveServicesCount: aws.Int64(2),
 		CapacityProviders:   []*string{aws.String("FARGATE_SPOT")},
 		ClusterArn:          aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/cluster2"),
 		ClusterName:         aws.String("cluster2"),
 		DefaultCapacityProviderStrategy: []*ecs.CapacityProviderStrategyItem{
-			&ecs.CapacityProviderStrategyItem{
+			{
 				Base:             aws.Int64(1),
 				CapacityProvider: aws.String("FARGATE"),
 				Weight:           aws.Int64(0),
 			},
-			&ecs.CapacityProviderStrategyItem{
+			{
 				CapacityProvider: aws.String("FARGATE_SPOT"),
 				Weight:           aws.Int64(1),
 			},
@@ -75,13 +75,13 @@ var testClusters = []*ecs.Cluster{
 		RunningTasksCount:                 aws.Int64(1),
 		Status:                            aws.String("ACTIVE"),
 		Tags: []*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   aws.String("fuz"),
 				Value: aws.String("biz"),
 			},
 		},
 	},
-	&ecs.Cluster{
+	{
 		ActiveServicesCount: aws.Int64(3),
 		CapacityProviders: []*string{
 			aws.String("FARGATE"),
@@ -90,12 +90,12 @@ var testClusters = []*ecs.Cluster{
 		ClusterArn:  aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/cluster3"),
 		ClusterName: aws.String("cluster3"),
 		DefaultCapacityProviderStrategy: []*ecs.CapacityProviderStrategyItem{
-			&ecs.CapacityProviderStrategyItem{
+			{
 				Base:             aws.Int64(1),
 				CapacityProvider: aws.String("FARGATE"),
 				Weight:           aws.Int64(0),
 			},
-			&ecs.CapacityProviderStrategyItem{
+			{
 				CapacityProvider: aws.String("FARGATE_SPOT"),
 				Weight:           aws.Int64(1),
 			},
@@ -105,7 +105,7 @@ var testClusters = []*ecs.Cluster{
 		RunningTasksCount:                 aws.Int64(1),
 		Status:                            aws.String("ACTIVE"),
 		Tags: []*ecs.Tag{
-			&ecs.Tag{
+			{
 				Key:   aws.String("foo"),
 				Value: aws.String("bar"),
 			},
@@ -151,7 +151,7 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 func TestProcessCluster(t *testing.T) {
 	orchestrator := newMockOrchestrator(t, "myorg", nil, nil, nil, nil, nil)
 
-	if _, err := orchestrator.processCluster(context.TODO(), &ServiceOrchestrationInput{}); err == nil {
+	if _, _, err := orchestrator.processCluster(context.TODO(), &ServiceOrchestrationInput{}); err == nil {
 		t.Error("expected error for missing cluster, got nil")
 	}
 
@@ -163,7 +163,7 @@ func TestProcessCluster(t *testing.T) {
 			},
 		}
 
-		out, err := orchestrator.processCluster(context.TODO(), &input)
+		out, _, err := orchestrator.processCluster(context.TODO(), &input)
 		if err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
@@ -186,7 +186,7 @@ func TestProcessCluster(t *testing.T) {
 			},
 		}
 
-		out, err := orchestrator.processCluster(context.TODO(), &input)
+		out, _, err := orchestrator.processCluster(context.TODO(), &input)
 		if err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
@@ -205,7 +205,7 @@ func TestProcessCluster(t *testing.T) {
 			Cluster: aws.String("cluster0"),
 		},
 	}
-	if _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
+	if _, _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
 		t.Error("expected error, got nil")
 	}
 
@@ -215,7 +215,7 @@ func TestProcessCluster(t *testing.T) {
 			ClusterName: aws.String("cluster0"),
 		},
 	}
-	if _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
+	if _, _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
 		t.Error("expected error, got nil")
 	}
 }

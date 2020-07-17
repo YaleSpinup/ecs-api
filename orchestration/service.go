@@ -2,6 +2,7 @@ package orchestration
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 
@@ -10,7 +11,12 @@ import (
 )
 
 // processService processes the service input.  It normalizes inputs and creates the ECS service.
-func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Service, error) {
+func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Service, rollbackFunc, error) {
+	rbfunc := func(_ context.Context) error {
+		log.Infof("processService rollback, nothing to do")
+		return nil
+	}
+
 	if input.Service.ClientToken == nil {
 		input.Service.ClientToken = aws.String(o.Token)
 	}
@@ -18,9 +24,9 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	if input.Service.NetworkConfiguration == nil {
 		input.Service.NetworkConfiguration = &ecs.NetworkConfiguration{
 			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
-				AssignPublicIp: DefaultPublic,
-				SecurityGroups: DefaultSecurityGroups,
-				Subnets:        DefaultSubnets,
+				AssignPublicIp: aws.String(o.DefaultPublic),
+				SecurityGroups: aws.StringSlice(o.DefaultSecurityGroups),
+				Subnets:        aws.StringSlice(o.DefaultSubnets),
 			},
 		}
 	}
@@ -38,10 +44,27 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 	log.Debugf("processing service with input:\n%+v", input.Service)
 	output, err := o.ECS.CreateService(ctx, input.Service)
 	if err != nil {
-		return nil, err
+		return nil, rbfunc, err
 	}
 
-	return output.Service, nil
+	rbfunc = func(ctx context.Context) error {
+		name := aws.StringValue(output.Service.ServiceName)
+		log.Debugf("rolling back service %s", name)
+
+		if err = o.ECS.DeleteService(ctx, &ecs.DeleteServiceInput{
+			Cluster: output.Service.ClusterArn,
+			Service: output.Service.ServiceName,
+			Force:   aws.Bool(true),
+		}); err != nil {
+			return fmt.Errorf("failed to rollback service %s: %s", name, err)
+		}
+
+		log.Infof("successfully rolled back service %s", name)
+
+		return nil
+	}
+
+	return output.Service, rbfunc, nil
 }
 
 // processServiceUpdate processes the service update input.  It normalizes inputs and updates and/or redeploys the service.

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	log "github.com/sirupsen/logrus"
@@ -63,7 +63,7 @@ func (s *SSM) GetParameterMetadata(ctx context.Context, prefix, name string) (*s
 	out, err := s.Service.DescribeParametersWithContext(ctx, &ssm.DescribeParametersInput{
 		MaxResults: aws.Int64(1),
 		ParameterFilters: []*ssm.ParameterStringFilter{
-			&ssm.ParameterStringFilter{
+			{
 				Key:    aws.String("Name"),
 				Option: aws.String("Equals"),
 				Values: []*string{aws.String(path)},

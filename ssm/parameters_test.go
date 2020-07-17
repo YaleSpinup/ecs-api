@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -34,11 +34,11 @@ var (
 			Version:          aws.Int64(3),
 		},
 		Tags: []*ssm.Tag{
-			&ssm.Tag{
+			{
 				Key:   aws.String("ice"),
 				Value: aws.String("cream"),
 			},
-			&ssm.Tag{
+			{
 				Key:   aws.String("mashed"),
 				Value: aws.String("potatoes"),
 			},
@@ -55,11 +55,11 @@ var (
 			Version:          aws.Int64(2),
 		},
 		Tags: []*ssm.Tag{
-			&ssm.Tag{
+			{
 				Key:   aws.String("peanut"),
 				Value: aws.String("butter"),
 			},
-			&ssm.Tag{
+			{
 				Key:   aws.String("meant"),
 				Value: aws.String("foryou"),
 			},
@@ -76,11 +76,11 @@ var (
 			Version:          aws.Int64(1),
 		},
 		Tags: []*ssm.Tag{
-			&ssm.Tag{
+			{
 				Key:   aws.String("ok"),
 				Value: aws.String("yeah"),
 			},
-			&ssm.Tag{
+			{
 				Key:   aws.String("hello"),
 				Value: aws.String("nope"),
 			},
@@ -114,7 +114,7 @@ func (m *mockSSMClient) DescribeParametersWithContext(ctx context.Context, input
 		if org+"/"+prefix+"/"+aws.StringValue(p.Param.Name) == aws.StringValue(input.ParameterFilters[0].Values[0]) {
 			return &ssm.DescribeParametersOutput{
 				Parameters: []*ssm.ParameterMetadata{
-					&ssm.ParameterMetadata{
+					{
 						Name:             p.Param.Name,
 						KeyId:            aws.String("arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee"),
 						LastModifiedDate: p.Param.LastModifiedDate,
@@ -424,13 +424,13 @@ func TestUpdateParameterTags(t *testing.T) {
 	p := SSM{Service: newmockSSMClient(t, nil)}
 
 	for _, param := range []testParam{testParam1, testParam2, testParam3} {
-		if err := p.UpdateParameterTags(context.TODO(), aws.StringValue(param.Param.Name), []*ssm.Tag{&ssm.Tag{Key: aws.String("foo"), Value: aws.String("bar")}}); err != nil {
+		if err := p.UpdateParameterTags(context.TODO(), aws.StringValue(param.Param.Name), []*ssm.Tag{{Key: aws.String("foo"), Value: aws.String("bar")}}); err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
 	}
 
 	// test empty id
-	if err := p.UpdateParameterTags(context.TODO(), "", []*ssm.Tag{&ssm.Tag{Key: aws.String("foo"), Value: aws.String("bar")}}); err == nil {
+	if err := p.UpdateParameterTags(context.TODO(), "", []*ssm.Tag{{Key: aws.String("foo"), Value: aws.String("bar")}}); err == nil {
 		t.Error("expected error, got nil")
 	}
 
@@ -440,7 +440,7 @@ func TestUpdateParameterTags(t *testing.T) {
 	}
 
 	p.Service.(*mockSSMClient).err = awserr.New(ssm.ErrCodeInternalServerError, "Internal Error", nil)
-	err := p.UpdateParameterTags(context.TODO(), "foobar", []*ssm.Tag{&ssm.Tag{Key: aws.String("foo"), Value: aws.String("bar")}})
+	err := p.UpdateParameterTags(context.TODO(), "foobar", []*ssm.Tag{{Key: aws.String("foo"), Value: aws.String("bar")}})
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)

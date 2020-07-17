@@ -46,25 +46,25 @@ type mockSMClient struct {
 
 var (
 	credentialsMapIn = map[string]*secretsmanager.CreateSecretInput{
-		"testDef1": &secretsmanager.CreateSecretInput{
+		"testDef1": {
 			Name:         aws.String("testDef1"),
 			SecretString: aws.String("shhhhhhh"),
 		},
-		"testDef2": &secretsmanager.CreateSecretInput{
+		"testDef2": {
 			Name:         aws.String("testDef2"),
 			SecretString: aws.String("donttell"),
 		},
 	}
 
 	credentialsMapOut = map[string]*secretsmanager.CreateSecretOutput{
-		"testDef1": &secretsmanager.CreateSecretOutput{
-			ARN:       aws.String("arn:testDef1"),
-			Name:      aws.String("testDef1"),
+		"testDef1": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef1"),
+			Name:      aws.String("spinup/mock/getAClu1/testDef1"),
 			VersionId: aws.String("v1"),
 		},
-		"testDef2": &secretsmanager.CreateSecretOutput{
-			ARN:       aws.String("arn:testDef2"),
-			Name:      aws.String("testDef2"),
+		"testDef2": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef2"),
+			Name:      aws.String("spinup/mock/getAClu1/testDef2"),
 			VersionId: aws.String("v1"),
 		},
 	}

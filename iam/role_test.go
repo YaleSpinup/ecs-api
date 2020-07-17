@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -29,7 +29,7 @@ var testRole = iam.Role{
 var testPolicyDoc = PolicyDoc{
 	Version: "2012-10-17",
 	Statement: []PolicyStatement{
-		PolicyStatement{
+		{
 			Effect: "Allow",
 			Action: []string{
 				"logs:CreateLogGroup",

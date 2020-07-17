@@ -47,7 +47,7 @@ var i = &IAM{
 var defaultPolicyDoc = PolicyDoc{
 	Version: "2012-10-17",
 	Statement: []PolicyStatement{
-		PolicyStatement{
+		{
 			Effect: "Allow",
 			Action: []string{
 				"ecr:GetAuthorizationToken",
@@ -60,7 +60,7 @@ var defaultPolicyDoc = PolicyDoc{
 			},
 			Resource: []string{"*"},
 		},
-		PolicyStatement{
+		{
 			Effect: "Allow",
 			Action: []string{
 				"secretsmanager:GetSecretValue",
@@ -68,7 +68,7 @@ var defaultPolicyDoc = PolicyDoc{
 				"kms:Decrypt",
 			},
 			Resource: []string{
-				"arn:aws:secretsmanager:*:*:secret:*",
+				fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", path),
 				fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", path),
 				fmt.Sprintf("arn:aws:kms:*:*:key/%s", i.DefaultKmsKeyID),
 			},
@@ -79,7 +79,7 @@ var defaultPolicyDoc = PolicyDoc{
 var defaultAssumePolicyDoc = PolicyDoc{
 	Version: "2012-10-17",
 	Statement: []PolicyStatement{
-		PolicyStatement{
+		{
 			Effect: "Allow",
 			Action: []string{
 				"sts:AssumeRole",

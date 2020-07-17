@@ -16,14 +16,19 @@ import (
 // processTaskDefinition processes the task definition portion of the input.  If the task definition is provided with
 // the service object, it is used.  Otherwise, if the task definition is defined as input, it will be created.  If neither
 // is true, an error is returned.
-func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, error) {
+func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
+	rbfunc := func(_ context.Context) error {
+		log.Infof("processTaskDefinition rollback, nothing to do")
+		return nil
+	}
+
 	if input.Service.TaskDefinition != nil {
 		log.Infof("using provided task definition %s", aws.StringValue(input.Service.TaskDefinition))
 		taskDefinition, err := o.ECS.GetTaskDefinition(ctx, input.Service.TaskDefinition)
 		if err != nil {
-			return nil, err
+			return nil, rbfunc, err
 		}
-		return taskDefinition, nil
+		return taskDefinition, rbfunc, nil
 	} else if input.TaskDefinition != nil {
 		ecsTags := make([]*ecs.Tag, len(input.Tags))
 		for i, t := range input.Tags {
@@ -37,7 +42,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 			path := fmt.Sprintf("%s/%s", o.Org, *input.Cluster.ClusterName)
 			roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
 			if err != nil {
-				return nil, err
+				return nil, rbfunc, err
 			}
 
 			input.TaskDefinition.ExecutionRoleArn = &roleARN
@@ -53,7 +58,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 
 		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.Tags)
 		if err != nil {
-			return nil, err
+			return nil, rbfunc, err
 		}
 
 		for _, cd := range input.TaskDefinition.ContainerDefinitions {
@@ -62,15 +67,28 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 
 		taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
 		if err != nil {
-			return nil, err
+			return nil, rbfunc, err
+		}
+
+		rbfunc = func(ctx context.Context) error {
+			id := aws.StringValue(taskDefinition.TaskDefinitionArn)
+			log.Debugf("rolling back task definition %s", id)
+
+			_, err := o.ECS.DeleteTaskDefinition(ctx, taskDefinition.TaskDefinitionArn)
+			if err != nil {
+				return fmt.Errorf("failed to delete task definition %s: %s", id, err)
+			}
+
+			log.Infof("successfully rolled back task definition %s", id)
+			return nil
 		}
 
 		td := fmt.Sprintf("%s:%d", aws.StringValue(taskDefinition.Family), aws.Int64Value(taskDefinition.Revision))
 		input.Service.TaskDefinition = aws.String(td)
-		return taskDefinition, nil
+		return taskDefinition, rbfunc, nil
 	}
 
-	return nil, errors.New("taskDefinition or service task definition name is required")
+	return nil, rbfunc, errors.New("taskDefinition or service task definition name is required")
 }
 
 // processTaskDefinitionUpdate processes the task definition portion of the input

@@ -96,8 +96,8 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 		return &ecs.DescribeClustersOutput{
 			Clusters: []*ecs.Cluster{
 				goodClu,
-				&ecs.Cluster{ClusterName: aws.String("fooclu")},
-				&ecs.Cluster{ClusterName: aws.String("barclu")},
+				{ClusterName: aws.String("fooclu")},
+				{ClusterName: aws.String("barclu")},
 			},
 		}, nil
 	} else if len(input.Clusters) == 1 {
@@ -109,7 +109,7 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 			return &ecs.DescribeClustersOutput{
 				Clusters: []*ecs.Cluster{badClu},
 				Failures: []*ecs.Failure{
-					&ecs.Failure{
+					{
 						Arn:    aws.String("arn:aws:ecs:us-east-1:1234567890:thing/broke"),
 						Detail: aws.String("something is broken"),
 						Reason: aws.String("derpin"),
