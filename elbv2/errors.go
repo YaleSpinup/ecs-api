@@ -1,7 +1,7 @@
 package elbv2
 
 import (
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"

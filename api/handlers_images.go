@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"net/http"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/registry"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"

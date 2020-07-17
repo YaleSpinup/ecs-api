@@ -79,7 +79,7 @@ func (i *IAM) DefaultTaskExecutionPolicy(path string) ([]byte, error) {
 					"kms:Decrypt",
 				},
 				Resource: []string{
-					"arn:aws:secretsmanager:*:*:secret:*",
+					fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", path),
 					fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", path),
 					fmt.Sprintf("arn:aws:kms:*:*:key/%s", i.DefaultKmsKeyID),
 				},

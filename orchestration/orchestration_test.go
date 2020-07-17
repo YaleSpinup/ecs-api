@@ -58,13 +58,13 @@ var (
 
 	credentialsMapOut = map[string]*secretsmanager.CreateSecretOutput{
 		"testDef1": {
-			ARN:       aws.String("arn:testDef1"),
-			Name:      aws.String("testDef1"),
+			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef1"),
+			Name:      aws.String("spinup/mock/getAClu1/testDef1"),
 			VersionId: aws.String("v1"),
 		},
 		"testDef2": {
-			ARN:       aws.String("arn:testDef2"),
-			Name:      aws.String("testDef2"),
+			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef2"),
+			Name:      aws.String("spinup/mock/getAClu1/testDef2"),
 			VersionId: aws.String("v1"),
 		},
 	}

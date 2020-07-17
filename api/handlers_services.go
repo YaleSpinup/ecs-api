@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/YaleSpinup/ecs-api/apierror"
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
 	"github.com/pkg/errors"
 
