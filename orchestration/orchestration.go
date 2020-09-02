@@ -302,14 +302,8 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 			input.TaskDefinition.Tags = active.Service.Tags
 		}
 
-		// if we have credentials passed with the update, process those credentials and apply the results to the input
-		if input.Credentials != nil {
-			creds, err := o.processRepositoryCredentialsUpdate(ctx, input)
-			if err != nil {
-				return nil, err
-			}
-			active.Credentials = creds
-			log.Debugf("processed update of repository credentials: %+v", active.Credentials)
+		if err := o.processRepositoryCredentialsUpdate(ctx, input, active); err != nil {
+			return nil, err
 		}
 
 		if err := o.processTaskDefinitionUpdate(ctx, input, active); err != nil {
