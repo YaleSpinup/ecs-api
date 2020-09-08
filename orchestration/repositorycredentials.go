@@ -43,7 +43,9 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 			}
 
 			cluster := ""
-			if input.Service != nil && input.Service.Cluster != nil {
+			if input.Cluster != nil && input.Cluster.ClusterName != nil {
+				cluster = aws.StringValue(input.Cluster.ClusterName) + "/"
+			} else if input.Service != nil && input.Service.Cluster != nil {
 				cluster = aws.StringValue(input.Service.Cluster) + "/"
 			}
 
@@ -200,7 +202,9 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 			}
 
 			cluster := ""
-			if input.Service != nil && input.Service.Cluster != nil {
+			if input.ClusterName != "" {
+				cluster = input.ClusterName + "/"
+			} else if input.Service != nil && input.Service.Cluster != nil {
 				cluster = aws.StringValue(input.Service.Cluster) + "/"
 			}
 
