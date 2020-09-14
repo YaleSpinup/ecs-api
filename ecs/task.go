@@ -3,6 +3,7 @@ package ecs
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/YaleSpinup/apierror"
@@ -56,18 +57,54 @@ func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []s
 	return tasks, nil
 }
 
+type Task struct {
+	*ecs.Task
+	Revision int64
+}
+
+type DescribeTasksOutput struct {
+	Failures []*ecs.Failure
+	Tasks    []*Task
+}
+
 // GetTasks describes the given tasks in the give cluster
-func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
+func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*DescribeTasksOutput, error) {
 	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
 	log.Infof("getting cluster %s tasks  %s", aws.StringValue(input.Cluster), strings.Join(aws.StringValueSlice(input.Tasks), ","))
 
-	output, err := e.Service.DescribeTasksWithContext(ctx, input)
+	ecsOutput, err := e.Service.DescribeTasksWithContext(ctx, input)
 	if err != nil {
 		return nil, ErrCode("failed to describe tasks", err)
 	}
+
+	output := &DescribeTasksOutput{Failures: ecsOutput.Failures}
+	tasks := make([]*Task, 0, len(ecsOutput.Tasks))
+	for _, t := range ecsOutput.Tasks {
+		revision := int64(0)
+		tdArn, err := arn.Parse(aws.StringValue(t.TaskDefinitionArn))
+		if err != nil {
+			log.Errorf("failed to parse taskdefinition ARN: '%s': %s", aws.StringValue(t.TaskDefinitionArn), err)
+		} else {
+			ss := strings.Split(tdArn.Resource, ":")
+			if len(ss) > 1 {
+				s := ss[len(ss)-1]
+				si, err := strconv.Atoi(s)
+				if err != nil {
+					log.Errorf("failed to parse revision '%s' as number for arn resource '%s': %s", s, tdArn.Resource, err)
+				}
+				revision = int64(si)
+			}
+		}
+
+		tasks = append(tasks, &Task{
+			Task:     t,
+			Revision: revision,
+		})
+	}
+	output.Tasks = tasks
 
 	return output, nil
 }

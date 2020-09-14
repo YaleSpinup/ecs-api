@@ -8,6 +8,7 @@ import (
 	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/ecs"
 
@@ -130,16 +131,18 @@ var taskListTests = []*taskListTest{
 
 var testTasks = []*ecs.Task{
 	{
-		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
-		Cpu:        aws.String("2048"),
-		Memory:     aws.String("4096"),
-		TaskArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task/task1:1"),
+		ClusterArn:        aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
+		Cpu:               aws.String("2048"),
+		Memory:            aws.String("4096"),
+		TaskArn:           aws.String("arn:aws:ecs:us-east-1:1234567890:task/task1"),
+		TaskDefinitionArn: aws.String("arn:aws:ecs:us-east-1:1234567890:task-definition/task1:10"),
 	},
 	{
-		ClusterArn: aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
-		Cpu:        aws.String("1024"),
-		Memory:     aws.String("4096"),
-		TaskArn:    aws.String("arn:aws:ecs:us-east-1:1234567890:task/task2:1"),
+		ClusterArn:        aws.String("arn:aws:ecs:us-east-1:1234567890:cluster/clu0"),
+		Cpu:               aws.String("1024"),
+		Memory:            aws.String("4096"),
+		TaskArn:           aws.String("arn:aws:ecs:us-east-1:1234567890:task/task2"),
+		TaskDefinitionArn: aws.String("arn:aws:ecs:us-east-1:1234567890:task-definition/task2:10"),
 	},
 }
 
@@ -200,6 +203,13 @@ func TestListTasks(t *testing.T) {
 
 func TestGetTasks(t *testing.T) {
 	client := ECS{Service: &mockECSClient{t: t}}
+	expected := make([]*Task, 0, len(testTasks))
+	for _, t := range testTasks {
+		expected = append(expected, &Task{
+			Task:     t,
+			Revision: 10,
+		})
+	}
 
 	out, err := client.GetTasks(context.TODO(), &ecs.DescribeTasksInput{
 		Cluster: aws.String("clu0"),
@@ -213,7 +223,7 @@ func TestGetTasks(t *testing.T) {
 		t.Errorf("expected nil error, got %s", err)
 	}
 
-	if !reflect.DeepEqual(out.Tasks, testTasks) {
-		t.Errorf("expected %+v, got %+v", testTasks, out)
+	if !awsutil.DeepEqual(out.Tasks, expected) {
+		t.Errorf("expected %s, got %s", awsutil.Prettify(expected), awsutil.Prettify(out.Tasks))
 	}
 }
