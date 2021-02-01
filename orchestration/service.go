@@ -92,6 +92,11 @@ func (o *Orchestrator) processServiceUpdate(ctx context.Context, input *ServiceO
 			}
 		}
 
+		// if we pass in a new capacityproviderstrategy, we must force a new deployment
+		if input.ForceNewDeployment || len(input.Service.CapacityProviderStrategy) > 0 {
+			u.ForceNewDeployment = aws.Bool(true)
+		}
+
 		out, err := o.ECS.UpdateService(ctx, u)
 		if err != nil {
 			return err
