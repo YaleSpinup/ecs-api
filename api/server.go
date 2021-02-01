@@ -22,6 +22,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// apiVersion is the API version
+type apiVersion struct {
+	// The version of the API
+	Version string `json:"version"`
+	// The git hash of the API
+	GitHash string `json:"githash"`
+	// The build timestamp of the API
+	BuildStamp string `json:"buildstamp"`
+}
+
 type server struct {
 	cwLogsServices       map[string]cloudwatchlogs.CloudWatchLogs
 	ecsServices          map[string]ecs.ECS
@@ -32,7 +42,7 @@ type server struct {
 	smServices           map[string]secretsmanager.SecretsManager
 	ssmServices          map[string]ssm.SSM
 	router               *mux.Router
-	version              common.Version
+	version              *apiVersion
 	org                  string
 }
 
@@ -48,8 +58,12 @@ func NewServer(config common.Config) error {
 		smServices:           make(map[string]secretsmanager.SecretsManager),
 		ssmServices:          make(map[string]ssm.SSM),
 		router:               mux.NewRouter(),
-		version:              config.Version,
 		org:                  config.Org,
+		version: &apiVersion{
+			Version:    config.Version.Version,
+			GitHash:    config.Version.GitHash,
+			BuildStamp: config.Version.BuildStamp,
+		},
 	}
 
 	for name, c := range config.Accounts {

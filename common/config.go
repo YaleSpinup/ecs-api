@@ -20,20 +20,19 @@ type Config struct {
 
 // Account is the configuration for an individual account
 type Account struct {
-	Region          string
 	Akid            string
-	Secret          string
+	DefaultKmsKeyId string
 	DefaultSgs      []string
 	DefaultSubnets  []string
-	DefaultKmsKeyId string
+	Region          string
+	Secret          string
 }
 
 // Version carries around the API version information
 type Version struct {
-	Version           string
-	VersionPrerelease string
-	BuildStamp        string
-	GitHash           string
+	Version    string
+	BuildStamp string
+	GitHash    string
 }
 
 // ReadConfig decodes the configuration from an io Reader

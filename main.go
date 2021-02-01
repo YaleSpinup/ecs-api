@@ -17,9 +17,6 @@ var (
 	// Version is the main version number
 	Version = "0.0.0"
 
-	// VersionPrerelease is a prerelease marker
-	VersionPrerelease = ""
-
 	// Buildstamp is the timestamp the binary was built, it should be set at buildtime with ldflags
 	Buildstamp = "No BuildStamp Provided"
 
@@ -36,7 +33,7 @@ func main() {
 		vers()
 	}
 
-	log.Infof("Starting ECS-API version %s%s", Version, VersionPrerelease)
+	log.Infof("Starting ECS-API version %s", Version)
 
 	configFile, err := os.Open(*configFileName)
 	if err != nil {
@@ -50,10 +47,9 @@ func main() {
 	}
 
 	config.Version = common.Version{
-		Version:           Version,
-		VersionPrerelease: VersionPrerelease,
-		BuildStamp:        Buildstamp,
-		GitHash:           Githash,
+		Version:    Version,
+		BuildStamp: Buildstamp,
+		GitHash:    Githash,
 	}
 
 	// Set the loglevel, info if it's unset
@@ -81,6 +77,6 @@ func main() {
 }
 
 func vers() {
-	fmt.Printf("ECS-API Version: %s%s\n", Version, VersionPrerelease)
+	fmt.Printf("ECS-API Version: %s\n", Version)
 	os.Exit(0)
 }
