@@ -4,7 +4,7 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
 
 ## Endpoints
 
-```
+```text
 GET /v1/ecs/ping
 GET /v1/ecs/version
 
@@ -184,13 +184,13 @@ Service update orchestration currently supports:
 * updating tags
 * forcing a redeployment without changing the service
 * updating the task definition and redeploying
-* updating the service parameters (like replica count)
+* updating the service parameters (like replica count, or capacity provider strategy)
 
 PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
 
-##### Request
+#### Request
 
-###### Update the tags for an existing service and force a redeployment
+##### Update the tags for an existing service and force a redeployment
 
 ```json
 {
@@ -202,7 +202,7 @@ PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
 }
 ```
 
-###### Update the task definition and redeploy an existing service
+##### Update the task definition and redeploy an existing service
 
 ```json
 {
@@ -229,17 +229,24 @@ PUT `/v1/ecs/{account}/clusters/{cluster}/services/{service}`
 }
 ```
 
-###### Update the service replica count
+##### Update the service replica count and capacity provider strategy
 
 ```json
 {
     "Service": {
-        "DesiredCount": 1
+        "DesiredCount": 1,
+        "CapacityProviderStrategy": [
+            {
+                "CapacityProvider": "FARGATE_SPOT",
+                "Base": 1,
+                "Weight": 1
+            }
+        ]
     }
 }
 ```
 
-###### Add a container definition with credentials
+##### Add a container definition with credentials
 
 The example below adds a `privateapi` container definition with the associated *new* credentials, or adds credentials to an existing `privateapi`
 container definition.  If repository credentials are passed with a container definition (see the next example), the credentials will either be
@@ -274,7 +281,7 @@ the secret with that ARN will be *overwritten* by the credentials passed in the 
 }
 ```
 
-###### Update a container definitions credentials
+##### Update a container definitions credentials
 
 In this example, the `privateapi` container definition exists and we want to update the credentials.  By passing the repository credentials ARN
 along with the container definition, this instructs the API to attempt to update that secret from the passed `credentials` map.  If no associated
@@ -309,7 +316,7 @@ credential exists in the `credentials` map, the container definition will be upd
 }
 ```
 
-##### Response
+#### Response
 
 The response is the service body.
 
@@ -323,7 +330,6 @@ TODO
 | **400 Bad Request**           | badly formed request                     |
 | **404 Not Found**             | account, cluster or service wasn't found |
 | **500 Internal Server Error** | a server error occurred                  |
-
 
 ### Orchestrate a service delete
 
@@ -331,7 +337,7 @@ Service delete orchestration supports deleting a service or recursively deleting
 
 DELETE `/v1/ecs/{account}/clusters/{cluster}/services/{service}[?recursive=true]`
 
-##### Response
+#### Response
 
 The response is the service body.
 
@@ -345,7 +351,6 @@ TODO
 | **400 Bad Request**           | badly formed request                     |
 | **404 Not Found**             | account, cluster or service wasn't found |
 | **500 Internal Server Error** | a server error occurred                  |
-
 
 #### Get logs for a task
 
@@ -355,7 +360,7 @@ Get the logs for a container running in a task belonging to a service, running i
 
 ##### Examples
 
-```
+```text
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
@@ -716,7 +721,6 @@ When only updating tags, you will get an empty response on success. When updatin
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
-
 #### List load balancers (target groups) for a space
 
 GET `/v1/ecs/{account}/lbs?space={space}`
@@ -736,7 +740,6 @@ GET `/v1/ecs/{account}/lbs?space={space}`
 | **400 Bad Request**           | badly formed request                  |
 | **500 Internal Server Error** | a server error occurred               |
 
-
 ## Development
 
 * Install Go v1.11 or newer
@@ -754,4 +757,4 @@ E Camden Fisher <camden.fisher@yale.edu>
 ## License
 
 GNU Affero General Public License v3.0 (GNU AGPLv3)
-Copyright (c) 2019 Yale University
+Copyright (c) 2019-2021 Yale University
