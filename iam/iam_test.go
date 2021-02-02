@@ -76,21 +76,6 @@ var defaultPolicyDoc = PolicyDoc{
 	},
 }
 
-var defaultAssumePolicyDoc = PolicyDoc{
-	Version: "2012-10-17",
-	Statement: []PolicyStatement{
-		{
-			Effect: "Allow",
-			Action: []string{
-				"sts:AssumeRole",
-			},
-			Principal: map[string][]string{
-				"Service": {"ecs-tasks.amazonaws.com"},
-			},
-		},
-	},
-}
-
 func TestDefaultTaskExecutionPolicy(t *testing.T) {
 	p, err := json.Marshal(defaultPolicyDoc)
 	if err != nil {

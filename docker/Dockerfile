@@ -14,7 +14,7 @@ COPY go.mod .
 COPY go.sum .
 RUN go mod download
 COPY . .
-RUN go build -trimpath -o /app/api.out -ldflags="-X main.Version=$version -X main.VersionPrerelease=$prerelease -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
+RUN go build -trimpath -o /app/api.out -ldflags="-X main.Version=$version -X main.githash=$githash -X main.buildstamp=$buildstamp" *.go
 RUN /app/api.out -version
 
 # final stage

@@ -8,9 +8,9 @@ import (
 
 func (s *server) routes() {
 	api := s.router.PathPrefix("/v1/ecs").Subrouter()
-	api.HandleFunc("/ping", s.PingHandler)
-	api.HandleFunc("/version", s.VersionHandler)
-	api.Handle("/metrics", promhttp.Handler())
+	api.HandleFunc("/ping", s.PingHandler).Methods(http.MethodGet)
+	api.HandleFunc("/version", s.VersionHandler).Methods(http.MethodGet)
+	api.Handle("/metrics", promhttp.Handler()).Methods(http.MethodGet)
 
 	// Docker image handlers
 	api.HandleFunc("/images", s.ImageVerificationHandler).Methods(http.MethodHead).Queries("image", "{image}")
