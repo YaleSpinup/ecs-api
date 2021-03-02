@@ -43,14 +43,16 @@ func (i *IAM) DeleteRole(ctx context.Context, input *iam.DeleteRoleInput) error 
 }
 
 // GetRole handles getting information about an IAM role
-func (i *IAM) GetRole(ctx context.Context, input *iam.GetRoleInput) (*iam.Role, error) {
-	if input == nil || aws.StringValue(input.RoleName) == "" {
+func (i *IAM) GetRole(ctx context.Context, roleName string) (*iam.Role, error) {
+	if roleName == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	log.Infof("getting iam role %s", aws.StringValue(input.RoleName))
+	log.Infof("getting iam role %s", roleName)
 
-	output, err := i.Service.GetRoleWithContext(ctx, input)
+	output, err := i.Service.GetRoleWithContext(ctx, &iam.GetRoleInput{
+		RoleName: aws.String(roleName),
+	})
 	if err != nil {
 		return nil, ErrCode("failed to get role", err)
 	}
@@ -66,10 +68,33 @@ func (i *IAM) PutRolePolicy(ctx context.Context, input *iam.PutRolePolicyInput) 
 
 	log.Infof("attaching inline policy to iam role: %s", *input.RoleName)
 
-	_, err := i.Service.PutRolePolicyWithContext(ctx, input)
+	out, err := i.Service.PutRolePolicyWithContext(ctx, input)
 	if err != nil {
 		return ErrCode("failed to attach policy to role", err)
 	}
 
+	log.Debugf("got output from put role policy %+v", out)
+
 	return nil
+}
+
+// GetRolePolicy gets the inline policy attached to an IAM role
+func (i *IAM) GetRolePolicy(ctx context.Context, role, policy string) (string, error) {
+	if role == "" || policy == "" {
+		return "", apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting policy %s for role %s", policy, role)
+
+	out, err := i.Service.GetRolePolicyWithContext(ctx, &iam.GetRolePolicyInput{
+		PolicyName: aws.String(policy),
+		RoleName:   aws.String(role),
+	})
+	if err != nil {
+		return "", ErrCode("failed to get role policy", err)
+	}
+
+	log.Debugf("got output from getting role policy %+v", out)
+
+	return aws.StringValue(out.PolicyDocument), nil
 }

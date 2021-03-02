@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/YaleSpinup/apierror"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
 )
+
+var testTime = time.Now()
 
 var testRole = iam.Role{
 	Arn:         aws.String("arn:aws:iam::12345678910:role/testrole"),
@@ -106,8 +109,20 @@ func TestCreateRole(t *testing.T) {
 		DefaultKmsKeyID: "12345678-90ab-cdef-1234-567890abcdef",
 	}
 
-	// build the default IAM task execution policy (from the config and known inputs)
-	defaultPolicy, err := i.DefaultTaskExecutionPolicy("org/testCluster")
+	defaultPolicy, err := json.Marshal(PolicyDoc{
+		Version: "2012-10-17",
+		Statement: []PolicyStatement{
+			{
+				Effect: "Allow",
+				Action: []string{
+					"sts:AssumeRole",
+				},
+				Principal: map[string][]string{
+					"Service": {"ecs-tasks.amazonaws.com"},
+				},
+			},
+		},
+	})
 	if err != nil {
 		t.Errorf("expected nil error creating default policy doc, got %s", err)
 	}
@@ -388,7 +403,7 @@ func TestGetRole(t *testing.T) {
 
 	// test success
 	expected := &testRole
-	out, err := i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	out, err := i.GetRole(context.TODO(), "testRole")
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
@@ -397,18 +412,8 @@ func TestGetRole(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", expected, out)
 	}
 
-	// test nil input
-	_, err = i.GetRole(context.TODO(), nil)
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrBadRequest {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
 	// test empty role name
-	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{})
+	_, err = i.GetRole(context.TODO(), "")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -419,7 +424,7 @@ func TestGetRole(t *testing.T) {
 
 	// test ErrCodeNoSuchEntityException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeNoSuchEntityException, "NoSuchEntity", nil)
-	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	_, err = i.GetRole(context.TODO(), "testrole")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrNotFound {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrNotFound, aerr.Code)
@@ -430,7 +435,7 @@ func TestGetRole(t *testing.T) {
 
 	// test ErrCodeServiceFailureException
 	i.Service.(*mockIAMClient).err = awserr.New(iam.ErrCodeServiceFailureException, "ServiceFailure", nil)
-	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	_, err = i.GetRole(context.TODO(), "testrole")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrServiceUnavailable {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrServiceUnavailable, aerr.Code)
@@ -441,7 +446,7 @@ func TestGetRole(t *testing.T) {
 
 	// test some other, unexpected AWS error
 	i.Service.(*mockIAMClient).err = awserr.New("UnknownThingyBrokeYo", "ThingyBroke", nil)
-	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	_, err = i.GetRole(context.TODO(), "testrole")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
@@ -452,7 +457,7 @@ func TestGetRole(t *testing.T) {
 
 	// test non-aws error
 	i.Service.(*mockIAMClient).err = errors.New("things blowing up")
-	_, err = i.GetRole(context.TODO(), &iam.GetRoleInput{RoleName: aws.String("testrole")})
+	_, err = i.GetRole(context.TODO(), "testrole")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrInternalError {
 			t.Errorf("expected error code %s, got: %s", apierror.ErrInternalError, aerr.Code)
