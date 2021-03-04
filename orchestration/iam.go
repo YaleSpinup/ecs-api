@@ -131,6 +131,10 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path string
 // path for the role currently since we already have many container services with the "/" path.
 // TODO: revisit moving to a non-default path for the task execution role
 func (o *Orchestrator) createDefaultTaskExecutionRole(ctx context.Context, path, role string) (string, error) {
+	if role == "" {
+		return "", apierror.New(apierror.ErrBadRequest, "invalid role", nil)
+	}
+
 	log.Debugf("creating default task execution role %s", role)
 
 	assumeRolePolicyDoc, err := assumeRolePolicy()

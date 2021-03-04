@@ -332,7 +332,7 @@ func TestOrchestrator_defaultTaskExecutionRoleArn(t *testing.T) {
 				path: "",
 				role: "super-why-ecsTaskExecution",
 			},
-			want: "arn:aws:iam::12345678910:role/org/super-why-ecsTaskExecution",
+			want: "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution",
 		},
 		{
 			name: "empty role",
@@ -370,7 +370,7 @@ func TestOrchestrator_defaultTaskExecutionRoleArn(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			got, err := o.defaultTaskExecutionRoleArn(tt.args.ctx, tt.args.path, tt.args.role)
+			got, err := o.createDefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Orchestrator.defaultTaskExecutionRoleArn() error = %v, wantErr %v", err, tt.wantErr)
 				return
