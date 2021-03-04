@@ -379,6 +379,17 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 				}
 			}
 		}
+
+		newEcsTags, err := o.ECS.ListTags(ctx, aws.StringValue(active.Service.ServiceArn))
+		if err != nil {
+			return nil, err
+		}
+
+		newTags := make([]*Tag, len(newEcsTags))
+		for i, t := range newEcsTags {
+			newTags[i] = &Tag{Key: t.Key, Value: t.Value}
+		}
+		active.Tags = newTags
 	}
 
 	return active, nil

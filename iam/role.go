@@ -2,6 +2,7 @@ package iam
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/YaleSpinup/apierror"
 
@@ -96,5 +97,13 @@ func (i *IAM) GetRolePolicy(ctx context.Context, role, policy string) (string, e
 
 	log.Debugf("got output from getting role policy %+v", out)
 
-	return aws.StringValue(out.PolicyDocument), nil
+	// Document is returned url encoded, we must decode it to unmarshal and compare
+	d, err := url.QueryUnescape(aws.StringValue(out.PolicyDocument))
+	if err != nil {
+		return "", err
+	}
+
+	log.Debugf("decoded policy document %s", d)
+
+	return d, nil
 }

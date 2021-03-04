@@ -55,34 +55,58 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path string
 		return "", apierror.New(apierror.ErrBadRequest, "invalid path", nil)
 	}
 
+	// role name is clustername-ecsTaskExecution
 	role := fmt.Sprintf("%s-ecsTaskExecution", path[strings.LastIndex(path, "/")+1:])
 	log.Infof("generating default task execution role %s", role)
 
-	roleArn, err := o.defaultTaskExecutionRoleArn(ctx, path, role)
-	if err != nil {
-		return "", err
-	}
-
-	currentDoc, err := o.IAM.GetRolePolicy(ctx, role, "ECSTaskAccessPolicy")
-	if err != nil {
-		return "", err
-	}
-
-	currentPolicy, err := im.PolicyFromDocument(currentDoc)
-	if err != nil {
-		return "", err
-	}
-
 	defaultPolicy := o.DefaultTaskExecutionPolicy(path)
 
-	// if the current policy matches the generated (default) policy, return the role ARN
-	// otherwise, keep going and update the policy doc
-	if awsutil.DeepEqual(defaultPolicy, currentPolicy) {
-		log.Debugf("inline policy for role %s is up to date", role)
-		return roleArn, nil
-	}
+	var roleArn string
+	if out, err := o.IAM.GetRole(ctx, role); err != nil {
+		if aerr, ok := err.(apierror.Error); !ok || aerr.Code != apierror.ErrNotFound {
+			return "", err
+		}
 
-	log.Infof("inline policy for role %s is out of date, updating", role)
+		log.Debugf("unable to find role %s, creating", role)
+
+		output, err := o.createDefaultTaskExecutionRole(ctx, path, role)
+		if err != nil {
+			return "", err
+		}
+
+		roleArn = output
+
+		log.Infof("created role %s with ARN: %s", role, roleArn)
+	} else {
+		roleArn = aws.StringValue(out.Arn)
+
+		log.Infof("role %s exists with ARN: %s", role, roleArn)
+
+		currentDoc, err := o.IAM.GetRolePolicy(ctx, role, "ECSTaskAccessPolicy")
+		if err != nil {
+			if aerr, ok := err.(apierror.Error); !ok || aerr.Code != apierror.ErrNotFound {
+				return "", err
+			}
+
+			log.Infof("inline policy for role %s is not found, updating", role)
+
+		} else {
+			currentPolicy, err := im.PolicyFromDocument(currentDoc)
+			if err != nil {
+				return "", err
+			}
+
+			// if the current policy matches the generated (default) policy, return
+			// the role ARN otherwise, keep going and update the policy doc
+			if awsutil.DeepEqual(defaultPolicy, currentPolicy) {
+				log.Debugf("inline policy for role %s is up to date", role)
+				return roleArn, nil
+			}
+
+			log.Infof("inline policy for role %s is out of date, updating", role)
+		}
+
+	}
 
 	defaultPolicyDoc, err := im.DocumentFromPolicy(&defaultPolicy)
 	if err != nil {
@@ -103,17 +127,11 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path string
 	return roleArn, nil
 }
 
-func (o *Orchestrator) defaultTaskExecutionRoleArn(ctx context.Context, path, role string) (string, error) {
-	if roleOutput, err := o.IAM.GetRole(ctx, role); err != nil {
-		if aerr, ok := err.(apierror.Error); !ok || aerr.Code != apierror.ErrNotFound {
-			return "", err
-		}
-	} else {
-		log.Infof("role %s exists, returning ARN: %s", role, aws.StringValue(roleOutput.Arn))
-		return aws.StringValue(roleOutput.Arn), nil
-	}
-
-	log.Debugf("unable to find role %s, creating", role)
+// createDefaultTaskExecutionRole handles creating the default task execution role.  it does not leverage the
+// path for the role currently since we already have many container services with the "/" path.
+// TODO: revisit moving to a non-default path for the task execution role
+func (o *Orchestrator) createDefaultTaskExecutionRole(ctx context.Context, path, role string) (string, error) {
+	log.Debugf("creating default task execution role %s", role)
 
 	assumeRolePolicyDoc, err := assumeRolePolicy()
 	if err != nil {
@@ -123,14 +141,10 @@ func (o *Orchestrator) defaultTaskExecutionRoleArn(ctx context.Context, path, ro
 
 	log.Debugf("generated assume role policy document: %s", assumeRolePolicyDoc)
 
-	if path == "" {
-		path = "/"
-	}
-
 	roleOutput, err := o.IAM.CreateRole(ctx, &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(assumeRolePolicyDoc),
-		Description:              aws.String(fmt.Sprintf("ECS task execution policy for %s", path)),
-		Path:                     aws.String(path),
+		Description:              aws.String(fmt.Sprintf("ECS task execution role for %s", path)),
+		Path:                     aws.String("/"),
 		RoleName:                 aws.String(role),
 	})
 	if err != nil {
@@ -138,7 +152,6 @@ func (o *Orchestrator) defaultTaskExecutionRoleArn(ctx context.Context, path, ro
 	}
 
 	return aws.StringValue(roleOutput.Arn), nil
-
 }
 
 // assumeRolePolicy generates the policy document to allow the ecs service to assume a role
