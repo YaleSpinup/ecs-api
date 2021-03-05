@@ -71,20 +71,36 @@ var outdatedPolicyDoc = im.PolicyDoc{
 
 var testRoles = map[string]iam.Role{
 	"super-why-ecsTaskExecution": {
-		Arn:         aws.String("arn:aws:iam::12345678910:role/org/super-why-ecsTaskExecution"),
+		Arn:         aws.String("arn:aws:iam::12345678910:role/super-why-ecsTaskExecution"),
 		CreateDate:  &testTime,
 		Description: aws.String("role model"),
-		Path:        aws.String("org/super-why"),
+		Path:        aws.String("/"),
 		RoleId:      aws.String("TESTROLEID123"),
 		RoleName:    aws.String("super-why-ecsTaskExecution"),
 	},
 	"mr-rogers-ecsTaskExecution": {
-		Arn:         aws.String("arn:aws:iam::12345678910:role/org/mr-rogers-ecsTaskExecution"),
+		Arn:         aws.String("arn:aws:iam::12345678910:role/mr-rogers-ecsTaskExecution"),
 		CreateDate:  &testTime,
 		Description: aws.String("role model"),
-		Path:        aws.String("org/mr-rogers"),
+		Path:        aws.String("/"),
 		RoleId:      aws.String("TESTROLEID000"),
 		RoleName:    aws.String("mr-rogers-ecsTaskExecution"),
+	},
+	"missingpolicy-ecsTaskExecution": {
+		Arn:         aws.String("arn:aws:iam::12345678910:role/missingpolicy-ecsTaskExecution"),
+		CreateDate:  &testTime,
+		Description: aws.String("role model"),
+		Path:        aws.String("/"),
+		RoleId:      aws.String("TESTROLEID000"),
+		RoleName:    aws.String("missingpolicy-ecsTaskExecution"),
+	},
+	"badpolicy-ecsTaskExecution": {
+		Arn:         aws.String("arn:aws:iam::12345678910:role/org/badpolicy-ecsTaskExecution"),
+		CreateDate:  &testTime,
+		Description: aws.String("role model"),
+		Path:        aws.String("/"),
+		RoleId:      aws.String("TESTROLEID000"),
+		RoleName:    aws.String("badpolicy-ecsTaskExecution"),
 	},
 }
 
@@ -135,8 +151,15 @@ func (m *mockIAMClient) GetRolePolicyWithContext(ctx context.Context, input *iam
 		return nil, m.err
 	}
 
-	if aws.StringValue(input.PolicyName) != "ECSTaskAccessPolicy" {
+	if aws.StringValue(input.PolicyName) != "ECSTaskAccessPolicy" || aws.StringValue(input.RoleName) == "missingpolicy" {
 		return nil, awserr.New(iam.ErrCodeNoSuchEntityException, "policy not found", nil)
+	}
+
+	if aws.StringValue(input.RoleName) == "badpolicy-ecsTaskExecution" {
+		return &iam.GetRolePolicyOutput{
+			PolicyDocument: aws.String("{}"),
+			RoleName:       input.RoleName,
+		}, nil
 	}
 
 	var p im.PolicyDoc
@@ -253,10 +276,24 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				ctx:  context.TODO(),
 				path: path,
 			},
-			want: "arn:aws:iam::12345678910:role/org/super-why-ecsTaskExecution",
+			want: "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution",
 		},
 		{
-			name: "policy doc that needs updating path",
+			name: "create missing role",
+			fields: fields{
+				IAM: im.IAM{
+					Service:         newMockIAMClient(t, nil),
+					DefaultKmsKeyID: "123",
+				},
+			},
+			args: args{
+				ctx:  context.TODO(),
+				path: "missing",
+			},
+			want: "arn:aws:iam::12345678910:role/missing-ecsTaskExecution",
+		},
+		{
+			name: "policy doc that needs updating",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -267,9 +304,36 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				ctx:  context.TODO(),
 				path: "org/mr-rogers",
 			},
-			want: "arn:aws:iam::12345678910:role/org/mr-rogers-ecsTaskExecution",
+			want: "arn:aws:iam::12345678910:role/mr-rogers-ecsTaskExecution",
 		},
-		// TODO test missing/creating role
+		{
+			name: "existing role, missing pollicy document",
+			fields: fields{
+				IAM: im.IAM{
+					Service:         newMockIAMClient(t, nil),
+					DefaultKmsKeyID: "123",
+				},
+			},
+			args: args{
+				ctx:  context.TODO(),
+				path: "org/missingpolicy",
+			},
+			want: "arn:aws:iam::12345678910:role/missingpolicy-ecsTaskExecution",
+		},
+		{
+			name: "existing role, invalid pollicy document",
+			fields: fields{
+				IAM: im.IAM{
+					Service:         newMockIAMClient(t, nil),
+					DefaultKmsKeyID: "123",
+				},
+			},
+			args: args{
+				ctx:  context.TODO(),
+				path: "org/badpolicy",
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -288,7 +352,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 	}
 }
 
-func TestOrchestrator_defaultTaskExecutionRoleArn(t *testing.T) {
+func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 	type fields struct {
 		IAM im.IAM
 	}
@@ -404,5 +468,14 @@ func Test_assumeRolePolicy(t *testing.T) {
 				t.Errorf("assumeRolePolicy() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Benchmark_assumeRolePolicy(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		_, err := assumeRolePolicy()
+		if err != nil {
+			b.Errorf("expected nil error, got %s", err)
+		}
 	}
 }

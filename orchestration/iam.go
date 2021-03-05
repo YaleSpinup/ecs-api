@@ -15,6 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var assumeRolePolicyDoc []byte
+
 // DefaultTaskExecutionPolicy generates the default policy for ECS task execution
 func (o *Orchestrator) DefaultTaskExecutionPolicy(path string) im.PolicyDoc {
 	log.Debugf("generating default task execution policy for %s", path)
@@ -160,6 +162,10 @@ func (o *Orchestrator) createDefaultTaskExecutionRole(ctx context.Context, path,
 
 // assumeRolePolicy generates the policy document to allow the ecs service to assume a role
 func assumeRolePolicy() (string, error) {
+	if assumeRolePolicyDoc != nil {
+		return string(assumeRolePolicyDoc), nil
+	}
+
 	policyDoc, err := json.Marshal(im.PolicyDoc{
 		Version: "2012-10-17",
 		Statement: []im.PolicyStatement{
@@ -177,6 +183,9 @@ func assumeRolePolicy() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// cache result since it doesn't change
+	assumeRolePolicyDoc = policyDoc
 
 	return string(policyDoc), nil
 }
