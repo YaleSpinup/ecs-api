@@ -54,7 +54,7 @@ func (e *ECS) ListTags(ctx context.Context, arn string) ([]*ecs.Tag, error) {
 
 	output, err := e.Service.ListTagsForResourceWithContext(ctx, &input)
 	if err != nil {
-		return nil, ErrCode("failed to delete service", err)
+		return nil, ErrCode("failed to list tags for ecs resource", err)
 	}
 
 	log.Debugf("got list of tags for arn '%s': %+v", arn, output)

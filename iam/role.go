@@ -107,3 +107,39 @@ func (i *IAM) GetRolePolicy(ctx context.Context, role, policy string) (string, e
 
 	return d, nil
 }
+
+func (i *IAM) ListRolePolicies(ctx context.Context, role string) ([]string, error) {
+	if role == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("listing polcies for role %s", role)
+
+	out, err := i.Service.ListRolePoliciesWithContext(ctx, &iam.ListRolePoliciesInput{
+		RoleName: aws.String(role),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to list role polcies", err)
+	}
+
+	log.Debugf("got output listing role policies for '%s': %+v", role, out)
+
+	return aws.StringValueSlice(out.PolicyNames), nil
+}
+
+func (i *IAM) DeleteRolePolicy(ctx context.Context, role, policy string) error {
+	if role == "" || policy == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("deleting policy %s for role %s", policy, role)
+
+	if _, err := i.Service.DeleteRolePolicyWithContext(ctx, &iam.DeleteRolePolicyInput{
+		RoleName:   aws.String(role),
+		PolicyName: aws.String(policy),
+	}); err != nil {
+		return ErrCode("failed to delete role policy", err)
+	}
+
+	return nil
+}

@@ -91,41 +91,26 @@ func (e *ECS) DeleteClusterWithRetry(ctx context.Context, arn *string) chan stri
 				return
 			}
 
-			cluster, err := e.GetCluster(ctx, arn)
-			if err != nil {
-				log.Errorf("error finding cluster to delete %s: %s", aws.StringValue(arn), err)
-				cluChan <- "unknown"
-				return
-			}
-			log.Debugf("found cluster %+v", cluster)
+			log.Infof("found cluster %s with registered instance count of 0, attempting to delete", aws.StringValue(arn))
 
 			t *= 2
-			c := aws.Int64Value(cluster.RegisteredContainerInstancesCount)
-			if c > 0 {
-				log.Infof("found cluster %s, but registered instance count is > 0 (%d)", aws.StringValue(cluster.ClusterName), c)
-				time.Sleep(t)
-				continue
-			} else {
-				log.Infof("found cluster %s with registered instance count of 0, attempting to delete", aws.StringValue(cluster.ClusterName))
-				err := e.DeleteCluster(ctx, arn)
-				if err != nil {
-					if awsErr, ok := err.(awserr.Error); ok {
-						switch aerr := awsErr.Code(); aerr {
-						case ecs.ErrCodeClusterContainsContainerInstancesException,
-							ecs.ErrCodeClusterContainsServicesException,
-							ecs.ErrCodeClusterContainsTasksException,
-							ecs.ErrCodeLimitExceededException,
-							ecs.ErrCodeResourceInUseException,
-							ecs.ErrCodeServerException,
-							ecs.ErrCodeUpdateInProgressException:
-							log.Warnf("unable to remove cluster %s: %s", aws.StringValue(arn), err)
-							time.Sleep(t)
-							continue
-						default:
-							log.Errorf("failed removing cluster %s: %s", aws.StringValue(arn), err)
-							cluChan <- "failure"
-							return
-						}
+			if err := e.DeleteCluster(ctx, arn); err != nil {
+				if awsErr, ok := err.(awserr.Error); ok {
+					switch aerr := awsErr.Code(); aerr {
+					case ecs.ErrCodeClusterContainsContainerInstancesException,
+						ecs.ErrCodeClusterContainsServicesException,
+						ecs.ErrCodeClusterContainsTasksException,
+						ecs.ErrCodeLimitExceededException,
+						ecs.ErrCodeResourceInUseException,
+						ecs.ErrCodeServerException,
+						ecs.ErrCodeUpdateInProgressException:
+						log.Warnf("unable to remove cluster %s: %s", aws.StringValue(arn), err)
+						time.Sleep(t)
+						continue
+					default:
+						log.Errorf("failed removing cluster %s: %s", aws.StringValue(arn), err)
+						cluChan <- "failure"
+						return
 					}
 				}
 			}
