@@ -181,7 +181,8 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 
 			// if we cleaned up the cluster, we should also cleanup the default task execution role
 			if deletedCluster {
-				if err := o.deleteDefaultTaskExecutionRole(cleanupCtx, "spincool-20210304-ecsTaskExecution"); err != nil {
+				executionRoleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster))
+				if err := o.deleteDefaultTaskExecutionRole(cleanupCtx, executionRoleName); err != nil {
 					log.Errorf("failed to cleanup default task execution role: %s", err)
 				}
 			}
