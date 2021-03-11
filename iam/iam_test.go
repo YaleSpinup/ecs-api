@@ -1,20 +1,43 @@
 package iam
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"fmt"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/YaleSpinup/ecs-api/common"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
 
-var testTime = time.Now()
+var testPolicy = PolicyDoc{
+	Version: "2012-10-17",
+	Statement: []PolicyStatement{
+		{
+			Effect: "Allow",
+			Action: []string{
+				"ecr:GetAuthorizationToken",
+				"logs:CreateLogGroup",
+				"logs:CreateLogStream",
+				"logs:PutLogEvents",
+			},
+			Resource: []string{"*"},
+		},
+		{
+			Effect: "Allow",
+			Action: []string{
+				"secretsmanager:GetSecretValue",
+				"ssm:GetParameters",
+				"kms:Decrypt",
+			},
+			Resource: []string{
+				"arn:aws:secretsmanager:*:*:secret:spinup/foobar/*",
+				"arn:aws:ssm:*:*:parameter/foobar/*",
+				"arn:aws:kms:*:*:key/1484468c-abb3-463f-a397-41529fece4c2",
+			},
+		},
+	},
+}
+
+var testPolicyDocument = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["ecr:GetAuthorizationToken","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":["*"]},{"Effect":"Allow","Action":["secretsmanager:GetSecretValue","ssm:GetParameters","kms:Decrypt"],"Resource":["arn:aws:secretsmanager:*:*:secret:spinup/foobar/*","arn:aws:ssm:*:*:parameter/foobar/*","arn:aws:kms:*:*:key/1484468c-abb3-463f-a397-41529fece4c2"]}]}`
 
 // mockIAMClient is a fake IAM client
 type mockIAMClient struct {
@@ -38,84 +61,101 @@ func TestNewSession(t *testing.T) {
 	}
 }
 
-var path = "org/super-why"
-
-var i = &IAM{
-	DefaultKmsKeyID: "123",
-}
-
-var defaultPolicyDoc = PolicyDoc{
-	Version: "2012-10-17",
-	Statement: []PolicyStatement{
+func TestDocumentFromPolicy(t *testing.T) {
+	type args struct {
+		policy *PolicyDoc
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
 		{
-			Effect: "Allow",
-			Action: []string{
-				"ecr:GetAuthorizationToken",
-				"ecr:BatchCheckLayerAvailability",
-				"ecr:GetDownloadUrlForLayer",
-				"ecr:BatchGetImage",
-				"logs:CreateLogGroup",
-				"logs:CreateLogStream",
-				"logs:PutLogEvents",
+			name: "nil input",
+			args: args{
+				policy: nil,
 			},
-			Resource: []string{"*"},
+			wantErr: true,
 		},
 		{
-			Effect: "Allow",
-			Action: []string{
-				"secretsmanager:GetSecretValue",
-				"ssm:GetParameters",
-				"kms:Decrypt",
+			name: "example policy",
+			args: args{
+				policy: &testPolicy,
 			},
-			Resource: []string{
-				fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", path),
-				fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", path),
-				fmt.Sprintf("arn:aws:kms:*:*:key/%s", i.DefaultKmsKeyID),
-			},
+			want: testPolicyDocument,
 		},
-	},
+		{
+			name: "empty policy",
+			args: args{
+				policy: &PolicyDoc{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := DocumentFromPolicy(tt.args.policy)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DocumentFromPolicy() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("DocumentFromPolicy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
-func TestDefaultTaskExecutionPolicy(t *testing.T) {
-	p, err := json.Marshal(defaultPolicyDoc)
-	if err != nil {
-		t.Errorf("expected to marshall defaultPolicyDoc with nil error, got %s", err)
+func TestPolicyFromDocument(t *testing.T) {
+	type args struct {
+		doc string
 	}
-
-	policyBytes, err := i.DefaultTaskExecutionPolicy(path)
-	if err != nil {
-		t.Errorf("expected DefaultTaskExecutionPolicy to return nil error, got %s", err)
+	tests := []struct {
+		name    string
+		args    args
+		want    *PolicyDoc
+		wantErr bool
+	}{
+		{
+			name: "empty input",
+			args: args{
+				doc: "",
+			},
+			wantErr: true,
+		},
+		{
+			name: "example policy document",
+			args: args{
+				doc: testPolicyDocument,
+			},
+			want: &testPolicy,
+		},
+		{
+			name: "empty policy document statements",
+			args: args{
+				doc: "{}",
+			},
+			wantErr: true,
+		},
+		{
+			name: "bad JSON",
+			args: args{
+				doc: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["ecr:GetAuthorizationToken","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":["*"]}`,
+			},
+			wantErr: true,
+		},
 	}
-
-	if !bytes.Equal(policyBytes, p) {
-		t.Errorf("expected: %s\ngot: %s", defaultPolicyDoc, policyBytes)
-	}
-}
-
-func TestDefaultTaskExecutionRole(t *testing.T) {
-	i := IAM{
-		Service:         newMockIAMClient(t, nil),
-		DefaultKmsKeyID: "12345678-90ab-cdef-1234-567890abcdef",
-	}
-
-	// test when role exists
-	expected := "arn:aws:iam::12345678910:role/testrole"
-	roleARN, err := i.DefaultTaskExecutionRole(context.TODO(), path)
-	if err != nil {
-		t.Errorf("expected DefaultTaskExecutionRole to return nil error, got %s", err)
-	}
-	if roleARN != expected {
-		t.Errorf("expected roleARN: %s, got: %s", expected, roleARN)
-	}
-
-	// test when role doesn't exist
-	expected = "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution"
-	i.Service.(*mockIAMClient).err = awserr.New("TestNoSuchEntity", "TestNoSuchEntity", nil)
-	roleARN, err = i.DefaultTaskExecutionRole(context.TODO(), path)
-	if err != nil {
-		t.Errorf("expected DefaultTaskExecutionRole to return nil error, got %s", err)
-	}
-	if roleARN != expected {
-		t.Errorf("expected roleARN: %s, got: %s", expected, roleARN)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := PolicyFromDocument(tt.args.doc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PolicyFromDocument() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PolicyFromDocument() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

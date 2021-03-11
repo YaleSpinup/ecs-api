@@ -227,6 +227,7 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 	serviceTags, err := ecsService.ListTags(r.Context(), aws.StringValue(serviceOutput.ServiceArn))
 	if err != nil {
 		handleError(w, err)
+		return
 	}
 
 	var j []byte
@@ -239,6 +240,12 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		log.Debugf("getting all details about %s/%s", cluster, service)
+
+		cluOutput, err := ecsService.GetCluster(r.Context(), aws.String(cluster))
+		if err != nil {
+			handleError(w, err)
+			return
+		}
 
 		tdOutput, err := ecsService.GetTaskDefinition(r.Context(), serviceOutput.TaskDefinition)
 		if err != nil {
@@ -264,11 +271,13 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 
 		output := struct {
 			*ecs.Service
+			Cluster         *ecs.Cluster
 			ServiceEndpoint *string
 			Tasks           []*string
 			TaskDefinition  *ecs.TaskDefinition
 			Tags            []*ecs.Tag
 		}{
+			Cluster:         cluOutput,
 			Service:         serviceOutput,
 			ServiceEndpoint: serviceDiscoveryEndpoint,
 			Tasks:           tasks,

@@ -91,3 +91,34 @@ func (o *Orchestrator) processCluster(ctx context.Context, input *ServiceOrchest
 
 	return nil, rbfunc, errors.New("a new or existing cluster is required")
 }
+
+func (o *Orchestrator) deleteCluster(ctx context.Context, arn *string) (bool, error) {
+	cluster, err := o.ECS.GetCluster(ctx, arn)
+	if err != nil {
+		return false, err
+	}
+
+	activeServicesCount := aws.Int64Value(cluster.ActiveServicesCount)
+	log.Debugf("ACTIVE SERVICES COUNT: %d", activeServicesCount)
+
+	// if the active services count is 0, attempt to cleanup the cluster and the role
+	if activeServicesCount > 0 {
+		log.Infof("not cleaning up cluster '%s' active services count %d > 0", aws.StringValue(arn), activeServicesCount)
+		return false, nil
+	}
+
+	cluCtx, cluCancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cluCancel()
+
+	cluChan := o.ECS.DeleteClusterWithRetry(cluCtx, arn)
+
+	// wait for a done context
+	select {
+	case <-cluCtx.Done():
+		return false, fmt.Errorf("timeout waiting for successful cluster '%s' delete", aws.StringValue(arn))
+	case <-cluChan:
+		log.Infof("successfully deleted cluster %s", aws.StringValue(arn))
+	}
+
+	return true, nil
+}

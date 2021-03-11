@@ -40,7 +40,7 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 
 		if input.TaskDefinition.ExecutionRoleArn == nil {
 			path := fmt.Sprintf("%s/%s", o.Org, *input.Cluster.ClusterName)
-			roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
+			roleARN, err := o.DefaultTaskExecutionRole(ctx, path)
 			if err != nil {
 				return nil, rbfunc, err
 			}
@@ -99,7 +99,7 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 
 	if input.TaskDefinition.ExecutionRoleArn == nil {
 		path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
-		roleARN, err := o.IAM.DefaultTaskExecutionRole(ctx, path)
+		roleARN, err := o.DefaultTaskExecutionRole(ctx, path)
 		if err != nil {
 			return err
 		}

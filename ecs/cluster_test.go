@@ -183,6 +183,12 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel2()
 
+	client = ECS{
+		Service: &mockECSClient{
+			t:   t,
+			err: awserr.New(ecs.ErrCodeResourceInUseException, "wont fix", nil),
+		},
+	}
 	cluChan2 := client.DeleteClusterWithRetry(ctx2, aws.String("goodclu"))
 	select {
 	case <-ctx2.Done():
@@ -194,12 +200,7 @@ func TestDeleteClusterWithRetry(t *testing.T) {
 	ctx3, cancel3 := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel3()
 
-	client = ECS{
-		Service: &mockECSClient{
-			t:   t,
-			err: awserr.New(ecs.ErrCodeUpdateInProgressException, "wont fix", nil),
-		},
-	}
+	client = ECS{Service: &mockECSClient{t: t}}
 	cluChan3 := client.DeleteClusterWithRetry(ctx3, aws.String("missing"))
 	select {
 	case <-ctx3.Done():

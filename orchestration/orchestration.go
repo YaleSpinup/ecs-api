@@ -174,17 +174,17 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 		go func() {
 			cleanupCtx := context.Background()
 
-			cluCtx, cluCancel := context.WithTimeout(cleanupCtx, 120*time.Second)
-			defer cluCancel()
+			deletedCluster, err := o.deleteCluster(cleanupCtx, service.ClusterArn)
+			if err != nil {
+				log.Errorf("failed cleaning up cluster: %s", err)
+			}
 
-			cluChan := o.ECS.DeleteClusterWithRetry(cluCtx, service.ClusterArn)
-
-			// wait for a done context
-			select {
-			case <-cluCtx.Done():
-				log.Errorf("timeout waiting for successful cluster %s deletion", aws.StringValue(service.ClusterArn))
-			case <-cluChan:
-				log.Infof("successfully deleted cluster %s", aws.StringValue(service.ClusterArn))
+			// if we cleaned up the cluster, we should also cleanup the default task execution role
+			if deletedCluster {
+				executionRoleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster))
+				if err := o.deleteDefaultTaskExecutionRole(cleanupCtx, executionRoleName); err != nil {
+					log.Errorf("failed to cleanup default task execution role: %s", err)
+				}
 			}
 
 			if len(service.ServiceRegistries) > 0 {
@@ -379,6 +379,17 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 				}
 			}
 		}
+
+		newEcsTags, err := o.ECS.ListTags(ctx, aws.StringValue(active.Service.ServiceArn))
+		if err != nil {
+			return nil, err
+		}
+
+		newTags := make([]*Tag, len(newEcsTags))
+		for i, t := range newEcsTags {
+			newTags[i] = &Tag{Key: t.Key, Value: t.Value}
+		}
+		active.Tags = newTags
 	}
 
 	return active, nil
