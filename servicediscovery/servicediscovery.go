@@ -64,15 +64,12 @@ func (s *ServiceDiscovery) DeleteServiceRegistry(ctx context.Context, serviceArn
 	}
 
 	resource := strings.SplitN(a.Resource, "/", 2)
-	output, err := s.Service.DeleteServiceWithContext(ctx, &servicediscovery.DeleteServiceInput{
+	if _, err := s.Service.DeleteServiceWithContext(ctx, &servicediscovery.DeleteServiceInput{
 		Id: aws.String(resource[1]),
-	})
-
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
-	log.Debugf("output from service discovery service delete:\n%+v", output)
 	return nil
 }
 

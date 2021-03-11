@@ -27,13 +27,22 @@ func (e *ECS) GetService(ctx context.Context, cluster, service string) (*ecs.Ser
 		return nil, ErrCode("failed to get service", err)
 	}
 
-	log.Debugf("got service from DescribeServices: %+v", output)
+	log.Debugf("got output from DescribeServices: %+v", output)
 
-	if len(output.Services) != 1 {
+	active := []*ecs.Service{}
+	for _, s := range output.Services {
+		if aws.StringValue(s.Status) == "ACTIVE" {
+			active = append(active, s)
+		}
+	}
+
+	if len(active) == 0 {
+		return nil, apierror.New(apierror.ErrNotFound, "service not found", nil)
+	} else if len(active) > 1 {
 		return nil, apierror.New(apierror.ErrBadRequest, "unexpected service length in describe services", nil)
 	}
 
-	return output.Services[0], nil
+	return active[0], nil
 }
 
 // DeleteService removes an ECS service in a cluster by the service name (forcefully)

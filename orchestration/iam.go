@@ -189,3 +189,24 @@ func assumeRolePolicy() (string, error) {
 
 	return string(policyDoc), nil
 }
+
+func (o *Orchestrator) deleteDefaultTaskExecutionRole(ctx context.Context, role string) error {
+	policies, err := o.IAM.ListRolePolicies(ctx, role)
+	if err != nil {
+		return err
+	}
+
+	for _, p := range policies {
+		if err := o.IAM.DeleteRolePolicy(ctx, role, p); err != nil {
+			return err
+		}
+	}
+
+	if err := o.IAM.DeleteRole(ctx, &iam.DeleteRoleInput{
+		RoleName: aws.String(role),
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
