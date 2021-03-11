@@ -108,6 +108,7 @@ func (i *IAM) GetRolePolicy(ctx context.Context, role, policy string) (string, e
 	return d, nil
 }
 
+// ListRolePolicies lists the inline policies for a role
 func (i *IAM) ListRolePolicies(ctx context.Context, role string) ([]string, error) {
 	if role == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -127,6 +128,7 @@ func (i *IAM) ListRolePolicies(ctx context.Context, role string) ([]string, erro
 	return aws.StringValueSlice(out.PolicyNames), nil
 }
 
+// DeleteRolePolicy deletes an inline policy for a role
 func (i *IAM) DeleteRolePolicy(ctx context.Context, role, policy string) error {
 	if role == "" || policy == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
