@@ -145,3 +145,21 @@ func (i *IAM) DeleteRolePolicy(ctx context.Context, role, policy string) error {
 
 	return nil
 }
+
+// TagRole adds tags to an IAM role
+func (i *IAM) TagRole(ctx context.Context, role string, tags []*iam.Tag) error {
+	if role == "" || tags == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("tagging role %s", role)
+
+	if _, err := i.Service.TagRoleWithContext(ctx, &iam.TagRoleInput{
+		RoleName: aws.String(role),
+		Tags:     tags,
+	}); err != nil {
+		return ErrCode("failed to tag role", err)
+	}
+
+	return nil
+}

@@ -242,6 +242,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 	type args struct {
 		ctx  context.Context
 		path string
+		role string
 	}
 	tests := []struct {
 		name    string
@@ -261,6 +262,22 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: "",
+				role: "role-ecsTaskExecution",
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty role",
+			fields: fields{
+				IAM: im.IAM{
+					Service:         newMockIAMClient(t, nil),
+					DefaultKmsKeyID: "123",
+				},
+			},
+			args: args{
+				ctx:  context.TODO(),
+				path: path,
+				role: "",
 			},
 			wantErr: true,
 		},
@@ -275,6 +292,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: path,
+				role: "super-why-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution",
 		},
@@ -289,6 +307,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: "missing",
+				role: "missing-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/missing-ecsTaskExecution",
 		},
@@ -303,6 +322,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: "org/mr-rogers",
+				role: "mr-rogers-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/mr-rogers-ecsTaskExecution",
 		},
@@ -317,6 +337,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: "org/missingpolicy",
+				role: "missingpolicy-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/missingpolicy-ecsTaskExecution",
 		},
@@ -331,6 +352,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			args: args{
 				ctx:  context.TODO(),
 				path: "org/badpolicy",
+				role: "badpolicy-ecsTaskExecution",
 			},
 			wantErr: true,
 		},
@@ -340,7 +362,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.path)
+			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Orchestrator.DefaultTaskExecutionRole() error = %v, wantErr %v", err, tt.wantErr)
 				return
