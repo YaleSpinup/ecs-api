@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/YaleSpinup/apierror"
 	im "github.com/YaleSpinup/ecs-api/iam"
@@ -52,14 +51,12 @@ func (o *Orchestrator) DefaultTaskExecutionPolicy(path string) im.PolicyDoc {
 }
 
 // DefaultTaskExecutionRole generates the default role (if it doesn't exist) for ECS task execution and returns the ARN
-func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path string) (string, error) {
-	if path == "" {
+func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role string) (string, error) {
+	if path == "" || role == "" {
 		return "", apierror.New(apierror.ErrBadRequest, "invalid path", nil)
 	}
 
-	// role name is clustername-ecsTaskExecution
-	role := fmt.Sprintf("%s-ecsTaskExecution", path[strings.LastIndex(path, "/")+1:])
-	log.Infof("generating default task execution role %s", role)
+	log.Infof("generating default task execution role %s/%s", path, role)
 
 	defaultPolicy := o.DefaultTaskExecutionPolicy(path)
 

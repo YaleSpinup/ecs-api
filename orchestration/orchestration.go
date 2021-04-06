@@ -6,9 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -329,9 +332,11 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 		}
 
 		ecsTags := make([]*ecs.Tag, len(input.Tags))
+		iamTags := make([]*iam.Tag, len(input.Tags))
 		smTags := make([]*secretsmanager.Tag, len(input.Tags))
 		for i, t := range input.Tags {
 			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
+			iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
 			smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
 		}
 
@@ -378,6 +383,17 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 					return nil, err
 				}
 			}
+		}
+
+		ecsTaskExecutionRoleArn, err := arn.Parse(aws.StringValue(active.TaskDefinition.ExecutionRoleArn))
+		if err != nil {
+			return nil, err
+		}
+
+		ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
+
+		if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, iamTags); err != nil {
+			return nil, err
 		}
 
 		newEcsTags, err := o.ECS.ListTags(ctx, aws.StringValue(active.Service.ServiceArn))

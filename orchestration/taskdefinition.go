@@ -10,6 +10,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
+	"github.com/aws/aws-sdk-go/service/iam"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -39,9 +40,23 @@ func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *Service
 		log.Infof("creating task definition %+v", input.TaskDefinition)
 
 		if input.TaskDefinition.ExecutionRoleArn == nil {
-			path := fmt.Sprintf("%s/%s", o.Org, *input.Cluster.ClusterName)
-			roleARN, err := o.DefaultTaskExecutionRole(ctx, path)
+			// path is org/clustername
+			path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
+
+			// role name is clustername-ecsTaskExecution
+			roleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster.ClusterName))
+
+			roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName)
 			if err != nil {
+				return nil, rbfunc, err
+			}
+
+			iamTags := make([]*iam.Tag, len(input.Tags))
+			for i, t := range input.Tags {
+				iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
+			}
+
+			if err := o.IAM.TagRole(ctx, roleName, iamTags); err != nil {
 				return nil, rbfunc, err
 			}
 
@@ -98,8 +113,13 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 	}
 
 	if input.TaskDefinition.ExecutionRoleArn == nil {
+		// path is org/clustername
 		path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
-		roleARN, err := o.DefaultTaskExecutionRole(ctx, path)
+
+		// role name is clustername-ecsTaskExecution
+		roleName := fmt.Sprintf("%s-ecsTaskExecution", input.ClusterName)
+
+		roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName)
 		if err != nil {
 			return err
 		}
