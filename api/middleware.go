@@ -31,9 +31,9 @@ func TokenMiddleware(psk []byte, public map[string]string, h http.Handler) http.
 		}
 
 		if _, ok := public[uri.Path]; ok {
-			log.Infof("Not authenticating for '%s'", uri.Path)
+			log.Debugf("Not authenticating for '%s'", uri.Path)
 		} else {
-			log.Infof("Authenticating token for protected URL '%s'", r.URL)
+			log.Debugf("Authenticating token for protected URL '%s'", r.URL)
 
 			htoken := r.Header.Get("X-Auth-Token")
 			if err := bcrypt.CompareHashAndPassword([]byte(htoken), psk); err != nil {
@@ -42,7 +42,6 @@ func TokenMiddleware(psk []byte, public map[string]string, h http.Handler) http.
 				return
 			}
 		}
-		log.Infof("Successfully authenticated token for URL '%s'", r.URL)
 
 		h.ServeHTTP(w, r)
 	})
