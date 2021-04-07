@@ -151,7 +151,7 @@ func (m *mockECSClient) DescribeClustersWithContext(ctx aws.Context, input *ecs.
 func TestProcessCluster(t *testing.T) {
 	orchestrator := newMockOrchestrator(t, "myorg", nil, nil, nil, nil, nil)
 
-	if _, _, err := orchestrator.processCluster(context.TODO(), &ServiceOrchestrationInput{}); err == nil {
+	if _, _, err := orchestrator.processServiceCluster(context.TODO(), &ServiceOrchestrationInput{}); err == nil {
 		t.Error("expected error for missing cluster, got nil")
 	}
 
@@ -163,7 +163,7 @@ func TestProcessCluster(t *testing.T) {
 			},
 		}
 
-		out, _, err := orchestrator.processCluster(context.TODO(), &input)
+		out, _, err := orchestrator.processServiceCluster(context.TODO(), &input)
 		if err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
@@ -186,7 +186,7 @@ func TestProcessCluster(t *testing.T) {
 			},
 		}
 
-		out, _, err := orchestrator.processCluster(context.TODO(), &input)
+		out, _, err := orchestrator.processServiceCluster(context.TODO(), &input)
 		if err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
@@ -205,7 +205,7 @@ func TestProcessCluster(t *testing.T) {
 			Cluster: aws.String("cluster0"),
 		},
 	}
-	if _, _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
+	if _, _, err := orchestrator.processServiceCluster(context.TODO(), &input); err == nil {
 		t.Error("expected error, got nil")
 	}
 
@@ -215,7 +215,7 @@ func TestProcessCluster(t *testing.T) {
 			ClusterName: aws.String("cluster0"),
 		},
 	}
-	if _, _, err := orchestrator.processCluster(context.TODO(), &input); err == nil {
+	if _, _, err := orchestrator.processServiceCluster(context.TODO(), &input); err == nil {
 		t.Error("expected error, got nil")
 	}
 }

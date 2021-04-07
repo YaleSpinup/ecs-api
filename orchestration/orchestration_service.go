@@ -112,7 +112,7 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 	}()
 
 	output := &ServiceOrchestrationOutput{}
-	cluster, rbfunc, err := o.processCluster(ctx, input)
+	cluster, rbfunc, err := o.processServiceCluster(ctx, input)
 	if err != nil {
 		return nil, err
 	}

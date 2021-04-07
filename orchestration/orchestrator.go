@@ -89,3 +89,10 @@ func rollBack(t *[]rollbackFunc) {
 		log.Info("successfully rolled back")
 	}
 }
+
+func defaultRbfunc(name string) rollbackFunc {
+	return func(_ context.Context) error {
+		log.Infof("%s rollback, nothing to do", name)
+		return nil
+	}
+}

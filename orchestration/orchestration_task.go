@@ -10,7 +10,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
-s
+
+// TaskCreateOrchestrationInput is the input payload for creating a task
 type TaskCreateOrchestrationInput struct {
 	Cluster        *ecs.CreateClusterInput
 	TaskDefinition *ecs.RegisterTaskDefinitionInput
@@ -18,8 +19,12 @@ type TaskCreateOrchestrationInput struct {
 	Tags           []*Tag
 }
 
-type TaskCreateOrchestrationOutput struct{}
+// TaskCreateOrchestrationOutput is the output payload for a task creation
+type TaskCreateOrchestrationOutput struct {
+	Cluster *ecs.Cluster
+}
 
+// CreateTask orchestrates the creation of a task
 func (o *Orchestrator) CreateTask(ctx context.Context, input *TaskCreateOrchestrationInput) (*TaskCreateOrchestrationOutput, error) {
 	log.Debugf("got create task orchestration input object:\n %+v", input.TaskDefinition)
 	if input.TaskDefinition == nil {
@@ -42,7 +47,7 @@ func (o *Orchestrator) CreateTask(ctx context.Context, input *TaskCreateOrchestr
 	}()
 
 	output := &TaskCreateOrchestrationOutput{}
-	cluster, rbfunc, err := o.processCluster(ctx, input)
+	cluster, rbfunc, err := o.processTaskCluster(ctx, input)
 	if err != nil {
 		return nil, err
 	}
