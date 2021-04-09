@@ -290,8 +290,6 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	svc.Tags = tags
 	active.Service = svc
 
-	log.Debugf("active service: %+v", active.Service)
-
 	// get the active task def
 	tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
 	if err != nil {
@@ -299,9 +297,8 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	}
 	active.TaskDefinition = tdef
 
-	log.Debugf("active task definition: %+v", active.TaskDefinition)
-
 	if input.TaskDefinition != nil {
+
 		// if the tags are empty for the task definition, apply the existing tags
 		if input.TaskDefinition.Tags == nil {
 			input.TaskDefinition.Tags = active.Service.Tags
@@ -316,8 +313,6 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 		if err := o.processTaskDefinitionUpdate(ctx, input, active); err != nil {
 			return nil, err
 		}
-
-		log.Debugf("processed update of task definition: %+v", active.TaskDefinition)
 	}
 
 	// process updating the service
@@ -325,12 +320,9 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	if err = o.processServiceUpdate(ctx, input, active); err != nil {
 		return nil, err
 	}
-	log.Debugf("processed update of service: %+v", active.Service)
 
 	// if the input tags are passed, clean them and use them, otherwise set to the active service tags
 	if input.Tags != nil {
-		log.Infof("updating tags for service %s and components", aws.StringValue(active.Service.ServiceName))
-
 		input.Tags, err = cleanTags(o.Org, input.Tags)
 		if err != nil {
 			return nil, err
