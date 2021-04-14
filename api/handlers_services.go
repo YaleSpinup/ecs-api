@@ -36,7 +36,8 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)
-	log.Debugf("new service orchestration request body: %s", body)
+
+	log.Debugf("new service orchestration request body:\n%s", body)
 
 	var req orchestration.ServiceOrchestrationInput
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {

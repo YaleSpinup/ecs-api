@@ -17,6 +17,11 @@ import (
 )
 
 var (
+	// DefaultCapacityProviders are the default capacity providers for a cluster
+	DefaultCapacityProviders = []*string{
+		aws.String("FARGATE"),
+		aws.String("FARGATE_SPOT"),
+	}
 	// DefaultCompatabilities sets the default task definition compatabilities to
 	// Fargate.  By default, we won't support standard ECS.
 	// https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html

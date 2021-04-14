@@ -12,10 +12,7 @@ import (
 
 // processService processes the service input.  It normalizes inputs and creates the ECS service.
 func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.Service, rollbackFunc, error) {
-	rbfunc := func(_ context.Context) error {
-		log.Infof("processService rollback, nothing to do")
-		return nil
-	}
+	rbfunc := defaultRbfunc("processService")
 
 	if input.Service.ClientToken == nil {
 		input.Service.ClientToken = aws.String(o.Token)

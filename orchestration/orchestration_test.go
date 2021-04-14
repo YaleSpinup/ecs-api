@@ -6,11 +6,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
 
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	"github.com/aws/aws-sdk-go/service/servicediscovery/servicediscoveryiface"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 )
 
@@ -43,32 +41,6 @@ type mockSMClient struct {
 	t   *testing.T
 	err error
 }
-
-var (
-	credentialsMapIn = map[string]*secretsmanager.CreateSecretInput{
-		"testDef1": {
-			Name:         aws.String("testDef1"),
-			SecretString: aws.String("shhhhhhh"),
-		},
-		"testDef2": {
-			Name:         aws.String("testDef2"),
-			SecretString: aws.String("donttell"),
-		},
-	}
-
-	credentialsMapOut = map[string]*secretsmanager.CreateSecretOutput{
-		"testDef1": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef1"),
-			Name:      aws.String("spinup/mock/getAClu1/testDef1"),
-			VersionId: aws.String("v1"),
-		},
-		"testDef2": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef2"),
-			Name:      aws.String("spinup/mock/getAClu1/testDef2"),
-			VersionId: aws.String("v1"),
-		},
-	}
-)
 
 func newMockCWLClient(t *testing.T, err error) cloudwatchlogsiface.CloudWatchLogsAPI {
 	return &mockCWLClient{

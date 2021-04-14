@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -12,7 +13,7 @@ import (
 )
 
 // TaskCreateOrchestrationInput is the input payload for creating a task
-type TaskCreateOrchestrationInput struct {
+type TaskDefCreateOrchestrationInput struct {
 	Cluster        *ecs.CreateClusterInput
 	TaskDefinition *ecs.RegisterTaskDefinitionInput
 	Credentials    map[string]*secretsmanager.CreateSecretInput
@@ -20,18 +21,25 @@ type TaskCreateOrchestrationInput struct {
 }
 
 // TaskCreateOrchestrationOutput is the output payload for a task creation
-type TaskCreateOrchestrationOutput struct {
+type TaskDefCreateOrchestrationOutput struct {
 	Cluster *ecs.Cluster
+	// map of container definition names to private repository credentials
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/secretsmanager/#CreateSecretOutput
+	Credentials    map[string]*secretsmanager.CreateSecretOutput
+	TaskDefinition *ecs.TaskDefinition
 }
 
-// CreateTask orchestrates the creation of a task
-func (o *Orchestrator) CreateTask(ctx context.Context, input *TaskCreateOrchestrationInput) (*TaskCreateOrchestrationOutput, error) {
+// CreateTask orchestrates the creation of a task.  It creates a cluster, creates repository credrentials in
+// secretsmanager, and then creates the task definition.
+func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*TaskDefCreateOrchestrationOutput, error) {
 	log.Debugf("got create task orchestration input object:\n %+v", input.TaskDefinition)
 	if input.TaskDefinition == nil {
 		return nil, errors.New("task definition is required")
 	}
 
-	ct, err := cleanTags(o.Org, input.Tags)
+	spaceid := aws.StringValue(input.Cluster.ClusterName)
+
+	ct, err := cleanTags(o.Org, spaceid, input.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +54,8 @@ func (o *Orchestrator) CreateTask(ctx context.Context, input *TaskCreateOrchestr
 		}
 	}()
 
-	output := &TaskCreateOrchestrationOutput{}
+	output := &TaskDefCreateOrchestrationOutput{}
+
 	cluster, rbfunc, err := o.processTaskCluster(ctx, input)
 	if err != nil {
 		return nil, err
@@ -54,5 +63,19 @@ func (o *Orchestrator) CreateTask(ctx context.Context, input *TaskCreateOrchestr
 	output.Cluster = cluster
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	return nil, nil
+	creds, rbfunc, err := o.processTaskRepositoryCredentialsCreate(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	output.Credentials = creds
+	rollBackTasks = append(rollBackTasks, rbfunc)
+
+	td, rbfunc, err := o.processTaskTaskDefinitionCreate(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	output.TaskDefinition = td
+	rollBackTasks = append(rollBackTasks, rbfunc)
+
+	return output, nil
 }

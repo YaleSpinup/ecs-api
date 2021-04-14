@@ -5,105 +5,129 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
-	"github.com/aws/aws-sdk-go/service/iam"
 	log "github.com/sirupsen/logrus"
 )
 
-// processTaskDefinition processes the task definition portion of the input.  If the task definition is provided with
-// the service object, it is used.  Otherwise, if the task definition is defined as input, it will be created.  If neither
-// is true, an error is returned.
-func (o *Orchestrator) processTaskDefinition(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
-	rbfunc := func(_ context.Context) error {
-		log.Infof("processTaskDefinition rollback, nothing to do")
+// processTaskDefinitionCreate processes the task definition portion of the input.  If the task definition is defined as input,
+// it will be created otherwiuse an error is returned.
+func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
+	rbfunc := defaultRbfunc("processTaskDefinitionCreate")
+
+	log.Debugf("creating task definition for a service %+v", input.TaskDefinition)
+
+	if input.TaskDefinition == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be empty", nil)
+	}
+
+	input.TaskDefinition.Tags = ecsTags(input.Tags)
+
+	// path is org/clustername
+	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
+
+	// role name is clustername-ecsTaskExecution
+	roleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster.ClusterName))
+
+	roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
+	input.TaskDefinition.NetworkMode = DefaultNetworkMode
+
+	logConfiguration, err := o.defaultLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	for _, cd := range input.TaskDefinition.ContainerDefinitions {
+		cd.SetLogConfiguration(logConfiguration)
+	}
+
+	taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	rbfunc = func(ctx context.Context) error {
+		id := aws.StringValue(taskDefinition.TaskDefinitionArn)
+		log.Debugf("rolling back task definition %s", id)
+
+		_, err := o.ECS.DeleteTaskDefinition(ctx, taskDefinition.TaskDefinitionArn)
+		if err != nil {
+			return fmt.Errorf("failed to delete task definition %s: %s", id, err)
+		}
+
+		log.Infof("successfully rolled back task definition %s", id)
 		return nil
 	}
 
-	if input.Service.TaskDefinition != nil {
-		log.Infof("using provided task definition %s", aws.StringValue(input.Service.TaskDefinition))
-		taskDefinition, err := o.ECS.GetTaskDefinition(ctx, input.Service.TaskDefinition)
-		if err != nil {
-			return nil, rbfunc, err
-		}
-		return taskDefinition, rbfunc, nil
-	} else if input.TaskDefinition != nil {
-		ecsTags := make([]*ecs.Tag, len(input.Tags))
-		for i, t := range input.Tags {
-			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
-		}
-		input.TaskDefinition.Tags = ecsTags
+	td := fmt.Sprintf("%s:%d", aws.StringValue(taskDefinition.Family), aws.Int64Value(taskDefinition.Revision))
+	input.Service.TaskDefinition = aws.String(td)
+	return taskDefinition, rbfunc, nil
+}
 
-		log.Infof("creating task definition %+v", input.TaskDefinition)
+func (o *Orchestrator) processTaskTaskDefinitionCreate(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
+	log.Debugf("creating task definition for a task %+v", input.TaskDefinition)
 
-		if input.TaskDefinition.ExecutionRoleArn == nil {
-			// path is org/clustername
-			path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
+	rbfunc := defaultRbfunc("processTaskTaskDefinitionCreate")
 
-			// role name is clustername-ecsTaskExecution
-			roleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster.ClusterName))
-
-			roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName)
-			if err != nil {
-				return nil, rbfunc, err
-			}
-
-			iamTags := make([]*iam.Tag, len(input.Tags))
-			for i, t := range input.Tags {
-				iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
-			}
-
-			if err := o.IAM.TagRole(ctx, roleName, iamTags); err != nil {
-				return nil, rbfunc, err
-			}
-
-			input.TaskDefinition.ExecutionRoleArn = &roleARN
-		}
-
-		if len(input.TaskDefinition.RequiresCompatibilities) == 0 {
-			input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
-		}
-
-		if input.TaskDefinition.NetworkMode == nil {
-			input.TaskDefinition.NetworkMode = DefaultNetworkMode
-		}
-
-		logConfiguration, err := o.processLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.Tags)
-		if err != nil {
-			return nil, rbfunc, err
-		}
-
-		for _, cd := range input.TaskDefinition.ContainerDefinitions {
-			cd.SetLogConfiguration(logConfiguration)
-		}
-
-		taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
-		if err != nil {
-			return nil, rbfunc, err
-		}
-
-		rbfunc = func(ctx context.Context) error {
-			id := aws.StringValue(taskDefinition.TaskDefinitionArn)
-			log.Debugf("rolling back task definition %s", id)
-
-			_, err := o.ECS.DeleteTaskDefinition(ctx, taskDefinition.TaskDefinitionArn)
-			if err != nil {
-				return fmt.Errorf("failed to delete task definition %s: %s", id, err)
-			}
-
-			log.Infof("successfully rolled back task definition %s", id)
-			return nil
-		}
-
-		td := fmt.Sprintf("%s:%d", aws.StringValue(taskDefinition.Family), aws.Int64Value(taskDefinition.Revision))
-		input.Service.TaskDefinition = aws.String(td)
-		return taskDefinition, rbfunc, nil
+	if input.TaskDefinition == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be empty", nil)
 	}
 
-	return nil, rbfunc, errors.New("taskDefinition or service task definition name is required")
+	input.TaskDefinition.Tags = ecsTags(input.Tags)
+
+	// path is org/clustername
+	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
+
+	// role name is clustername-ecsTaskExecution
+	roleName := fmt.Sprintf("%s-ecsTaskExecution", aws.StringValue(input.Cluster.ClusterName))
+
+	roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
+	input.TaskDefinition.NetworkMode = DefaultNetworkMode
+
+	logConfiguration, err := o.defaultLogConfiguration(ctx, aws.StringValue(input.Cluster.ClusterName), aws.StringValue(input.TaskDefinition.Family), input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	for _, cd := range input.TaskDefinition.ContainerDefinitions {
+		cd.SetLogConfiguration(logConfiguration)
+	}
+
+	taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	rbfunc = func(ctx context.Context) error {
+		id := aws.StringValue(taskDefinition.TaskDefinitionArn)
+		log.Debugf("rolling back task definition %s", id)
+
+		_, err := o.ECS.DeleteTaskDefinition(ctx, taskDefinition.TaskDefinitionArn)
+		if err != nil {
+			return fmt.Errorf("failed to delete task definition %s: %s", id, err)
+		}
+
+		log.Infof("successfully rolled back task definition %s", id)
+		return nil
+	}
+
+	return taskDefinition, rbfunc, nil
 }
 
 // processTaskDefinitionUpdate processes the task definition portion of the input
@@ -119,7 +143,7 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		// role name is clustername-ecsTaskExecution
 		roleName := fmt.Sprintf("%s-ecsTaskExecution", input.ClusterName)
 
-		roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName)
+		roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
 		if err != nil {
 			return err
 		}
@@ -138,7 +162,7 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		input.TaskDefinition.NetworkMode = DefaultNetworkMode
 	}
 
-	logConfiguration, err := o.processLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.Tags)
+	logConfiguration, err := o.defaultLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.Tags)
 	if err != nil {
 		return err
 	}
@@ -165,7 +189,8 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 	return nil
 }
 
-func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, streamPrefix string, tags []*Tag) (*ecs.LogConfiguration, error) {
+// defaultLogConfiguration generates a log group and sets retention on the log group.  It returns the default log configuration.
+func (o *Orchestrator) defaultLogConfiguration(ctx context.Context, logGroup, streamPrefix string, tags []*Tag) (*ecs.LogConfiguration, error) {
 	if logGroup == "" {
 		return nil, errors.New("cloudwatch logs group name cannot be empty")
 	}
@@ -175,11 +200,10 @@ func (o *Orchestrator) processLogConfiguration(ctx context.Context, logGroup, st
 		tagsMap[aws.StringValue(tag.Key)] = tag.Value
 	}
 
-	err := o.CloudWatchLogs.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
+	if err := o.CloudWatchLogs.CreateLogGroup(ctx, &cloudwatchlogs.CreateLogGroupInput{
 		LogGroupName: aws.String(logGroup),
 		Tags:         tagsMap,
-	})
-	if err != nil {
+	}); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case cloudwatchlogs.ErrCodeResourceAlreadyExistsException:
