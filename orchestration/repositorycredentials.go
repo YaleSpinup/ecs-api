@@ -225,7 +225,7 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 
 			creds[containerName] = out
 		} else {
-			log.Infof("nothing to do for %s", containerName)
+			log.Infof("no changes to repository credentials for %s", containerName)
 		}
 	}
 

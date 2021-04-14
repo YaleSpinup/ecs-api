@@ -11,6 +11,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
@@ -281,134 +282,134 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	if err != nil {
 		return nil, err
 	}
-
 	// GetService doesn't include tag information, lets add it
 	tags, err := o.ECS.ListTags(ctx, aws.StringValue(svc.ServiceArn))
 	if err != nil {
 		return nil, err
 	}
 	svc.Tags = tags
-
 	active.Service = svc
-	log.Debugf("active service: %+v", active.Service)
+
+	// get the active task def
+	tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
+	if err != nil {
+		return nil, err
+	}
+	active.TaskDefinition = tdef
 
 	if input.TaskDefinition != nil {
-		// get the active task def
-		tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
-		if err != nil {
-			return nil, err
-		}
-		active.TaskDefinition = tdef
 
 		// if the tags are empty for the task definition, apply the existing tags
 		if input.TaskDefinition.Tags == nil {
 			input.TaskDefinition.Tags = active.Service.Tags
 		}
 
+		// updates active.Credentials
 		if err := o.processRepositoryCredentialsUpdate(ctx, input, active); err != nil {
 			return nil, err
 		}
 
+		// updates active.TaskDefinition
 		if err := o.processTaskDefinitionUpdate(ctx, input, active); err != nil {
 			return nil, err
 		}
-
-		log.Debugf("processed update of task definition: %+v", active.TaskDefinition)
 	}
 
 	// process updating the service
+	// updates active.Service
 	if err = o.processServiceUpdate(ctx, input, active); err != nil {
 		return nil, err
 	}
-	log.Debugf("processed update of service: %+v", active.Service)
 
-	// if we have tags to update
+	// if the input tags are passed, clean them and use them, otherwise set to the active service tags
 	if input.Tags != nil {
-		log.Infof("updating tags for service %s and components", aws.StringValue(active.Service.ServiceName))
-
 		input.Tags, err = cleanTags(o.Org, input.Tags)
 		if err != nil {
 			return nil, err
 		}
-
-		ecsTags := make([]*ecs.Tag, len(input.Tags))
-		iamTags := make([]*iam.Tag, len(input.Tags))
-		smTags := make([]*secretsmanager.Tag, len(input.Tags))
-		for i, t := range input.Tags {
-			ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
-			iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
-			smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
+	} else {
+		inputTags := make([]*Tag, len(tags))
+		for i, t := range tags {
+			inputTags[i] = &Tag{Key: t.Key, Value: t.Value}
 		}
+		input.Tags = inputTags
+	}
 
-		// tag service
-		if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: active.Service.ServiceArn,
-			Tags:        ecsTags,
-		}); err != nil {
-			return nil, err
-		}
-
-		// tag task definition
-		if err = o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: active.Service.TaskDefinition,
-			Tags:        ecsTags,
-		}); err != nil {
-			return nil, err
-		}
-
-		// tag cluster
-		if err = o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-			ResourceArn: active.Service.ClusterArn,
-			Tags:        ecsTags,
-		}); err != nil {
-			return nil, err
-		}
-
-		// tag secrets
-		// but first we need the active task definition
-		if active.TaskDefinition == nil {
-			// get the active task def
-			tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
-			if err != nil {
-				return nil, err
-			}
-			active.TaskDefinition = tdef
-		}
-
-		for _, containerDef := range active.TaskDefinition.ContainerDefinitions {
-			repositoryCredentials := containerDef.RepositoryCredentials
-			if repositoryCredentials != nil && repositoryCredentials.CredentialsParameter != nil {
-				credentialsArn := aws.StringValue(repositoryCredentials.CredentialsParameter)
-				if err := o.SecretsManager.UpdateSecretTags(ctx, credentialsArn, smTags); err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		ecsTaskExecutionRoleArn, err := arn.Parse(aws.StringValue(active.TaskDefinition.ExecutionRoleArn))
-		if err != nil {
-			return nil, err
-		}
-
-		ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
-
-		if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, iamTags); err != nil {
-			return nil, err
-		}
-
-		newEcsTags, err := o.ECS.ListTags(ctx, aws.StringValue(active.Service.ServiceArn))
-		if err != nil {
-			return nil, err
-		}
-
-		newTags := make([]*Tag, len(newEcsTags))
-		for i, t := range newEcsTags {
-			newTags[i] = &Tag{Key: t.Key, Value: t.Value}
-		}
-		active.Tags = newTags
+	// updates active.Tags
+	if err := o.processTagsUpdate(ctx, active, input.Tags); err != nil {
+		return nil, err
 	}
 
 	return active, nil
+}
+
+func (o *Orchestrator) processTagsUpdate(ctx context.Context, active *ServiceOrchestrationUpdateOutput, tags []*Tag) error {
+	log.Debugf("processing tags update with tags list %s", awsutil.Prettify(tags))
+
+	// tag all of our resources
+	ecsTags := make([]*ecs.Tag, len(tags))
+	iamTags := make([]*iam.Tag, len(tags))
+	smTags := make([]*secretsmanager.Tag, len(tags))
+	for i, t := range tags {
+		ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
+		iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
+		smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
+	}
+
+	// tag service
+	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: active.Service.ServiceArn,
+		Tags:        ecsTags,
+	}); err != nil {
+		return err
+	}
+
+	// tag task definition
+	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: active.Service.TaskDefinition,
+		Tags:        ecsTags,
+	}); err != nil {
+		return err
+	}
+
+	// tag cluster
+	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: active.Service.ClusterArn,
+		Tags:        ecsTags,
+	}); err != nil {
+		return err
+	}
+
+	// tag secrets
+	for _, containerDef := range active.TaskDefinition.ContainerDefinitions {
+		repositoryCredentials := containerDef.RepositoryCredentials
+		if repositoryCredentials != nil && repositoryCredentials.CredentialsParameter != nil {
+			credentialsArn := aws.StringValue(repositoryCredentials.CredentialsParameter)
+			if err := o.SecretsManager.UpdateSecretTags(ctx, credentialsArn, smTags); err != nil {
+				return err
+			}
+		}
+	}
+
+	// get the ecs task execution role arn from the active task definition
+	ecsTaskExecutionRoleArn, err := arn.Parse(aws.StringValue(active.TaskDefinition.ExecutionRoleArn))
+	if err != nil {
+		return err
+	}
+
+	// determine the ecs task execution role name from the arn
+	ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
+
+	// tag the ecs task execution role
+	if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, iamTags); err != nil {
+		return err
+	}
+
+	// set the active tasks to the input tasks for output
+	active.Tags = tags
+	// end tagging
+
+	return err
 }
 
 func cleanTags(org string, tags []*Tag) ([]*Tag, error) {

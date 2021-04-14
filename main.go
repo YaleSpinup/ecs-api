@@ -69,8 +69,6 @@ func main() {
 		go http.ListenAndServe("127.0.0.1:6080", nil)
 	}
 
-	log.Debugf("Read config: %+v", config)
-
 	if err := api.NewServer(config); err != nil {
 		log.Fatal(err)
 	}

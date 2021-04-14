@@ -139,6 +139,7 @@ func (s *server) ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		handleError(w, errors.Wrap(err, "cannot decode body into update service input"))
 		return
 	}
+
 	log.Debugf("decoded request into service (%s/%s) orchestration request:\n%+v", cluster, service, req)
 
 	orchestrator, err := s.newOrchestrator(account)
