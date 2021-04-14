@@ -325,10 +325,11 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 	// if the input tags are passed, clean them and use them, otherwise set to the active service tags
 	if input.Tags != nil {
-		input.Tags, err = cleanTags(o.Org, input.Tags)
+		ct, err := cleanTags(o.Org, cluster, input.Tags)
 		if err != nil {
 			return nil, err
 		}
+		input.Tags = ct
 	} else {
 		inputTags := make([]*Tag, len(tags))
 		for i, t := range tags {
