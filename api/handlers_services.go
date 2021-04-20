@@ -77,16 +77,6 @@ func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	cluster := vars["cluster"]
 	service := vars["service"]
 
-	if cluster == "" {
-		handleError(w, apierror.New(apierror.ErrNotFound, "cluster cannot be empty", nil))
-		return
-	}
-
-	if service == "" {
-		handleError(w, apierror.New(apierror.ErrNotFound, "service cannot be empty", nil))
-		return
-	}
-
 	// Check for the all query param
 	recursive := false
 	b, err := strconv.ParseBool(r.URL.Query().Get("recursive"))

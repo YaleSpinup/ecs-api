@@ -32,6 +32,7 @@ func (s *server) routes() {
 
 	// TaskDef handlers
 	api.HandleFunc("/{account}/taskdefs", s.TaskDefCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/clusters/{cluster}/taskdefs/{taskdef}", s.TaskDefDeleteHandler).Methods(http.MethodDelete)
 
 	// Secrets handlers
 	api.HandleFunc("/{account}/secrets", s.SecretListHandler).Methods(http.MethodGet)
