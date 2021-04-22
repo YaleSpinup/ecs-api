@@ -7,7 +7,6 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -19,13 +18,25 @@ import (
 func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *ServiceOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
 	rbfunc := defaultRbfunc("processTaskDefinitionCreate")
 
-	log.Debugf("creating task definition for a service %+v", input.TaskDefinition)
-
-	if input.TaskDefinition == nil {
-		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be empty", nil)
+	if input == nil || input.TaskDefinition == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be nil", nil)
 	}
 
-	input.TaskDefinition.Tags = ecsTags(input.Tags)
+	if input.Cluster == nil || input.Cluster.ClusterName == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "cluster cannot be nil", nil)
+	}
+
+	if input.Service == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "service cannot be nil", nil)
+	}
+
+	log.Debugf("processing task definition create for a service %+v", input.TaskDefinition)
+
+	// task definition gets a special tag denoting it as defined for a service
+	input.TaskDefinition.Tags = append(ecsTags(input.Tags), &ecs.Tag{
+		Key:   aws.String("spinup:category"),
+		Value: aws.String("container-service"),
+	})
 
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
@@ -75,15 +86,23 @@ func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *S
 }
 
 func (o *Orchestrator) processTaskTaskDefinitionCreate(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
-	log.Debugf("creating task definition for a task %+v", input.TaskDefinition)
-
 	rbfunc := defaultRbfunc("processTaskTaskDefinitionCreate")
 
-	if input.TaskDefinition == nil {
-		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be empty", nil)
+	if input == nil || input.TaskDefinition == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "task definition cannot be nil", nil)
 	}
 
-	input.TaskDefinition.Tags = ecsTags(input.Tags)
+	if input.Cluster == nil || input.Cluster.ClusterName == nil {
+		return nil, rbfunc, apierror.New(apierror.ErrBadRequest, "cluster cannot be nil", nil)
+	}
+
+	log.Debugf("processing task definition create for a task %+v", input.TaskDefinition)
+
+	// task definition gets a special tag denoting it as defined as a task definition
+	input.TaskDefinition.Tags = append(ecsTags(input.Tags), &ecs.Tag{
+		Key:   aws.String("spinup:category"),
+		Value: aws.String("container-taskdef"),
+	})
 
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
@@ -132,9 +151,15 @@ func (o *Orchestrator) processTaskTaskDefinitionCreate(ctx context.Context, inpu
 
 // processTaskDefinitionUpdate processes the task definition portion of the input
 func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput, active *ServiceOrchestrationUpdateOutput) error {
-	if input.TaskDefinition == nil {
-		return errors.New("taskDefinition or service task definition name is required")
+	if input == nil || input.TaskDefinition == nil {
+		return apierror.New(apierror.ErrBadRequest, "task definition cannot be nil", nil)
 	}
+
+	if input.Service == nil {
+		return apierror.New(apierror.ErrBadRequest, "service cannot be nil", nil)
+	}
+
+	log.Debugf("processing task definition update for a task %+v", input.TaskDefinition)
 
 	if input.TaskDefinition.ExecutionRoleArn == nil {
 		// path is org/clustername
@@ -204,13 +229,15 @@ func (o *Orchestrator) defaultLogConfiguration(ctx context.Context, logGroup, st
 		LogGroupName: aws.String(logGroup),
 		Tags:         tagsMap,
 	}); err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case cloudwatchlogs.ErrCodeResourceAlreadyExistsException:
+		if aerr, ok := err.(apierror.Error); ok {
+			switch aerr.Code {
+			case apierror.ErrConflict:
 				log.Warnf("cloudwatch log group already exists, continuing: (%s)", err)
 			default:
 				return nil, err
 			}
+		} else {
+			return nil, err
 		}
 	}
 

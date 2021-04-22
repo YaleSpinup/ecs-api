@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -41,6 +44,12 @@ type TaskDefDeleteInput struct {
 type TaskDefDeleteOutput struct {
 	Cluster        string
 	TaskDefinition string
+}
+
+type TaskDefShowOutput struct {
+	Cluster        *ecs.Cluster
+	TaskDefinition *ecs.TaskDefinition
+	Tags           []*ecs.Tag
 }
 
 // CreateTask orchestrates the creation of a task.  It creates a cluster, creates repository credrentials in
@@ -100,7 +109,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 		TaskDefinition: input.TaskDefinition,
 	}
 
-	taskDefinition, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition))
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +156,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 // of deleted secrets through the deleteCredentials map
 func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revision string, deletedCredentials map[string]struct{}) []error {
 	var errors []error
-	taskDefinition, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision))
 	if err != nil {
 		log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 		return []error{err}
@@ -182,4 +191,82 @@ func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revisio
 	log.Debugf("successfully deleted task definition revision %s: %+v", revision, out)
 
 	return errors
+}
+
+func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]string, error) {
+	log.Infof("listing task definitions in cluster '%s'", cluster)
+
+	tagFilters := []*resourcegroupstaggingapi.TagFilter{
+		{
+			Key:   "spinup:org",
+			Value: []string{o.Org},
+		},
+		{
+			Key:   "spinup:category",
+			Value: []string{"container-taskdef"},
+		},
+	}
+
+	if cluster != "" {
+		tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
+			Key:   "spinup:spaceid",
+			Value: []string{cluster},
+		})
+	}
+
+	taskDefinitionRevisions, err := o.ResourceGroupsTaggingAPI.GetResourcesWithTags(ctx, []string{"ecs:task-definition"}, tagFilters)
+	if err != nil {
+		return nil, err
+	}
+
+	// get a unique list of task definition families from the list of revisions
+	families := map[string]struct{}{}
+	for _, td := range taskDefinitionRevisions {
+		tdArn, err := arn.Parse(td)
+		if err != nil {
+			log.Warnf("failed to parse ARN %s: %s", tdArn, err)
+			families[td] = struct{}{}
+			continue
+		}
+
+		parts := strings.SplitN(tdArn.Resource, ":", 2)
+		family := strings.TrimPrefix(parts[0], "task-definition/")
+
+		log.Debugf("got family %s from arn %s", family, tdArn)
+
+		families[family] = struct{}{}
+	}
+
+	taskDefinitionFamilies := make([]string, len(families))
+	i := 0
+	for f := range families {
+		taskDefinitionFamilies[i] = f
+		i++
+	}
+
+	return taskDefinitionFamilies, nil
+}
+
+func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (*TaskDefShowOutput, error) {
+	if cluster == "" || family == "" {
+		return nil, errors.New("cluster and task def family are required")
+	}
+
+	log.Debugf("getting task definition for %s/%s", cluster, family)
+
+	cluOutput, err := o.ECS.GetCluster(ctx, aws.String(cluster))
+	if err != nil {
+		return nil, err
+	}
+
+	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family))
+	if err != nil {
+		return nil, err
+	}
+
+	return &TaskDefShowOutput{
+		Cluster:        cluOutput,
+		TaskDefinition: tdOutput,
+		Tags:           tags,
+	}, nil
 }

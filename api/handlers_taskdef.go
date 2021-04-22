@@ -106,3 +106,72 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
 }
+
+func (s *server) TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+
+	log.Debugf("listing task definitions in cluster %s", cluster)
+
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	output, err := orchestrator.ListTaskDefs(r.Context(), cluster)
+	if err != nil {
+		log.Errorf("error in taskdef list orchestration: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+	taskdef := vars["taskdef"]
+
+	log.Debugf("showing taskdef %s/%s/%s", account, cluster, taskdef)
+
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	output, err := orchestrator.GetTaskDef(r.Context(), cluster, taskdef)
+	if err != nil {
+		log.Errorf("error in taskdef get orchestration: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
