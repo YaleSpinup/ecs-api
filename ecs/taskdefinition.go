@@ -46,24 +46,25 @@ func (e *ECS) DeleteTaskDefinition(ctx context.Context, taskdefinition *string) 
 }
 
 // GetTaskDefinition gets a task definition with context by name
-func (e *ECS) GetTaskDefinition(ctx context.Context, taskdefinition *string) (*ecs.TaskDefinition, error) {
+func (e *ECS) GetTaskDefinition(ctx context.Context, taskdefinition *string) (*ecs.TaskDefinition, []*ecs.Tag, error) {
 	if aws.StringValue(taskdefinition) == "" {
-		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+		return nil, nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
 	log.Infof("getting details about task definition '%s'", aws.StringValue(taskdefinition))
 
 	output, err := e.Service.DescribeTaskDefinitionWithContext(ctx, &ecs.DescribeTaskDefinitionInput{
+		Include:        aws.StringSlice([]string{"TAGS"}),
 		TaskDefinition: taskdefinition,
 	})
 
 	if err != nil {
-		return nil, ErrCode("failed to get task definition", err)
+		return nil, nil, ErrCode("failed to get task definition", err)
 	}
 
 	log.Debugf("got output from DescribeTaskDefinition: %+v", output)
 
-	return output.TaskDefinition, err
+	return output.TaskDefinition, output.Tags, err
 }
 
 // ListTaskDefinitionRevisions lists all of the task definition [revisions] in a family

@@ -213,7 +213,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 			}
 
 			// get the active task definition to find the task definition family
-			taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
+			taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
 			if err != nil {
 				log.Errorf("failed to get active task definition '%s': %s", aws.StringValue(service.TaskDefinition), err)
 			} else {
@@ -224,7 +224,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 				} else {
 					for _, revision := range taskDefinitionRevisions {
 
-						taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
+						taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
 						if err != nil {
 							log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 							continue
@@ -293,7 +293,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	active.Service = svc
 
 	// get the active task def
-	tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
+	tdef, _, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
 	if err != nil {
 		return nil, err
 	}

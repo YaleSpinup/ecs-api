@@ -9,6 +9,7 @@ import (
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/ecs"
 	"github.com/YaleSpinup/ecs-api/iam"
+	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/YaleSpinup/ecs-api/secretsmanager"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 	"github.com/aws/aws-sdk-go/aws"
@@ -45,6 +46,8 @@ type Orchestrator struct {
 	ECS ecs.ECS
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/iam/#IAM
 	IAM iam.IAM
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/resourcegroupstaggingapi/
+	ResourceGroupsTaggingAPI resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/secretsmanager/#SecretsManager
 	SecretsManager secretsmanager.SecretsManager
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#ServiceDiscovery
