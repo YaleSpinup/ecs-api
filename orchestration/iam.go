@@ -51,7 +51,7 @@ func (o *Orchestrator) DefaultTaskExecutionPolicy(path string) im.PolicyDoc {
 }
 
 // DefaultTaskExecutionRole generates the default role (if it doesn't exist) for ECS task execution and returns the ARN
-func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role string) (string, error) {
+func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role string, tags []*Tag) (string, error) {
 	if path == "" || role == "" {
 		return "", apierror.New(apierror.ErrBadRequest, "invalid path", nil)
 	}
@@ -121,6 +121,18 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 	})
 	if err != nil {
 		return "", err
+	}
+
+	// apply tags if any were passed
+	if len(tags) > 0 {
+		iamTags := make([]*iam.Tag, len(tags))
+		for i, t := range tags {
+			iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
+		}
+
+		if err := o.IAM.TagRole(ctx, role, iamTags); err != nil {
+			return "", err
+		}
 	}
 
 	return roleArn, nil

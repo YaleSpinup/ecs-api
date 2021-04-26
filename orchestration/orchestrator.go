@@ -9,6 +9,7 @@ import (
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
 	"github.com/YaleSpinup/ecs-api/ecs"
 	"github.com/YaleSpinup/ecs-api/iam"
+	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/YaleSpinup/ecs-api/secretsmanager"
 	"github.com/YaleSpinup/ecs-api/servicediscovery"
 	"github.com/aws/aws-sdk-go/aws"
@@ -17,6 +18,11 @@ import (
 )
 
 var (
+	// DefaultCapacityProviders are the default capacity providers for a cluster
+	DefaultCapacityProviders = []*string{
+		aws.String("FARGATE"),
+		aws.String("FARGATE_SPOT"),
+	}
 	// DefaultCompatabilities sets the default task definition compatabilities to
 	// Fargate.  By default, we won't support standard ECS.
 	// https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_TaskDefinition.html
@@ -40,6 +46,8 @@ type Orchestrator struct {
 	ECS ecs.ECS
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/iam/#IAM
 	IAM iam.IAM
+	// https://docs.aws.amazon.com/sdk-for-go/api/service/resourcegroupstaggingapi/
+	ResourceGroupsTaggingAPI resourcegroupstaggingapi.ResourceGroupsTaggingAPI
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/secretsmanager/#SecretsManager
 	SecretsManager secretsmanager.SecretsManager
 	// https://docs.aws.amazon.com/sdk-for-go/api/service/servicediscovery/#ServiceDiscovery
@@ -87,5 +95,12 @@ func rollBack(t *[]rollbackFunc) {
 		log.Error("timeout waiting for successful rollback")
 	case <-done:
 		log.Info("successfully rolled back")
+	}
+}
+
+func defaultRbfunc(name string) rollbackFunc {
+	return func(_ context.Context) error {
+		log.Infof("%s rollback, nothing to do", name)
+		return nil
 	}
 }

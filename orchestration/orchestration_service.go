@@ -96,7 +96,9 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 		return nil, errors.New("service definition is required")
 	}
 
-	ct, err := cleanTags(o.Org, input.Tags)
+	spaceid := aws.StringValue(input.Cluster.ClusterName)
+
+	ct, err := cleanTags(o.Org, spaceid, input.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -112,21 +114,21 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 	}()
 
 	output := &ServiceOrchestrationOutput{}
-	cluster, rbfunc, err := o.processCluster(ctx, input)
+	cluster, rbfunc, err := o.processServiceCluster(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Cluster = cluster
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	creds, rbfunc, err := o.processRepositoryCredentials(ctx, input)
+	creds, rbfunc, err := o.processRepositoryCredentialsCreate(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Credentials = creds
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	td, rbfunc, err := o.processTaskDefinition(ctx, input)
+	td, rbfunc, err := o.processTaskDefinitionCreate(ctx, input)
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +213,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 			}
 
 			// get the active task definition to find the task definition family
-			taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
+			taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
 			if err != nil {
 				log.Errorf("failed to get active task definition '%s': %s", aws.StringValue(service.TaskDefinition), err)
 			} else {
@@ -222,7 +224,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 				} else {
 					for _, revision := range taskDefinitionRevisions {
 
-						taskDefinition, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
+						taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
 						if err != nil {
 							log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 							continue
@@ -291,7 +293,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	active.Service = svc
 
 	// get the active task def
-	tdef, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
+	tdef, _, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
 	if err != nil {
 		return nil, err
 	}
@@ -323,10 +325,11 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 	// if the input tags are passed, clean them and use them, otherwise set to the active service tags
 	if input.Tags != nil {
-		input.Tags, err = cleanTags(o.Org, input.Tags)
+		ct, err := cleanTags(o.Org, cluster, input.Tags)
 		if err != nil {
 			return nil, err
 		}
+		input.Tags = ct
 	} else {
 		inputTags := make([]*Tag, len(tags))
 		for i, t := range tags {
@@ -410,28 +413,4 @@ func (o *Orchestrator) processTagsUpdate(ctx context.Context, active *ServiceOrc
 	// end tagging
 
 	return err
-}
-
-func cleanTags(org string, tags []*Tag) ([]*Tag, error) {
-	cleanTags := []*Tag{
-		{
-			Key:   aws.String("spinup:org"),
-			Value: aws.String(org),
-		},
-	}
-
-	for _, t := range tags {
-		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" {
-			cleanTags = append(cleanTags, &Tag{Key: t.Key, Value: t.Value})
-		}
-
-		if aws.StringValue(t.Key) == "spinup:org" || aws.StringValue(t.Key) == "yale:org" {
-			if aws.StringValue(t.Value) != org {
-				msg := fmt.Sprintf("not a part of our org (%s)", org)
-				return nil, errors.New(msg)
-			}
-		}
-	}
-
-	return cleanTags, nil
 }

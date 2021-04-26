@@ -160,6 +160,13 @@ func (m *mockIAMClient) DeleteRolePolicyWithContext(ctx context.Context, input *
 	return &iam.DeleteRolePolicyOutput{}, nil
 }
 
+func (m *mockIAMClient) TagRoleWithContext(ctx context.Context, input *iam.TagRoleInput, opts ...request.Option) (*iam.TagRoleOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return &iam.TagRoleOutput{}, nil
+}
+
 func TestCreateRole(t *testing.T) {
 	i := IAM{
 		Service:         newMockIAMClient(t, nil),
@@ -983,6 +990,37 @@ func TestIAM_DeleteRolePolicy(t *testing.T) {
 			}
 			if err := i.DeleteRolePolicy(tt.args.ctx, tt.args.role, tt.args.policy); (err != nil) != tt.wantErr {
 				t.Errorf("IAM.DeleteRolePolicy() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestIAM_TagRole(t *testing.T) {
+	type fields struct {
+		Service         iamiface.IAMAPI
+		DefaultKmsKeyID string
+	}
+	type args struct {
+		ctx  context.Context
+		role string
+		tags []*iam.Tag
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			i := &IAM{
+				Service:         tt.fields.Service,
+				DefaultKmsKeyID: tt.fields.DefaultKmsKeyID,
+			}
+			if err := i.TagRole(tt.args.ctx, tt.args.role, tt.args.tags); (err != nil) != tt.wantErr {
+				t.Errorf("IAM.TagRole() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

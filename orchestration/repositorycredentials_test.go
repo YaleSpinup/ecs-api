@@ -24,11 +24,11 @@ var (
 			Image: aws.String("nginx:alpine"),
 		},
 		{
-			Name:  aws.String("testDef1"),
+			Name:  aws.String("container1"),
 			Image: aws.String("secretImage1"),
 		},
 		{
-			Name:  aws.String("testDef2"),
+			Name:  aws.String("container2"),
 			Image: aws.String("secretImage2"),
 		},
 	}
@@ -67,12 +67,36 @@ func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secre
 	}, nil
 }
 
-func TestProcessRepositoryCredentials(t *testing.T) {
+func TestProcessRepositoryCredentialsCreate(t *testing.T) {
+	credentialsMapIn := map[string]*secretsmanager.CreateSecretInput{
+		"container1": {
+			Name:         aws.String("container1"),
+			SecretString: aws.String("shhhhhhh"),
+		},
+		"container2": {
+			Name:         aws.String("container2"),
+			SecretString: aws.String("donttell"),
+		},
+	}
+
+	credentialsMapOut := map[string]*secretsmanager.CreateSecretOutput{
+		"container1": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/container1"),
+			Name:      aws.String("spinup/mock/getAClu1/container1"),
+			VersionId: aws.String("v1"),
+		},
+		"container2": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/container2"),
+			Name:      aws.String("spinup/mock/getAClu1/container2"),
+			VersionId: aws.String("v1"),
+		},
+	}
+
 	o := Orchestrator{
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
 		Org:            "mock",
 	}
-	out, _, err := o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{})
+	out, _, err := o.processRepositoryCredentialsCreate(context.TODO(), &ServiceOrchestrationInput{})
 	if err != nil {
 		t.Errorf("expected nil error for processRepositoryCredentials, got %s", err)
 	}
@@ -81,7 +105,8 @@ func TestProcessRepositoryCredentials(t *testing.T) {
 		t.Errorf("expected nil output for empty repository credentials, got %+v", out)
 	}
 
-	out, _, err = o.processRepositoryCredentials(context.TODO(), &ServiceOrchestrationInput{
+	out, _, err = o.processRepositoryCredentialsCreate(context.TODO(), &ServiceOrchestrationInput{
+		Cluster:        &ecs.CreateClusterInput{ClusterName: aws.String("getAClu1")},
 		TaskDefinition: tdInput,
 		Credentials:    credentialsMapIn,
 		Service:        svcInput,
@@ -91,8 +116,82 @@ func TestProcessRepositoryCredentials(t *testing.T) {
 	}
 
 	t.Log("got processRepositoryCredentials response", out)
+
 	if !reflect.DeepEqual(credentialsMapOut, out) {
-		t.Fatalf("Expected %+v\nGot %+v", credentialsMapOut, out)
+		t.Errorf("Expected %+v\nGot %+v", credentialsMapOut, out)
+	}
+
+	for _, c := range tdInput.ContainerDefinitions {
+		cName := aws.StringValue(c.Name)
+		if _, ok := credentialsMapIn[cName]; ok {
+			s, ok := credentialsMapOut[cName]
+			if !ok {
+				t.Errorf("expected secret for container %s, not found", cName)
+				continue
+			}
+
+			sArn := aws.StringValue(s.ARN)
+			if c.RepositoryCredentials == nil {
+				t.Errorf("expected secret arn to be %s on repository credentials for container %s, got nil", sArn, cName)
+			} else if cp := aws.StringValue(c.RepositoryCredentials.CredentialsParameter); cp != sArn {
+				t.Errorf("expected secret arn to be %s on repository credentials for container %s, got %s", sArn, cName, cp)
+			}
+		}
+	}
+
+}
+
+func TestProcessTaskRepositoryCredentialsCreate(t *testing.T) {
+	credentialsMapIn := map[string]*secretsmanager.CreateSecretInput{
+		"container1": {
+			Name:         aws.String("container1"),
+			SecretString: aws.String("shhhhhhh"),
+		},
+		"container2": {
+			Name:         aws.String("container2"),
+			SecretString: aws.String("donttell"),
+		},
+	}
+
+	credentialsMapOut := map[string]*secretsmanager.CreateSecretOutput{
+		"container1": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/container1"),
+			Name:      aws.String("spinup/mock/getAClu1/container1"),
+			VersionId: aws.String("v1"),
+		},
+		"container2": {
+			ARN:       aws.String("arn:spinup/mock/getAClu1/container2"),
+			Name:      aws.String("spinup/mock/getAClu1/container2"),
+			VersionId: aws.String("v1"),
+		},
+	}
+
+	o := Orchestrator{
+		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+		Org:            "mock",
+	}
+	out, _, err := o.processTaskRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{})
+	if err != nil {
+		t.Errorf("expected nil error for processTaskRepositoryCredentialsCreate, got %s", err)
+	}
+
+	if out != nil {
+		t.Errorf("expected nil output for empty repository credentials, got %+v", out)
+	}
+
+	out, _, err = o.processTaskRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{
+		Cluster:        &ecs.CreateClusterInput{ClusterName: aws.String("getAClu1")},
+		TaskDefinition: tdInput,
+		Credentials:    credentialsMapIn,
+	})
+	if err != nil {
+		t.Errorf("expected nil error for processTaskRepositoryCredentialsCreate, got %s", err)
+	}
+
+	t.Log("got processTaskRepositoryCredentialsCreate response", out)
+
+	if !reflect.DeepEqual(credentialsMapOut, out) {
+		t.Errorf("Expected %+v\nGot %+v", credentialsMapOut, out)
 	}
 }
 
@@ -790,86 +889,181 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	}
 }
 
-func TestProcessSecretsmanagerTags(t *testing.T) {
-	o := Orchestrator{
-		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
-		Org:            "testOrg",
-	}
-
-	var tests = []struct {
-		input  []*Tag
-		output []*secretsmanager.Tag
-	}{
-		{
-			input: []*Tag{
-				{
-					Key:   aws.String("foo"),
-					Value: aws.String("bar"),
-				},
-			},
-			output: []*secretsmanager.Tag{
-				{
-					Key:   aws.String("foo"),
-					Value: aws.String("bar"),
-				},
-			},
-		},
-		{
-			input: []*Tag{
-				{
-					Key:   aws.String("foo"),
-					Value: aws.String("bar"),
-				},
-				{
-					Key:   aws.String("spinup:org"),
-					Value: aws.String("someOtherOrg"),
-				},
-			},
-			output: []*secretsmanager.Tag{
-				{
-					Key:   aws.String("foo"),
-					Value: aws.String("bar"),
-				},
-				{
-					Key:   aws.String("spinup:org"),
-					Value: aws.String("someOtherOrg"),
-				},
-			},
-		},
-	}
-
-	for _, test := range tests {
-		out := o.processSecretsmanagerTags(test.input)
-
-		if !reflect.DeepEqual(test.output, out) {
-			t.Errorf("expected %+v, got %+v", test.output, out)
-		}
-
-		for _, tag := range test.output {
-			exists := false
-			t.Logf("testing for test tag key: %v, value: %v", tag.Key, tag.Value)
-
-			for _, otag := range out {
-				t.Logf("testing output tag key: %v, value: %v", otag.Key, otag.Value)
-				if aws.StringValue(otag.Key) == aws.StringValue(tag.Key) {
-					value := aws.StringValue(tag.Value)
-					ovalue := aws.StringValue(otag.Value)
-					if value != ovalue {
-						t.Errorf("expected tag %s value to be %s, got %s", aws.StringValue(tag.Key), value, ovalue)
-					}
-					exists = true
-					break
-				}
-			}
-
-			if !exists {
-				t.Errorf("expected tag %+v to exist", tag)
-			}
-		}
-	}
-
-}
-
 func TestContainerDefinitionCredsMap(t *testing.T) {
 	t.Log("TODO")
+}
+
+func TestOrchestrator_createRepostitoryCredentials(t *testing.T) {
+	type fields struct {
+		SecretsManager sm.SecretsManager
+		Org            string
+	}
+	type args struct {
+		ctx    context.Context
+		prefix string
+		input  map[string]*secretsmanager.CreateSecretInput
+		tags   []*Tag
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[string]*secretsmanager.CreateSecretOutput
+		wantErr bool
+	}{
+		{
+			name: "nil input",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+				Org:            "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+			},
+			want: map[string]*secretsmanager.CreateSecretOutput{},
+		},
+		{
+			name: "empty input",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+				Org:            "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+				input:  map[string]*secretsmanager.CreateSecretInput{},
+			},
+			want: map[string]*secretsmanager.CreateSecretOutput{},
+		},
+		{
+			name: "create secret aws error",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{
+					Service: newMockSMClient(t, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "invalid input", nil)),
+				},
+				Org: "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+				input: map[string]*secretsmanager.CreateSecretInput{
+					"container1": {
+						Description:  aws.String("secret for container1"),
+						Name:         aws.String("container1-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "create secret random error",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{
+					Service: newMockSMClient(t, errors.New("boom!")),
+				},
+				Org: "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+				input: map[string]*secretsmanager.CreateSecretInput{
+					"container1": {
+						Description:  aws.String("secret for container1"),
+						Name:         aws.String("container1-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "good input 1 secret",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+				Org:            "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+				input: map[string]*secretsmanager.CreateSecretInput{
+					"container1": {
+						Description:  aws.String("secret for container1"),
+						Name:         aws.String("container1-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+				},
+			},
+			want: map[string]*secretsmanager.CreateSecretOutput{
+				"container1": {
+					ARN:       aws.String("arn:/foo/bar/container1-secret"),
+					Name:      aws.String("/foo/bar/container1-secret"),
+					VersionId: aws.String("v1"),
+				},
+			},
+		},
+		{
+			name: "good input 3 secret",
+			fields: fields{
+				SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
+				Org:            "mock",
+			},
+			args: args{
+				ctx:    context.TODO(),
+				prefix: "/foo/bar",
+				input: map[string]*secretsmanager.CreateSecretInput{
+					"container1": {
+						Description:  aws.String("secret for container1"),
+						Name:         aws.String("container1-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+					"container2": {
+						Description:  aws.String("secret for container2"),
+						Name:         aws.String("container2-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+					"container3": {
+						Description:  aws.String("secret for container3"),
+						Name:         aws.String("container3-secret"),
+						SecretString: aws.String("shhhhh"),
+					},
+				},
+			},
+			want: map[string]*secretsmanager.CreateSecretOutput{
+				"container1": {
+					ARN:       aws.String("arn:/foo/bar/container1-secret"),
+					Name:      aws.String("/foo/bar/container1-secret"),
+					VersionId: aws.String("v1"),
+				},
+				"container2": {
+					ARN:       aws.String("arn:/foo/bar/container2-secret"),
+					Name:      aws.String("/foo/bar/container2-secret"),
+					VersionId: aws.String("v1"),
+				},
+				"container3": {
+					ARN:       aws.String("arn:/foo/bar/container3-secret"),
+					Name:      aws.String("/foo/bar/container3-secret"),
+					VersionId: aws.String("v1"),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := &Orchestrator{
+				SecretsManager: tt.fields.SecretsManager,
+				Org:            tt.fields.Org,
+			}
+
+			got, err := o.createRepostitoryCredentials(tt.args.ctx, tt.args.prefix, tt.args.input, tt.args.tags)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Orchestrator.createRepostitoryCredentials() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Orchestrator.createRepostitoryCredentials() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

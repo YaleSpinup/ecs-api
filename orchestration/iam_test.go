@@ -362,7 +362,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role)
+			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Orchestrator.DefaultTaskExecutionRole() error = %v, wantErr %v", err, tt.wantErr)
 				return

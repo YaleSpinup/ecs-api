@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs/cloudwatchlogsiface"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 	"github.com/aws/aws-sdk-go/service/servicediscovery/servicediscoveryiface"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 )
 
@@ -32,6 +32,12 @@ type mockIAMClient struct {
 	err error
 }
 
+type mockRGTAClient struct {
+	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+	t   *testing.T
+	err error
+}
+
 type mockSDClient struct {
 	servicediscoveryiface.ServiceDiscoveryAPI
 	t   *testing.T
@@ -44,63 +50,68 @@ type mockSMClient struct {
 	err error
 }
 
-var (
-	credentialsMapIn = map[string]*secretsmanager.CreateSecretInput{
-		"testDef1": {
-			Name:         aws.String("testDef1"),
-			SecretString: aws.String("shhhhhhh"),
-		},
-		"testDef2": {
-			Name:         aws.String("testDef2"),
-			SecretString: aws.String("donttell"),
-		},
-	}
-
-	credentialsMapOut = map[string]*secretsmanager.CreateSecretOutput{
-		"testDef1": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef1"),
-			Name:      aws.String("spinup/mock/getAClu1/testDef1"),
-			VersionId: aws.String("v1"),
-		},
-		"testDef2": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/testDef2"),
-			Name:      aws.String("spinup/mock/getAClu1/testDef2"),
-			VersionId: aws.String("v1"),
-		},
-	}
-)
-
 func newMockCWLClient(t *testing.T, err error) cloudwatchlogsiface.CloudWatchLogsAPI {
-	return &mockCWLClient{
+	m := mockCWLClient{
 		t:   t,
 		err: err,
 	}
+
+	log.Infof("returning mock cloudwatchlogs client %+v", m)
+
+	return &m
 }
 
 func newMockECSClient(t *testing.T, err error) ecsiface.ECSAPI {
-	return &mockECSClient{
+	m := mockECSClient{
 		t:   t,
 		err: err,
 	}
+
+	log.Infof("returning mock ecs client %+v", m)
+
+	return &m
 }
 
 func newMockIAMClient(t *testing.T, err error) iamiface.IAMAPI {
-	return &mockIAMClient{
+	m := mockIAMClient{
 		t:   t,
 		err: err,
 	}
+
+	log.Infof("returning mock iam client %+v", m)
+
+	return &m
+}
+
+func newMockResourceGroupTaggingApiClient(t *testing.T, err error) resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI {
+	m := mockRGTAClient{
+		t:   t,
+		err: err,
+	}
+
+	log.Infof("returning mock resourcegrouptaggingapi client %+v", m)
+
+	return &m
 }
 
 func newMockSMClient(t *testing.T, err error) secretsmanageriface.SecretsManagerAPI {
-	return &mockSMClient{
+	m := mockSMClient{
 		t:   t,
 		err: err,
 	}
+
+	log.Infof("returning mock secretsmanager client %+v", m)
+
+	return &m
 }
 
 func newMockSDClient(t *testing.T, err error) servicediscoveryiface.ServiceDiscoveryAPI {
-	return &mockSDClient{
+	m := mockSDClient{
 		t:   t,
 		err: err,
 	}
+
+	log.Infof("returning mock servicediscovery client %+v", m)
+
+	return &m
 }

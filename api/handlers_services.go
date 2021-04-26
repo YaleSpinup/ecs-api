@@ -36,7 +36,8 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body, _ := ioutil.ReadAll(r.Body)
-	log.Debugf("new service orchestration request body: %s", body)
+
+	log.Debugf("new service orchestration request body:\n%s", body)
 
 	var req orchestration.ServiceOrchestrationInput
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
@@ -75,16 +76,6 @@ func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	account := vars["account"]
 	cluster := vars["cluster"]
 	service := vars["service"]
-
-	if cluster == "" {
-		handleError(w, apierror.New(apierror.ErrNotFound, "cluster cannot be empty", nil))
-		return
-	}
-
-	if service == "" {
-		handleError(w, apierror.New(apierror.ErrNotFound, "service cannot be empty", nil))
-		return
-	}
 
 	// Check for the all query param
 	recursive := false
@@ -248,7 +239,7 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tdOutput, err := ecsService.GetTaskDefinition(r.Context(), serviceOutput.TaskDefinition)
+		tdOutput, _, err := ecsService.GetTaskDefinition(r.Context(), serviceOutput.TaskDefinition)
 		if err != nil {
 			handleError(w, err)
 			return
@@ -319,6 +310,12 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
 	}
 
+	rgTaggingAPIService, ok := s.rgTaggingAPIServices[account]
+	if !ok {
+		msg := fmt.Sprintf("resourcegroups tagging service not found for account: %s", account)
+		return nil, apierror.New(apierror.ErrNotFound, msg, nil)
+	}
+
 	sdService, ok := s.sdServices[account]
 	if !ok {
 		msg := fmt.Sprintf("service discovery service not found for account: %s", account)
@@ -332,16 +329,17 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 	}
 
 	return &orchestration.Orchestrator{
-		CloudWatchLogs:        cwlService,
-		ECS:                   ecsService,
-		IAM:                   iamService,
-		SecretsManager:        smService,
-		ServiceDiscovery:      sdService,
-		DefaultSecurityGroups: ecsService.DefaultSgs,
-		DefaultSubnets:        ecsService.DefaultSubnets,
-		DefaultPublic:         "DISABLED",
-		Token:                 uuid.NewV4().String(),
-		Org:                   s.org,
+		CloudWatchLogs:           cwlService,
+		ECS:                      ecsService,
+		IAM:                      iamService,
+		ResourceGroupsTaggingAPI: rgTaggingAPIService,
+		SecretsManager:           smService,
+		ServiceDiscovery:         sdService,
+		DefaultSecurityGroups:    ecsService.DefaultSgs,
+		DefaultSubnets:           ecsService.DefaultSubnets,
+		DefaultPublic:            "DISABLED",
+		Token:                    uuid.NewV4().String(),
+		Org:                      s.org,
 	}, nil
 }
 

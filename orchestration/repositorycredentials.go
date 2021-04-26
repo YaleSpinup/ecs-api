@@ -3,6 +3,7 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -10,57 +11,36 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// processRepositoryCredentials processes the Credentials portion of the input.  If existing repository credentials are
-// provided with the task definition, they are used.  Otherwise, if the credentials are defined as input, they are created
-// in the secretsmanager service.  If neither is true, nil is returned.
-func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *ServiceOrchestrationInput) (map[string]*secretsmanager.CreateSecretOutput, rollbackFunc, error) {
-	rbfunc := func(ctx context.Context) error {
-		log.Infof("processRepositoryCredentials rollback, nothing to do")
-		return nil
-	}
+// processRepositoryCredentialsCreate processes the Credentials portion of the input.  If the credentials are defined as input,
+// they are created in the secretsmanager service and the ARN is applied to the task definition as repository credentials.
+func (o *Orchestrator) processRepositoryCredentialsCreate(ctx context.Context, input *ServiceOrchestrationInput) (map[string]*secretsmanager.CreateSecretOutput, rollbackFunc, error) {
+	rbfunc := defaultRbfunc("processRepositoryCredentialsCreate")
 
 	if len(input.Credentials) == 0 {
 		log.Debugf("no private repository credentials passed")
 		return nil, rbfunc, nil
 	}
 
-	client := o.SecretsManager
-	creds := make(map[string]*secretsmanager.CreateSecretOutput, len(input.Credentials))
+	cluster := ""
+	if input.Cluster != nil && input.Cluster.ClusterName != nil {
+		cluster = aws.StringValue(input.Cluster.ClusterName) + "/"
+	}
+
+	// prefix for secret names is 'spinup/org/clustername'
+	prefix := "spinup/" + o.Org + "/" + cluster
+
+	creds, err := o.createRepostitoryCredentials(ctx, prefix, input.Credentials, input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
 	for _, cd := range input.TaskDefinition.ContainerDefinitions {
 		containerName := aws.StringValue(cd.Name)
 		log.Debugf("processing container definition %s", containerName)
 
-		if cd.RepositoryCredentials != nil {
-			log.Infof("using respository credentials referenced in container definition %s: %s", containerName, cd.RepositoryCredentials.String())
-		} else if secret, ok := input.Credentials[containerName]; ok {
-			log.Infof("creating repository credentials secret for container definition: %s", containerName)
-
-			secret.Tags = o.processSecretsmanagerTags(input.Tags)
-
-			org := ""
-			if o.Org != "" {
-				org = o.Org + "/"
-			}
-
-			cluster := ""
-			if input.Cluster != nil && input.Cluster.ClusterName != nil {
-				cluster = aws.StringValue(input.Cluster.ClusterName) + "/"
-			} else if input.Service != nil && input.Service.Cluster != nil {
-				cluster = aws.StringValue(input.Service.Cluster) + "/"
-			}
-
-			secret.Name = aws.String("spinup/" + org + cluster + aws.StringValue(secret.Name))
-
-			out, err := client.CreateSecret(ctx, secret)
-			if err != nil {
-				return nil, rbfunc, err
-			}
-
-			log.Infof("setting repository credentials secret for container definition: %s to %s", containerName, aws.StringValue(out.ARN))
-
-			cd.SetRepositoryCredentials(&ecs.RepositoryCredentials{CredentialsParameter: out.ARN})
-
-			creds[containerName] = out
+		if secret, ok := creds[containerName]; ok {
+			log.Infof("setting repository credentials secret for container definition: %s to %s", containerName, aws.StringValue(secret.ARN))
+			cd.SetRepositoryCredentials(&ecs.RepositoryCredentials{CredentialsParameter: secret.ARN})
 		} else {
 			log.Infof("assuming container definition %s references a public image, no credentials included", containerName)
 		}
@@ -72,7 +52,64 @@ func (o *Orchestrator) processRepositoryCredentials(ctx context.Context, input *
 
 			log.Debugf("rolling back secret %s", id)
 
-			out, err := client.DeleteSecret(ctx, id, 0)
+			out, err := o.SecretsManager.DeleteSecret(ctx, id, 0)
+			if err != nil {
+				log.Errorf("failed deleting secret %s: %s", id, err)
+			}
+
+			log.Infof("successfully rolled back secret: %s", aws.StringValue(out.ARN))
+		}
+
+		return nil
+	}
+
+	log.Debugf("returning creds: %+v", creds)
+
+	return creds, rbfunc, nil
+}
+
+// processTaskRepositoryCredentialsCreate processes the Credentials portion of the input for a task.  If the credentials are defined
+// as input, they are created as secrets in the secretsmanager service and the ARN is applied to the task definition as repository credentials.
+func (o *Orchestrator) processTaskRepositoryCredentialsCreate(ctx context.Context, input *TaskDefCreateOrchestrationInput) (map[string]*secretsmanager.CreateSecretOutput, rollbackFunc, error) {
+	rbfunc := defaultRbfunc("processTaskRepositoryCredentialsCreate")
+
+	if len(input.Credentials) == 0 {
+		log.Debugf("no private repository credentials passed")
+		return nil, rbfunc, nil
+	}
+
+	cluster := ""
+	if input.Cluster != nil && input.Cluster.ClusterName != nil {
+		cluster = aws.StringValue(input.Cluster.ClusterName) + "/"
+	}
+
+	// prefix for secret names is 'spinup/org/clustername'
+	prefix := "spinup/" + o.Org + "/" + cluster
+
+	creds, err := o.createRepostitoryCredentials(ctx, prefix, input.Credentials, input.Tags)
+	if err != nil {
+		return nil, rbfunc, err
+	}
+
+	for _, cd := range input.TaskDefinition.ContainerDefinitions {
+		containerName := aws.StringValue(cd.Name)
+		log.Debugf("processing container definition %s", containerName)
+
+		if secret, ok := creds[containerName]; ok {
+			log.Infof("setting repository credentials secret for container definition: %s to %s", containerName, aws.StringValue(secret.ARN))
+			cd.SetRepositoryCredentials(&ecs.RepositoryCredentials{CredentialsParameter: secret.ARN})
+		} else {
+			log.Infof("assuming container definition %s references a public image, no credentials included", containerName)
+		}
+	}
+
+	rbfunc = func(ctx context.Context) error {
+		for _, secret := range creds {
+			id := aws.StringValue(secret.ARN)
+
+			log.Debugf("rolling back secret %s", id)
+
+			out, err := o.SecretsManager.DeleteSecret(ctx, id, 0)
 			if err != nil {
 				log.Errorf("failed deleting secret %s: %s", id, err)
 			}
@@ -236,17 +273,33 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	return nil
 }
 
-func (o *Orchestrator) processSecretsmanagerTags(tags []*Tag) []*secretsmanager.Tag {
-	log.Debugf("processing secretsmanager tag list %+v", tags)
+// createRepostitoryCredentials takes the map of container names to secret inputs and creates the given secrets in secretsmanager with the prefix
+func (o *Orchestrator) createRepostitoryCredentials(ctx context.Context, prefix string, input map[string]*secretsmanager.CreateSecretInput, tags []*Tag) (map[string]*secretsmanager.CreateSecretOutput, error) {
+	log.Debugf("creating repository credentials with prefix %s: %+v", prefix, input)
 
-	smTags := make([]*secretsmanager.Tag, len(tags))
-	for i, t := range tags {
-		smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
+	creds := make(map[string]*secretsmanager.CreateSecretOutput, len(input))
+
+	for containerName, secretInput := range input {
+		log.Infof("creating repository credentials secret for %s", containerName)
+
+		secretInput.Tags = secretsmanagerTags(tags)
+
+		if !strings.HasSuffix(prefix, "/") {
+			prefix = prefix + "/"
+		}
+
+		secretInput.Name = aws.String(prefix + aws.StringValue(secretInput.Name))
+
+		out, err := o.SecretsManager.CreateSecret(ctx, secretInput)
+		if err != nil {
+			log.Errorf("boom! %s", err)
+			return nil, err
+		}
+
+		creds[containerName] = out
 	}
 
-	log.Debugf("returning processed secretsmanager tag list %+v", smTags)
-
-	return smTags
+	return creds, nil
 }
 
 func containterDefinitionCredsMap(containerDefinitions []*ecs.ContainerDefinition) map[string]string {
