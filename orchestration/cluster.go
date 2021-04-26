@@ -49,6 +49,13 @@ func (o *Orchestrator) processTaskCluster(ctx context.Context, input *TaskDefCre
 func (o *Orchestrator) createCluster(ctx context.Context, input *ecs.CreateClusterInput, tags []*Tag) (*ecs.Cluster, rollbackFunc, error) {
 	rbfunc := defaultRbfunc("createCluster")
 
+	// check if the cluster already exists.  prevents unnecessary api calls and
+	// prevents deleting a pre-existing cluster on rollback in the case of error
+	if cluster, err := o.ECS.GetCluster(ctx, input.ClusterName); err == nil {
+		log.Infof("cluser already exists, returning")
+		return cluster, rbfunc, nil
+	}
+
 	input.Tags = ecsTags(tags)
 
 	// set the default capacity providers if they are not set in the request
