@@ -51,8 +51,8 @@ func (o *Orchestrator) createCluster(ctx context.Context, input *ecs.CreateClust
 
 	// check if the cluster already exists.  prevents unnecessary api calls and
 	// prevents deleting a pre-existing cluster on rollback in the case of error
-	if cluster, err := o.ECS.GetCluster(ctx, input.ClusterName); err == nil {
-		log.Infof("cluser already exists, returning")
+	if cluster, err := o.ECS.GetCluster(ctx, input.ClusterName); err == nil && aws.StringValue(cluster.Status) == "ACTIVE" {
+		log.Infof("cluser already exists and is ACTIVE, returning")
 		return cluster, rbfunc, nil
 	}
 
