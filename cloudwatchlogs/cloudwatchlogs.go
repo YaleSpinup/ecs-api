@@ -36,6 +36,8 @@ func (c *CloudWatchLogs) GetLogEvents(ctx context.Context, input *cloudwatchlogs
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
+	log.Debugf("getting log events with input: %+v", input)
+
 	output, err := c.Service.GetLogEventsWithContext(ctx, input)
 	if err != nil {
 		return nil, ErrCode("failed to get log events", err)
@@ -50,6 +52,8 @@ func (c *CloudWatchLogs) CreateLogGroup(ctx context.Context, input *cloudwatchlo
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
+	log.Debugf("creating log group with input: %+v", input)
+
 	_, err := c.Service.CreateLogGroupWithContext(ctx, input)
 	if err != nil {
 		return ErrCode("failed to create log group", err)
@@ -63,6 +67,8 @@ func (c *CloudWatchLogs) UpdateRetention(ctx context.Context, input *cloudwatchl
 	if input == nil {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
+
+	log.Debugf("updating log retention with input: %+v", input)
 
 	_, err := c.Service.PutRetentionPolicyWithContext(ctx, input)
 	if err != nil {

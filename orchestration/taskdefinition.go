@@ -187,7 +187,16 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 		input.TaskDefinition.NetworkMode = DefaultNetworkMode
 	}
 
-	logConfiguration, err := o.defaultLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), input.Tags)
+	tags := input.Tags
+	if tags == nil {
+		et := make([]*Tag, len(input.TaskDefinition.Tags))
+		for i, t := range input.TaskDefinition.Tags {
+			et[i] = &Tag{Key: t.Key, Value: t.Value}
+		}
+		tags = et
+	}
+
+	logConfiguration, err := o.defaultLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), tags)
 	if err != nil {
 		return err
 	}
