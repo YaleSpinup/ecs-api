@@ -90,6 +90,24 @@ func (s *SecretsManager) GetSecretMetaDataWithFilter(ctx context.Context, id str
 	return nil, apierror.New(apierror.ErrNotFound, "no secret matching filter", nil)
 }
 
+// GetValue gets the secret value from secretsmanager
+func (s *SecretsManager) GetValue(ctx context.Context, id string) (*secretsmanager.GetSecretValueOutput, error) {
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting secretsmanager secret value %s ", id)
+
+	out, err := s.Service.GetSecretValueWithContext(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: aws.String(id),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to get secret value", err)
+	}
+
+	return out, nil
+}
+
 // DeleteSecret marks a secret for deletion. Optionally, the secret can be forcefully deleted.
 func (s *SecretsManager) DeleteSecret(ctx context.Context, id string, window int64) (*secretsmanager.DeleteSecretOutput, error) {
 	if id == "" {

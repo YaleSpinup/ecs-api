@@ -201,25 +201,43 @@ var testSecrets = []struct {
 	SecretString string
 }{
 	{
-		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1",
-		Name:         "test-cred-1",
+		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1",
+		Name:         "spinup/mock/testClu/test-cred-1",
 		SecretString: "ssshhh1",
 	},
 	{
-		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-2",
-		Name:         "test-cred-2",
+		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-2",
+		Name:         "spinup/mock/testClu/test-cred-2",
 		SecretString: "ssshhh2",
 	},
 	{
-		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-3",
-		Name:         "test-cred-3",
+		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-3",
+		Name:         "spinup/mock/testClu/test-cred-3",
 		SecretString: "ssshhh3",
 	},
 	{
-		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-4",
-		Name:         "test-cred-4",
+		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-4",
+		Name:         "spinup/mock/testClu/test-cred-4",
 		SecretString: "ssshhh4",
 	},
+}
+
+func (m *mockSMClient) GetSecretValueWithContext(ctx context.Context, input *secretsmanager.GetSecretValueInput, opts ...request.Option) (*secretsmanager.GetSecretValueOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	for _, secret := range testSecrets {
+		if aws.StringValue(input.SecretId) == secret.ARN {
+			return &secretsmanager.GetSecretValueOutput{
+				ARN:       aws.String(secret.ARN),
+				Name:      aws.String(secret.Name),
+				VersionId: aws.String("AWSCURRENT"),
+			}, nil
+		}
+	}
+
+	return nil, awserr.New(secretsmanager.ErrCodeResourceNotFoundException, "secret doesn't exist", nil)
 }
 
 func (m *mockSMClient) PutSecretValueWithContext(ctx context.Context, input *secretsmanager.PutSecretValueInput, opts ...request.Option) (*secretsmanager.PutSecretValueOutput, error) {
@@ -306,6 +324,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "with active repo creds AND input creds AND input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -314,7 +333,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 					{
 						Name: aws.String("privateapi"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:spinup/mock/someOtherCredentials"),
+							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/someOtherCredentials"),
 						},
 					},
 				},
@@ -334,7 +353,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -347,7 +366,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -362,6 +381,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "with active repo creds AND input creds AND NO input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -387,7 +407,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -400,7 +420,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -414,6 +434,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "with active repo creds AND NO input creds AND input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -422,7 +443,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 					{
 						Name: aws.String("privateapi"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-2"),
 						},
 					},
 				},
@@ -436,7 +457,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -449,7 +470,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -463,6 +484,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "with active repo creds AND NO input creds AND NO input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -482,7 +504,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -507,6 +529,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active container def AND input creds AND input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -515,7 +538,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 					{
 						Name: aws.String("privateapi"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 						},
 					},
 				},
@@ -542,7 +565,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -552,6 +575,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active repo creds AND input creds AND input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -560,7 +584,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 					{
 						Name: aws.String("privateapi"),
 						RepositoryCredentials: &ecs.RepositoryCredentials{
-							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 						},
 					},
 				},
@@ -590,7 +614,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
 					},
 				},
 			},
@@ -603,6 +627,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active container def AND input creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -635,7 +660,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:spinup/mock/secretCredentials"),
+						CredentialsParameter: aws.String("arn:spinup/mock/testClu/secretCredentials"),
 					},
 				},
 			},
@@ -645,6 +670,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active repo creds AND input creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -680,7 +706,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:spinup/mock/secretCredentials"),
+						CredentialsParameter: aws.String("arn:spinup/mock/testClu/secretCredentials"),
 					},
 				},
 			},
@@ -693,6 +719,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active container def AND NO input creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -726,6 +753,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	tests = append(tests, test{
 		desc: "without active repo creds AND NO input creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -765,6 +793,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 		err:      errors.New("InternalError: failed to create secret (boom)"),
 		desc:     "error creating secret without active container def AND input creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -794,9 +823,10 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 	// error updating secret
 	tests = append(tests, test{
 		inputerr: errors.New("boom"),
-		err:      errors.New("InternalError: failed to update secret (boom)"),
+		err:      errors.New("InternalError: failed to create secret (boom)"),
 		desc:     "error updating secret with active repo creds AND input creds AND NO input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
@@ -835,6 +865,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 		err:      errors.New("InternalError: failed to delete secret with id arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1 (boom)"),
 		desc:     "error deleting secret with active repo creds AND NO input creds AND NO input repo creds",
 		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
 			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
 				ContainerDefinitions: []*ecs.ContainerDefinition{
 					{
