@@ -3,9 +3,11 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"path"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	log "github.com/sirupsen/logrus"
@@ -176,23 +178,38 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	inputCredentials := input.Credentials
 	log.Debugf("input credentials %+v", inputCredentials)
 
+	org := ""
+	if o.Org != "" {
+		org = o.Org + "/"
+	}
+
+	cluster := ""
+	if input.ClusterName != "" {
+		cluster = input.ClusterName + "/"
+	} else if input.Service != nil && input.Service.Cluster != nil {
+		cluster = aws.StringValue(input.Service.Cluster) + "/"
+	}
+
+	// prefix is spinup/ss/spinup-000001/
+	prefix := "spinup/" + org + cluster
+
 	client := o.SecretsManager
 	creds := make(map[string]interface{}, len(input.Credentials))
+	markedForDeletion := []string{}
 	for _, cd := range input.TaskDefinition.ContainerDefinitions {
 		containerName := aws.StringValue(cd.Name)
 		log.Debugf("processing container definition %s repository credentials", containerName)
 
 		activeRepositoryCredential, hasActiveRepositoryCredential := activeRepositoryCredentials[containerName]
-		_, hasInputRepositoryCredential := inputRepositoryCredentials[containerName]
+		inputRepositoryCredentials, hasInputRepositoryCredential := inputRepositoryCredentials[containerName]
 		inputCredential, hasInputCredential := inputCredentials[containerName]
 
 		// if there are active repository credentials and no input repository credentials or input credentials,
 		// delete the secret at the active repository credentials
 		if hasActiveRepositoryCredential && !hasInputRepositoryCredential && !hasInputCredential {
-			log.Warnf("active %s container has repository credentials (%s) but updated definition doesn't, deleting credentials", containerName, activeRepositoryCredential)
-			if _, err := client.DeleteSecret(ctx, activeRepositoryCredential, 0); err != nil {
-				return err
-			}
+			log.Warnf("active %s container has repository credentials (%s) but updated definition doesn't, marking credentials for deletion", containerName, activeRepositoryCredential)
+			markedForDeletion = append(markedForDeletion, activeRepositoryCredential)
+
 			// if there are active repository credentials, set the input repository credentials to the active repository credentials
 		} else if hasActiveRepositoryCredential {
 			log.Debugf("overriding input repository credentials with active repository credentials")
@@ -200,6 +217,50 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 				CredentialsParameter: aws.String(activeRepositoryCredential),
 			}
 			hasInputRepositoryCredential = true
+			inputRepositoryCredentials = activeRepositoryCredential
+		}
+
+		// if the input contains repository credentials ARN, parse the ARN to see if it contains our prefix
+		// if it doesn't contain the prefix, get the value and set the credentials to be created new and
+		// mark the original root level credentials for deletion
+		if hasInputRepositoryCredential {
+			parsedArn, err := arn.Parse(inputRepositoryCredentials)
+			if err != nil {
+				return err
+			}
+
+			if !strings.HasPrefix(parsedArn.Resource, "secret:"+prefix) {
+				log.Warnf("secret %s lives at the root, migrating", inputRepositoryCredentials)
+
+				// if we don't have any new credentials from the user, set them up from the existing secret
+				if !hasInputCredential {
+					secretValue, err := o.SecretsManager.GetValue(ctx, inputRepositoryCredentials)
+					if err != nil {
+						return err
+					}
+
+					// remove any other prefix from the secretValue.Name
+					// ie. some secrets seem to be under spinup/org instead of spinup/org/spaceid and those
+					//  will get created created as spinup/org/spaceid/spinup/org/secretname if not cleaned
+					p, n := path.Split(aws.StringValue(secretValue.Name))
+					if p != "" {
+						log.Infof("removing existing path %s from migrated secret name", p)
+					}
+
+					inputCredential = &secretsmanager.CreateSecretInput{
+						Name:         aws.String(n),
+						SecretString: secretValue.SecretString,
+					}
+					hasInputCredential = true
+				}
+
+				// clear the input credentials arn from the task definition input to create a new secret
+				hasInputRepositoryCredential = false
+				cd.RepositoryCredentials = nil
+
+				log.Warnf("marking root level secret for deletion %s", inputRepositoryCredentials)
+				markedForDeletion = append(markedForDeletion, inputRepositoryCredentials)
+			}
 		}
 
 		// if there is an input credential and an input repository credential, update the input repository
@@ -233,19 +294,7 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 			}
 			inputCredential.Tags = smTags
 
-			org := ""
-			if o.Org != "" {
-				org = o.Org + "/"
-			}
-
-			cluster := ""
-			if input.ClusterName != "" {
-				cluster = input.ClusterName + "/"
-			} else if input.Service != nil && input.Service.Cluster != nil {
-				cluster = aws.StringValue(input.Service.Cluster) + "/"
-			}
-
-			inputCredential.Name = aws.String("spinup/" + org + cluster + aws.StringValue(inputCredential.Name))
+			inputCredential.Name = aws.String(prefix + aws.StringValue(inputCredential.Name))
 
 			out, err := client.CreateSecret(ctx, inputCredential)
 			if err != nil {
@@ -267,6 +316,13 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	}
 
 	log.Debugf("processed update of repository credentials: %+v", creds)
+
+	for _, m := range markedForDeletion {
+		log.Infof("deleting secrets mamanger secret %s (marked for deletion)", m)
+		if _, err := client.DeleteSecret(ctx, m, 0); err != nil {
+			return err
+		}
+	}
 
 	active.Credentials = creds
 
@@ -302,6 +358,7 @@ func (o *Orchestrator) createRepostitoryCredentials(ctx context.Context, prefix 
 	return creds, nil
 }
 
+// containterDefinitionCredsMap maps the container definition names to the ARN
 func containterDefinitionCredsMap(containerDefinitions []*ecs.ContainerDefinition) map[string]string {
 	creds := map[string]string{}
 	for _, cd := range containerDefinitions {

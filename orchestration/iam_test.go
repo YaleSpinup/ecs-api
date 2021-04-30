@@ -23,8 +23,8 @@ var orch = Orchestrator{
 }
 
 var (
-	path     = "org/super-why"
-	testTime = time.Now()
+	pathPrefix = "org/super-why"
+	testTime   = time.Now()
 )
 
 var defaultPolicyDoc = im.PolicyDoc{
@@ -48,8 +48,8 @@ var defaultPolicyDoc = im.PolicyDoc{
 				"kms:Decrypt",
 			},
 			Resource: []string{
-				fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", path),
-				fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", path),
+				fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", pathPrefix),
+				fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", pathPrefix),
 				fmt.Sprintf("arn:aws:kms:*:*:key/%s", orch.IAM.DefaultKmsKeyID),
 			},
 		},
@@ -202,7 +202,7 @@ func TestOrchestrator_DefaultTaskExecutionPolicy(t *testing.T) {
 		IAM im.IAM
 	}
 	type args struct {
-		path string
+		pathPrefix string
 	}
 	tests := []struct {
 		name   string
@@ -218,7 +218,7 @@ func TestOrchestrator_DefaultTaskExecutionPolicy(t *testing.T) {
 				},
 			},
 			args: args{
-				path: path,
+				pathPrefix: pathPrefix,
 			},
 			want: defaultPolicyDoc,
 		},
@@ -228,7 +228,7 @@ func TestOrchestrator_DefaultTaskExecutionPolicy(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			if got := o.DefaultTaskExecutionPolicy(tt.args.path); !reflect.DeepEqual(got, tt.want) {
+			if got := o.DefaultTaskExecutionPolicy(tt.args.pathPrefix); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Orchestrator.DefaultTaskExecutionPolicy() = %v, want %v", got, tt.want)
 			}
 		})
@@ -240,9 +240,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 		IAM im.IAM
 	}
 	type args struct {
-		ctx  context.Context
-		path string
-		role string
+		ctx        context.Context
+		pathPrefix string
+		role       string
 	}
 	tests := []struct {
 		name    string
@@ -252,7 +252,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "empty path",
+			name: "empty pathPrefix",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -260,9 +260,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "",
-				role: "role-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "",
+				role:       "role-ecsTaskExecution",
 			},
 			wantErr: true,
 		},
@@ -275,14 +275,14 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: path,
-				role: "",
+				ctx:        context.TODO(),
+				pathPrefix: pathPrefix,
+				role:       "",
 			},
 			wantErr: true,
 		},
 		{
-			name: "example path",
+			name: "example pathPrefix",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -290,9 +290,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: path,
-				role: "super-why-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: pathPrefix,
+				role:       "super-why-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution",
 		},
@@ -305,9 +305,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "missing",
-				role: "missing-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "missing",
+				role:       "missing-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/missing-ecsTaskExecution",
 		},
@@ -320,9 +320,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "org/mr-rogers",
-				role: "mr-rogers-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "org/mr-rogers",
+				role:       "mr-rogers-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/mr-rogers-ecsTaskExecution",
 		},
@@ -335,9 +335,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "org/missingpolicy",
-				role: "missingpolicy-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "org/missingpolicy",
+				role:       "missingpolicy-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/missingpolicy-ecsTaskExecution",
 		},
@@ -350,9 +350,9 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "org/badpolicy",
-				role: "badpolicy-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "org/badpolicy",
+				role:       "badpolicy-ecsTaskExecution",
 			},
 			wantErr: true,
 		},
@@ -362,7 +362,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role, nil)
+			got, err := o.DefaultTaskExecutionRole(tt.args.ctx, tt.args.pathPrefix, tt.args.role, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Orchestrator.DefaultTaskExecutionRole() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -379,9 +379,9 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 		IAM im.IAM
 	}
 	type args struct {
-		ctx  context.Context
-		path string
-		role string
+		ctx        context.Context
+		pathPrefix string
+		role       string
 	}
 	tests := []struct {
 		name    string
@@ -391,7 +391,7 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "empty path and role",
+			name: "empty pathPrefix and role",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -399,14 +399,14 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "",
-				role: "",
+				ctx:        context.TODO(),
+				pathPrefix: "",
+				role:       "",
 			},
 			wantErr: true,
 		},
 		{
-			name: "empty path",
+			name: "empty pathPrefix",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -414,9 +414,9 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "",
-				role: "super-why-ecsTaskExecution",
+				ctx:        context.TODO(),
+				pathPrefix: "",
+				role:       "super-why-ecsTaskExecution",
 			},
 			want: "arn:aws:iam::12345678910:role/super-why-ecsTaskExecution",
 		},
@@ -429,9 +429,9 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "org/super-why",
-				role: "",
+				ctx:        context.TODO(),
+				pathPrefix: "org/super-why",
+				role:       "",
 			},
 			wantErr: true,
 		},
@@ -444,9 +444,9 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 				},
 			},
 			args: args{
-				ctx:  context.TODO(),
-				path: "org/super-why",
-				role: "testrole",
+				ctx:        context.TODO(),
+				pathPrefix: "org/super-why",
+				role:       "testrole",
 			},
 			want: "arn:aws:iam::12345678910:role/testrole",
 		},
@@ -456,7 +456,7 @@ func TestOrchestrator_createDefaultTaskExecutionRole(t *testing.T) {
 			o := &Orchestrator{
 				IAM: tt.fields.IAM,
 			}
-			got, err := o.createDefaultTaskExecutionRole(tt.args.ctx, tt.args.path, tt.args.role)
+			got, err := o.createDefaultTaskExecutionRole(tt.args.ctx, tt.args.pathPrefix, tt.args.role)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Orchestrator.defaultTaskExecutionRoleArn() error = %v, wantErr %v", err, tt.wantErr)
 				return
