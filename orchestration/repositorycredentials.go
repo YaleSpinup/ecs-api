@@ -3,6 +3,7 @@ package orchestration
 import (
 	"context"
 	"errors"
+	"path"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -229,7 +230,7 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 			}
 
 			if !strings.HasPrefix(parsedArn.Resource, "secret:"+prefix) {
-				log.Warnf("secret %s lives at the root", inputRepositoryCredentials)
+				log.Warnf("secret %s lives at the root, migrating", inputRepositoryCredentials)
 
 				// if we don't have any new credentials from the user, set them up from the existing secret
 				if !hasInputCredential {
@@ -238,8 +239,16 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 						return err
 					}
 
+					// remove any other prefix from the secretValue.Name
+					// ie. some secrets seem to be under spinup/org instead of spinup/org/spaceid and those
+					//  will get created created as spinup/org/spaceid/spinup/org/secretname if not cleaned
+					p, n := path.Split(aws.StringValue(secretValue.Name))
+					if p != "" {
+						log.Infof("removing existing path %s from migrated secret name", p)
+					}
+
 					inputCredential = &secretsmanager.CreateSecretInput{
-						Name:         secretValue.Name,
+						Name:         aws.String(n),
 						SecretString: secretValue.SecretString,
 					}
 					hasInputCredential = true
