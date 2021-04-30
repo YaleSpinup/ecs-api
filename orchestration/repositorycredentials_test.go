@@ -59,7 +59,7 @@ func (m *mockSMClient) CreateSecretWithContext(ctx context.Context, input *secre
 		return nil, awserr.New(secretsmanager.ErrCodeInvalidRequestException, "secret string OR secretbinary is required", nil)
 	}
 
-	arn := fmt.Sprintf("arn:%s", aws.StringValue(input.Name))
+	arn := fmt.Sprintf("arn:aws:secretsmanager:us-east-1:12345678910:secret:%s", aws.StringValue(input.Name))
 	return &secretsmanager.CreateSecretOutput{
 		ARN:       aws.String(arn),
 		Name:      input.Name,
@@ -81,12 +81,12 @@ func TestProcessRepositoryCredentialsCreate(t *testing.T) {
 
 	credentialsMapOut := map[string]*secretsmanager.CreateSecretOutput{
 		"container1": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/container1"),
+			ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/getAClu1/container1"),
 			Name:      aws.String("spinup/mock/getAClu1/container1"),
 			VersionId: aws.String("v1"),
 		},
 		"container2": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/container2"),
+			ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/getAClu1/container2"),
 			Name:      aws.String("spinup/mock/getAClu1/container2"),
 			VersionId: aws.String("v1"),
 		},
@@ -155,12 +155,12 @@ func TestProcessTaskRepositoryCredentialsCreate(t *testing.T) {
 
 	credentialsMapOut := map[string]*secretsmanager.CreateSecretOutput{
 		"container1": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/container1"),
+			ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/getAClu1/container1"),
 			Name:      aws.String("spinup/mock/getAClu1/container1"),
 			VersionId: aws.String("v1"),
 		},
 		"container2": {
-			ARN:       aws.String("arn:spinup/mock/getAClu1/container2"),
+			ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/getAClu1/container2"),
 			Name:      aws.String("spinup/mock/getAClu1/container2"),
 			VersionId: aws.String("v1"),
 		},
@@ -188,8 +188,6 @@ func TestProcessTaskRepositoryCredentialsCreate(t *testing.T) {
 		t.Errorf("expected nil error for processTaskRepositoryCredentialsCreate, got %s", err)
 	}
 
-	t.Log("got processTaskRepositoryCredentialsCreate response", out)
-
 	if !reflect.DeepEqual(credentialsMapOut, out) {
 		t.Errorf("Expected %+v\nGot %+v", credentialsMapOut, out)
 	}
@@ -203,6 +201,11 @@ var testSecrets = []struct {
 	{
 		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1",
 		Name:         "spinup/mock/testClu/test-cred-1",
+		SecretString: "ssshhh1",
+	},
+	{
+		ARN:          "arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1",
+		Name:         "test-cred-1",
 		SecretString: "ssshhh1",
 	},
 	{
@@ -354,6 +357,58 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
 						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
+					},
+				},
+			},
+		},
+		tdresult: &ecs.RegisterTaskDefinitionInput{
+			ContainerDefinitions: []*ecs.ContainerDefinition{
+				{
+					Name: aws.String("nginx"),
+				},
+				{
+					Name: aws.String("privateapi"),
+					RepositoryCredentials: &ecs.RepositoryCredentials{
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/test-cred-1"),
+					},
+				},
+			},
+		},
+	})
+
+	tests = append(tests, test{
+		desc: "with active repo creds at the root AND input creds AND input repo creds",
+		tdinput: ServiceOrchestrationUpdateInput{
+			ClusterName: "testClu",
+			TaskDefinition: &ecs.RegisterTaskDefinitionInput{
+				ContainerDefinitions: []*ecs.ContainerDefinition{
+					{
+						Name: aws.String("nginx"),
+					},
+					{
+						Name: aws.String("privateapi"),
+						RepositoryCredentials: &ecs.RepositoryCredentials{
+							CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/someOtherCredentials"),
+						},
+					},
+				},
+			},
+			Credentials: map[string]*secretsmanager.CreateSecretInput{
+				"privateapi": {
+					Name:         aws.String("test-cred-1"),
+					SecretString: aws.String("ssssshhhh!"),
+				},
+			},
+		},
+		active: &ecs.TaskDefinition{
+			ContainerDefinitions: []*ecs.ContainerDefinition{
+				{
+					Name: aws.String("nginx"),
+				},
+				{
+					Name: aws.String("privateapi"),
+					RepositoryCredentials: &ecs.RepositoryCredentials{
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:test-cred-1"),
 					},
 				},
 			},
@@ -660,7 +715,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:spinup/mock/testClu/secretCredentials"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/secretCredentials"),
 					},
 				},
 			},
@@ -706,7 +761,7 @@ func TestProcessRepositoryCredentialsUpdate(t *testing.T) {
 				{
 					Name: aws.String("privateapi"),
 					RepositoryCredentials: &ecs.RepositoryCredentials{
-						CredentialsParameter: aws.String("arn:spinup/mock/testClu/secretCredentials"),
+						CredentialsParameter: aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:spinup/mock/testClu/secretCredentials"),
 					},
 				},
 			},
@@ -1028,7 +1083,7 @@ func TestOrchestrator_createRepostitoryCredentials(t *testing.T) {
 			},
 			want: map[string]*secretsmanager.CreateSecretOutput{
 				"container1": {
-					ARN:       aws.String("arn:/foo/bar/container1-secret"),
+					ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:/foo/bar/container1-secret"),
 					Name:      aws.String("/foo/bar/container1-secret"),
 					VersionId: aws.String("v1"),
 				},
@@ -1063,17 +1118,17 @@ func TestOrchestrator_createRepostitoryCredentials(t *testing.T) {
 			},
 			want: map[string]*secretsmanager.CreateSecretOutput{
 				"container1": {
-					ARN:       aws.String("arn:/foo/bar/container1-secret"),
+					ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:/foo/bar/container1-secret"),
 					Name:      aws.String("/foo/bar/container1-secret"),
 					VersionId: aws.String("v1"),
 				},
 				"container2": {
-					ARN:       aws.String("arn:/foo/bar/container2-secret"),
+					ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:/foo/bar/container2-secret"),
 					Name:      aws.String("/foo/bar/container2-secret"),
 					VersionId: aws.String("v1"),
 				},
 				"container3": {
-					ARN:       aws.String("arn:/foo/bar/container3-secret"),
+					ARN:       aws.String("arn:aws:secretsmanager:us-east-1:12345678910:secret:/foo/bar/container3-secret"),
 					Name:      aws.String("/foo/bar/container3-secret"),
 					VersionId: aws.String("v1"),
 				},
