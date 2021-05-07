@@ -161,21 +161,19 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 
 	log.Debugf("processing task definition update for a task %+v", input.TaskDefinition)
 
-	if input.TaskDefinition.ExecutionRoleArn == nil {
-		// path is org/clustername
-		path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
+	// path is org/clustername
+	path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
 
-		// role name is clustername-ecsTaskExecution
-		roleName := fmt.Sprintf("%s-ecsTaskExecution", input.ClusterName)
+	// role name is clustername-ecsTaskExecution
+	roleName := fmt.Sprintf("%s-ecsTaskExecution", input.ClusterName)
 
-		roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
-		if err != nil {
-			return err
-		}
-
-		log.Debugf("setting roleARN: %s", roleARN)
-		input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
+	if err != nil {
+		return err
 	}
+
+	log.Debugf("setting roleARN: %s", roleARN)
+	input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
 
 	if len(input.TaskDefinition.RequiresCompatibilities) == 0 {
 		log.Debugf("setting default compatabilities: %+v", DefaultCompatabilities)
