@@ -141,7 +141,7 @@ func TestProcessRepositoryCredentialsCreate(t *testing.T) {
 
 }
 
-func TestProcessTaskRepositoryCredentialsCreate(t *testing.T) {
+func TestProcessTaskDefRepositoryCredentialsCreate(t *testing.T) {
 	credentialsMapIn := map[string]*secretsmanager.CreateSecretInput{
 		"container1": {
 			Name:         aws.String("container1"),
@@ -170,22 +170,22 @@ func TestProcessTaskRepositoryCredentialsCreate(t *testing.T) {
 		SecretsManager: sm.SecretsManager{Service: &mockSMClient{t: t}},
 		Org:            "mock",
 	}
-	out, _, err := o.processTaskRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{})
+	out, _, err := o.processTaskDefRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{})
 	if err != nil {
-		t.Errorf("expected nil error for processTaskRepositoryCredentialsCreate, got %s", err)
+		t.Errorf("expected nil error for processTaskDefRepositoryCredentialsCreate, got %s", err)
 	}
 
 	if out != nil {
 		t.Errorf("expected nil output for empty repository credentials, got %+v", out)
 	}
 
-	out, _, err = o.processTaskRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{
+	out, _, err = o.processTaskDefRepositoryCredentialsCreate(context.TODO(), &TaskDefCreateOrchestrationInput{
 		Cluster:        &ecs.CreateClusterInput{ClusterName: aws.String("getAClu1")},
 		TaskDefinition: tdInput,
 		Credentials:    credentialsMapIn,
 	})
 	if err != nil {
-		t.Errorf("expected nil error for processTaskRepositoryCredentialsCreate, got %s", err)
+		t.Errorf("expected nil error for processTaskDefRepositoryCredentialsCreate, got %s", err)
 	}
 
 	if !reflect.DeepEqual(credentialsMapOut, out) {

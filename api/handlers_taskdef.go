@@ -39,7 +39,7 @@ func (s *server) TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("decoded request into taskdef orchestration request:\n %+v", req)
+	log.Debugf("decoded request into taskdef orchestration request: %+v", req)
 
 	output, err := orchestrator.CreateTaskDef(r.Context(), &req)
 	if err != nil {
@@ -159,6 +159,55 @@ func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 	output, err := orchestrator.GetTaskDef(r.Context(), cluster, taskdef)
 	if err != nil {
 		log.Errorf("error in taskdef get orchestration: %s", err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+func (s *server) TaskDefUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+	taskdef := vars["taskdef"]
+
+	log.Debugf("updating taskdef %s/%s/%s", account, cluster, taskdef)
+
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	body, _ := ioutil.ReadAll(r.Body)
+
+	log.Debugf("update taskdef orchestration request body: %s", body)
+
+	var req orchestration.TaskDefUpdateOrchestrationInput
+	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
+		log.Error("cannot Decode body into update taskdef input")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	log.Debugf("decoded request into taskdef orchestration request:\n %+v", req)
+
+	output, err := orchestrator.UpdateTaskDef(r.Context(), cluster, taskdef, &req)
+	if err != nil {
+		log.Errorf("error in creating taskdef orchestration: %s", err)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(err.Error()))
 		return

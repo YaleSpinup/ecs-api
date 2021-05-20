@@ -210,7 +210,7 @@ func TestOrchestrator_processTaskDefinitionCreate(t *testing.T) {
 	}
 }
 
-func TestOrchestrator_processTaskTaskDefinitionCreate(t *testing.T) {
+func TestOrchestrator_processTaskDefTaskDefinitionCreate(t *testing.T) {
 	t.Log("testing processTaskTaskDefinitionCreate")
 
 	type fields struct {
@@ -329,17 +329,17 @@ func TestOrchestrator_processTaskTaskDefinitionCreate(t *testing.T) {
 			o := newMockOrchestrator(t, tt.fields.org,
 				tt.fields.cwlerr, tt.fields.ecserr, tt.fields.iamerr,
 				tt.fields.rgtaerr, tt.fields.smerr, tt.fields.sderr)
-			got, _, err := o.processTaskTaskDefinitionCreate(tt.args.ctx, tt.args.input)
+			got, _, err := o.processTaskDefTaskDefinitionCreate(tt.args.ctx, tt.args.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Orchestrator.processTaskTaskDefinitionCreate() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Orchestrator.processTaskDefTaskDefinitionCreate() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Orchestrator.processTaskTaskDefinitionCreate() got = %v, want %v", got, tt.want)
+				t.Errorf("Orchestrator.processTaskDefTaskDefinitionCreate() got = %v, want %v", got, tt.want)
 			}
 
 			// if !reflect.DeepEqual(got1, tt.want1) {
-			// 	t.Errorf("Orchestrator.processTaskTaskDefinitionCreate() got1 = %v, want %v", got1, tt.want1)
+			// 	t.Errorf("Orchestrator.processTaskDefTaskDefinitionCreate() got1 = %v, want %v", got1, tt.want1)
 			// }
 		})
 	}
