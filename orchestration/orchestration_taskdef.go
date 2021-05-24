@@ -138,6 +138,8 @@ func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string
 
 	log.Debugf("got task definition %+v", taskdef)
 
+	output.TaskDefinition = taskdef
+
 	if input.TaskDefinition != nil {
 		// if the tags are empty for the task definition, apply the existing tags
 		if input.TaskDefinition.Tags == nil {
