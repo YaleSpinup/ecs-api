@@ -160,6 +160,8 @@ func (o *Orchestrator) processRepositoryCredentialsUpdate(ctx context.Context, i
 	return nil
 }
 
+// processTaskDefRepositoryCredentialsUpdate processes the repository credentials in a task definition
+// TODO container defs that are removed dont trigger the secret to get removed.
 func (o *Orchestrator) processTaskDefRepositoryCredentialsUpdate(ctx context.Context, input *TaskDefUpdateOrchestrationInput, active *TaskDefUpdateOrchestrationOutput) error {
 	if active == nil || active.TaskDefinition == nil || active.TaskDefinition.ContainerDefinitions == nil {
 		return errors.New("cannot process nil active input")
