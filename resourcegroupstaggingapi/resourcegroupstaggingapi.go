@@ -37,6 +37,31 @@ func NewSession(account common.Account) ResourceGroupsTaggingAPI {
 	return s
 }
 
+func (r *ResourceGroupsTaggingAPI) TagResource(ctx context.Context, arns []*string, tags map[string]*string) error {
+	if arns == nil || tags == nil {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("tagging resources: %s", strings.Join(aws.StringValueSlice(arns), ", "))
+
+	out, err := r.Service.TagResourcesWithContext(ctx, &resourcegroupstaggingapi.TagResourcesInput{
+		ResourceARNList: arns,
+		Tags:            tags,
+	})
+
+	if err != nil {
+		return ErrCode("tagging resources", err)
+	}
+
+	log.Debugf("got output tagging resources: %+v", out)
+
+	for r, e := range out.FailedResourcesMap {
+		log.Warnf("failed to tag %s: %s", r, aws.StringValue(e.ErrorMessage))
+	}
+
+	return nil
+}
+
 func (r *ResourceGroupsTaggingAPI) GetResourcesWithTags(ctx context.Context, types []string, filters []*TagFilter) ([]string, error) {
 	if len(filters) == 0 {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)

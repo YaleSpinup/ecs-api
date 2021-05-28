@@ -6,13 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/arn"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
-	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -76,10 +72,12 @@ type ServiceOrchestrationUpdateInput struct {
 
 // ServiceOrchestrationUpdateOutput is the output for service orchestration updates
 type ServiceOrchestrationUpdateOutput struct {
-	Service        *ecs.Service
-	TaskDefinition *ecs.TaskDefinition
-	Credentials    map[string]interface{}
-	Tags           []*Tag
+	Cluster             *ecs.Cluster
+	Service             *ecs.Service
+	TaskDefinition      *ecs.TaskDefinition
+	Credentials         map[string]interface{}
+	CloudwatchLogGroups []string
+	Tags                []*Tag
 }
 
 // ServiceDeleteInput encapsulates a request to delete a service with optional recursion
@@ -274,10 +272,16 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 		return nil, errors.New("expected update")
 	}
 
+	active := &ServiceOrchestrationUpdateOutput{}
+
+	clu, err := o.ECS.GetCluster(ctx, aws.String(cluster))
+	if err != nil {
+		return nil, err
+	}
+	active.Cluster = clu
+
 	// set cluster
 	input.ClusterName = cluster
-
-	active := &ServiceOrchestrationUpdateOutput{}
 
 	// get active service
 	svc, err := o.ECS.GetService(ctx, cluster, service)
@@ -317,6 +321,12 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 		}
 	}
 
+	cwlgs, err := o.cloudwatchLogGroups(ctx, active.TaskDefinition.ContainerDefinitions)
+	if err != nil {
+		return nil, err
+	}
+	active.CloudwatchLogGroups = cwlgs
+
 	// process updating the service
 	// updates active.Service
 	if err = o.processServiceUpdate(ctx, input, active); err != nil {
@@ -344,79 +354,4 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	}
 
 	return active, nil
-}
-
-func (o *Orchestrator) processServiceTagsUpdate(ctx context.Context, active *ServiceOrchestrationUpdateOutput, tags []*Tag) error {
-	log.Debugf("processing tags update with tags list %s", awsutil.Prettify(tags))
-
-	// tag all of our resources
-	ecsTags := make([]*ecs.Tag, len(tags))
-	clusterTags := make([]*ecs.Tag, len(tags))
-	roleTags := make([]*iam.Tag, len(tags))
-	smTags := make([]*secretsmanager.Tag, len(tags))
-	for i, t := range tags {
-		ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
-		smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
-
-		// some services shouldn't be categorized
-		if aws.StringValue(t.Key) != "spinup:category" {
-			clusterTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
-			roleTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
-		}
-	}
-
-	// tag service
-	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: active.Service.ServiceArn,
-		Tags:        ecsTags,
-	}); err != nil {
-		return err
-	}
-
-	// tag task definition
-	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: active.Service.TaskDefinition,
-		Tags:        ecsTags,
-	}); err != nil {
-		return err
-	}
-
-	// tag cluster
-	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
-		ResourceArn: active.Service.ClusterArn,
-		Tags:        clusterTags,
-	}); err != nil {
-		return err
-	}
-
-	// tag secrets
-	for _, containerDef := range active.TaskDefinition.ContainerDefinitions {
-		repositoryCredentials := containerDef.RepositoryCredentials
-		if repositoryCredentials != nil && repositoryCredentials.CredentialsParameter != nil {
-			credentialsArn := aws.StringValue(repositoryCredentials.CredentialsParameter)
-			if err := o.SecretsManager.UpdateSecretTags(ctx, credentialsArn, smTags); err != nil {
-				return err
-			}
-		}
-	}
-
-	// get the ecs task execution role arn from the active task definition
-	ecsTaskExecutionRoleArn, err := arn.Parse(aws.StringValue(active.TaskDefinition.ExecutionRoleArn))
-	if err != nil {
-		return err
-	}
-
-	// determine the ecs task execution role name from the arn
-	ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
-
-	// tag the ecs task execution role
-	if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, roleTags); err != nil {
-		return err
-	}
-
-	// set the active tasks to the input tasks for output
-	active.Tags = tags
-	// end tagging
-
-	return err
 }
