@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/ecs"
-
+	"github.com/aws/aws-sdk-go/service/ecs/ecsiface"
 	"github.com/pkg/errors"
 )
 
@@ -179,6 +179,16 @@ func (m *mockECSClient) DescribeTasksWithContext(ctx aws.Context, input *ecs.Des
 	}, nil
 }
 
+func (m *mockECSClient) RunTaskWithContext(ctx context.Context, input *ecs.RunTaskInput, opts ...request.Option) (*ecs.RunTaskOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return &ecs.RunTaskOutput{
+		Tasks: testTasks,
+	}, nil
+}
+
 func TestListTasks(t *testing.T) {
 	for _, test := range taskListTests {
 		client := ECS{Service: &mockECSClient{t: t, err: test.awsErr}}
@@ -203,12 +213,9 @@ func TestListTasks(t *testing.T) {
 
 func TestGetTasks(t *testing.T) {
 	client := ECS{Service: &mockECSClient{t: t}}
-	expected := make([]*Task, 0, len(testTasks))
-	for _, t := range testTasks {
-		expected = append(expected, &Task{
-			Task:     t,
-			Revision: 10,
-		})
+
+	if _, err := client.GetTasks(context.TODO(), nil); err == nil {
+		t.Error("expected error for nil input, got nil")
 	}
 
 	out, err := client.GetTasks(context.TODO(), &ecs.DescribeTasksInput{
@@ -223,7 +230,81 @@ func TestGetTasks(t *testing.T) {
 		t.Errorf("expected nil error, got %s", err)
 	}
 
-	if !awsutil.DeepEqual(out.Tasks, expected) {
-		t.Errorf("expected %s, got %s", awsutil.Prettify(expected), awsutil.Prettify(out.Tasks))
+	if !awsutil.DeepEqual(out.Tasks, testTasks) {
+		t.Errorf("expected %s, got %s", awsutil.Prettify(testTasks), awsutil.Prettify(out.Tasks))
+	}
+}
+
+func TestECS_RunTask(t *testing.T) {
+	type fields struct {
+		Service        ecsiface.ECSAPI
+		DefaultSgs     []string
+		DefaultSubnets []string
+	}
+	type args struct {
+		ctx   context.Context
+		input *ecs.RunTaskInput
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecs.RunTaskOutput
+		wantErr bool
+	}{
+		{
+			name: "nil input",
+			fields: fields{
+				Service: &mockECSClient{t: t},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "error from aws",
+			fields: fields{
+				Service: &mockECSClient{
+					t:   t,
+					err: awserr.New(ecs.ErrCodePlatformUnknownException, "bad platform", nil),
+				},
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecs.RunTaskInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "good input",
+			fields: fields{
+				Service: &mockECSClient{t: t},
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecs.RunTaskInput{},
+			},
+			want: &ecs.RunTaskOutput{
+				Tasks: testTasks,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECS{
+				Service:        tt.fields.Service,
+				DefaultSgs:     tt.fields.DefaultSgs,
+				DefaultSubnets: tt.fields.DefaultSubnets,
+			}
+			got, err := e.RunTask(tt.args.ctx, tt.args.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECS.RunTask() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECS.RunTask() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

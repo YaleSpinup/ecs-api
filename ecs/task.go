@@ -3,7 +3,6 @@ package ecs
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/YaleSpinup/apierror"
@@ -57,54 +56,37 @@ func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []s
 	return tasks, nil
 }
 
-type Task struct {
-	*ecs.Task
-	Revision int64
-}
-
-type DescribeTasksOutput struct {
-	Failures []*ecs.Failure
-	Tasks    []*Task
-}
-
 // GetTasks describes the given tasks in the give cluster
-func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*DescribeTasksOutput, error) {
+func (e *ECS) GetTasks(ctx context.Context, input *ecs.DescribeTasksInput) (*ecs.DescribeTasksOutput, error) {
 	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
 	log.Infof("getting cluster %s tasks  %s", aws.StringValue(input.Cluster), strings.Join(aws.StringValueSlice(input.Tasks), ","))
 
-	ecsOutput, err := e.Service.DescribeTasksWithContext(ctx, input)
+	out, err := e.Service.DescribeTasksWithContext(ctx, input)
 	if err != nil {
 		return nil, ErrCode("failed to describe tasks", err)
 	}
 
-	output := &DescribeTasksOutput{Failures: ecsOutput.Failures}
-	tasks := make([]*Task, 0, len(ecsOutput.Tasks))
-	for _, t := range ecsOutput.Tasks {
-		revision := int64(0)
-		tdArn, err := arn.Parse(aws.StringValue(t.TaskDefinitionArn))
-		if err != nil {
-			log.Errorf("failed to parse taskdefinition ARN: '%s': %s", aws.StringValue(t.TaskDefinitionArn), err)
-		} else {
-			ss := strings.Split(tdArn.Resource, ":")
-			if len(ss) > 1 {
-				s := ss[len(ss)-1]
-				si, err := strconv.Atoi(s)
-				if err != nil {
-					log.Errorf("failed to parse revision '%s' as number for arn resource '%s': %s", s, tdArn.Resource, err)
-				}
-				revision = int64(si)
-			}
-		}
+	log.Debugf("output from describing task %s/%+v: %+v", aws.StringValue(input.Cluster), aws.StringValueSlice(input.Tasks), out)
 
-		tasks = append(tasks, &Task{
-			Task:     t,
-			Revision: revision,
-		})
+	return out, nil
+}
+
+func (e *ECS) RunTask(ctx context.Context, input *ecs.RunTaskInput) (*ecs.RunTaskOutput, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
-	output.Tasks = tasks
 
-	return output, nil
+	log.Infof("running %d task(s) from task definition %s/%s", aws.Int64Value(input.Count), aws.StringValue(input.Cluster), aws.StringValue(input.TaskDefinition))
+
+	out, err := e.Service.RunTaskWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to run tasks", err)
+	}
+
+	log.Debugf("output from running taskdef %s/%s: %+v", aws.StringValue(input.Cluster), aws.StringValue(input.TaskDefinition), out)
+
+	return out, nil
 }

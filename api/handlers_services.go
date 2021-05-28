@@ -239,7 +239,7 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tdOutput, _, err := ecsService.GetTaskDefinition(r.Context(), serviceOutput.TaskDefinition)
+		tdOutput, _, err := ecsService.GetTaskDefinition(r.Context(), serviceOutput.TaskDefinition, false)
 		if err != nil {
 			handleError(w, err)
 			return

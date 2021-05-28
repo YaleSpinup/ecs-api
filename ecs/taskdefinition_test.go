@@ -165,7 +165,7 @@ func TestCreateTaskDefinition(t *testing.T) {
 
 func TestGetTaskDefinition(t *testing.T) {
 	client := ECS{Service: &mockECSClient{t: t}}
-	td, _, err := client.GetTaskDefinition(context.TODO(), goodTd1.TaskDefinitionArn)
+	td, _, err := client.GetTaskDefinition(context.TODO(), goodTd1.TaskDefinitionArn, false)
 	if err != nil {
 		t.Fatal("expected no error from describe task definition, got:", err)
 	}
@@ -175,24 +175,24 @@ func TestGetTaskDefinition(t *testing.T) {
 	}
 
 	// test nil task definition
-	_, _, err = client.GetTaskDefinition(context.TODO(), nil)
+	_, _, err = client.GetTaskDefinition(context.TODO(), nil, false)
 	if err == nil {
 		t.Fatal("expected error from create task definition, got nil")
 	}
 
 	// test empty task definition
-	_, _, err = client.GetTaskDefinition(context.TODO(), aws.String(""))
+	_, _, err = client.GetTaskDefinition(context.TODO(), aws.String(""), false)
 	if err == nil {
 		t.Fatal("expected error from create task definition, got nil")
 	}
 
-	_, _, err = client.GetTaskDefinition(context.TODO(), aws.String("somenotfoundtd"))
+	_, _, err = client.GetTaskDefinition(context.TODO(), aws.String("somenotfoundtd"), false)
 	if err == nil {
 		t.Fatal("expected error from GetTaskDefinition, got:", err)
 	}
 
 	// test an error task definition
-	td, _, err = client.GetTaskDefinition(context.TODO(), aws.String("badtd"))
+	td, _, err = client.GetTaskDefinition(context.TODO(), aws.String("badtd"), false)
 	if err == nil {
 		t.Fatal("expected error from create task definition, got", err, td)
 	}

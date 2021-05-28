@@ -43,40 +43,42 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
     - [Get a managed task definitions in a cluster](#get-a-managed-task-definitions-in-a-cluster)
       - [Request](#request-6)
       - [Response](#response-6)
-  - [SSM Parameters](#ssm-parameters-1)
-    - [Create a param](#create-a-param)
+    - [Run a managed task definition in a cluster](#run-a-managed-task-definition-in-a-cluster)
       - [Request](#request-7)
       - [Response](#response-7)
-    - [List parameters](#list-parameters)
-      - [Response](#response-8)
-    - [Show a parameter](#show-a-parameter)
-      - [Response](#response-9)
-    - [Delete a parameter](#delete-a-parameter)
-      - [Response](#response-10)
-    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
-      - [Response](#response-11)
-    - [Update a parameter](#update-a-parameter)
+  - [SSM Parameters](#ssm-parameters-1)
+    - [Create a param](#create-a-param)
       - [Request](#request-8)
+      - [Response](#response-8)
+    - [List parameters](#list-parameters)
+      - [Response](#response-9)
+    - [Show a parameter](#show-a-parameter)
+      - [Response](#response-10)
+    - [Delete a parameter](#delete-a-parameter)
+      - [Response](#response-11)
+    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
       - [Response](#response-12)
-  - [Secrets](#secrets)
-    - [Create a secret](#create-a-secret)
+    - [Update a parameter](#update-a-parameter)
       - [Request](#request-9)
       - [Response](#response-13)
-    - [List secrets](#list-secrets)
-      - [Response](#response-14)
-    - [Show a secret](#show-a-secret)
-      - [Response](#response-15)
-    - [Delete a secret](#delete-a-secret)
-      - [Response](#response-16)
-    - [Update a secret](#update-a-secret)
+  - [Secrets](#secrets)
+    - [Create a secret](#create-a-secret)
       - [Request](#request-10)
+      - [Response](#response-14)
+    - [List secrets](#list-secrets)
+      - [Response](#response-15)
+    - [Show a secret](#show-a-secret)
+      - [Response](#response-16)
+    - [Delete a secret](#delete-a-secret)
       - [Response](#response-17)
-    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+    - [Update a secret](#update-a-secret)
+      - [Request](#request-11)
       - [Response](#response-18)
+    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+      - [Response](#response-19)
   - [Development](#development)
   - [Author](#author)
   - [License](#license)
-
 
 ## Endpoint Summary
 
@@ -106,6 +108,7 @@ POST /v1/ecs/{account}/taskdefs
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs
 DELETE /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
+POST /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
 
 // Secrets handlers
 GET /v1/ecs/{account}/secrets
@@ -596,7 +599,41 @@ GET /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}
 
 #### Response
 
-The response is the service body.
+The response is the taskdef body.
+
+```json
+TODO
+```
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 OK**                    | okay                                     |
+| **400 Bad Request**           | badly formed request                     |
+| **404 Not Found**             | account, cluster or taskdef wasn't found |
+| **500 Internal Server Error** | a server error occurred                  |
+
+
+### Run a managed task definition in a cluster
+
+Runs a task definition
+
+#### Request
+
+POST /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}/tasks
+
+The input for running a task uses the RunTaskInput and overrides with our standard required values.  Tags are propagated from the Task Definition.
+
+[RunTaskInput](https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RunTaskInput)
+
+```json
+{
+    "Count": 1
+}
+```
+
+#### Response
+
+The response is the tasks output and any failures.
 
 ```json
 TODO

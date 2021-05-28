@@ -70,6 +70,8 @@ type TaskDefShowOutput struct {
 	Tags           []*ecs.Tag
 }
 
+type TaskDefRunOrchestrationInput *ecs.RunTaskInput
+
 // CreateTask orchestrates the creation of a task.  It creates a cluster, creates repository credrentials in
 // secretsmanager, and then creates the task definition.
 func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*TaskDefCreateOrchestrationOutput, error) {
@@ -131,7 +133,7 @@ func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string
 	input.ClusterName = cluster
 	output.Cluster = clu
 
-	taskdef, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family))
+	taskdef, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), true)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +188,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 		TaskDefinition: input.TaskDefinition,
 	}
 
-	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition), false)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +235,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 // of deleted secrets through the deleteCredentials map
 func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revision string, deletedCredentials map[string]struct{}) []error {
 	var errors []error
-	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision), false)
 	if err != nil {
 		log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 		return []error{err}
@@ -336,7 +338,7 @@ func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (
 		return nil, err
 	}
 
-	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family))
+	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), true)
 	if err != nil {
 		return nil, err
 	}
@@ -413,4 +415,51 @@ func (o *Orchestrator) processTaskDefTagsUpdate(ctx context.Context, active *Tas
 	// end tagging
 
 	return err
+}
+
+func (o *Orchestrator) RunTaskDef(ctx context.Context, cluster, family string, input TaskDefRunOrchestrationInput) (*TaskOutput, error) {
+	clu, err := o.ECS.GetCluster(ctx, aws.String(cluster))
+	if err != nil {
+		return nil, err
+	}
+	input.Cluster = clu.ClusterArn
+
+	taskdef, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), false)
+	if err != nil {
+		return nil, err
+	}
+	input.TaskDefinition = taskdef.TaskDefinitionArn
+
+	log.Debugf("got task definition %+v", taskdef)
+
+	input.EnableECSManagedTags = aws.Bool(true)
+
+	if input.CapacityProviderStrategy == nil {
+		input.LaunchType = aws.String("FARGATE")
+	}
+
+	if input.NetworkConfiguration == nil {
+		input.NetworkConfiguration = &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				AssignPublicIp: aws.String(o.DefaultPublic),
+				SecurityGroups: aws.StringSlice(o.DefaultSecurityGroups),
+				Subnets:        aws.StringSlice(o.DefaultSubnets),
+			},
+		}
+	}
+
+	input.PropagateTags = aws.String("TASK_DEFINITION")
+
+	in := ecs.RunTaskInput(*input)
+	out, err := o.ECS.RunTask(ctx, &in)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := toTaskOutput(out.Tasks, out.Failures)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
 }
