@@ -61,6 +61,7 @@ func (s *server) TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// TaskDefDeleteHandler handles deleting task definitions and related resources
 func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -107,6 +108,7 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// TaskDefListHandler handles getting a list of task definitions in a cluster
 func (s *server) TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -141,6 +143,7 @@ func (s *server) TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// TaskDefShowHandler handles getting the details about a task definition in a cluster
 func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -176,6 +179,7 @@ func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// TaskDefUpdateHandler handles updating a task definition in a cluster
 func (s *server) TaskDefUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)

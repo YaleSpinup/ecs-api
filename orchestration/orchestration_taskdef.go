@@ -123,6 +123,7 @@ func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOr
 	return output, nil
 }
 
+// UpdateTaskDef takes the task definition update input and orchestrates the update for a task definition and related resources
 func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string, input *TaskDefUpdateOrchestrationInput) (*TaskDefUpdateOrchestrationOutput, error) {
 	output := &TaskDefUpdateOrchestrationOutput{}
 
@@ -272,6 +273,7 @@ func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revisio
 	return errors
 }
 
+// ListTaskDefs gets a list of task definitions in a cluster using tags
 func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]string, error) {
 	log.Infof("listing task definitions in cluster '%s'", cluster)
 
@@ -326,6 +328,7 @@ func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]stri
 	return taskDefinitionFamilies, nil
 }
 
+// GetTaskDef gets the details about a task definition
 func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (*TaskDefShowOutput, error) {
 	if cluster == "" || family == "" {
 		return nil, errors.New("cluster and task def family are required")
