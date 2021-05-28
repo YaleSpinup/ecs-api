@@ -9,6 +9,8 @@ import (
 	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
+	"github.com/aws/aws-sdk-go/aws/awsutil"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 
 	"github.com/aws/aws-sdk-go/service/ecs"
@@ -33,6 +35,22 @@ type TaskDefCreateOrchestrationOutput struct {
 	TaskDefinition *ecs.TaskDefinition
 }
 
+// TaskDefUpdateOrchestrationInput is the input payload for updating a taskdef
+type TaskDefUpdateOrchestrationInput struct {
+	ClusterName    string
+	TaskDefinition *ecs.RegisterTaskDefinitionInput
+	Credentials    map[string]*secretsmanager.CreateSecretInput
+	Tags           []*Tag
+}
+
+// TaskDefUpdateOrchestrationOutput is the output payload for updating a taskdef
+type TaskDefUpdateOrchestrationOutput struct {
+	Cluster        *ecs.Cluster
+	TaskDefinition *ecs.TaskDefinition
+	Credentials    map[string]interface{}
+	Tags           []*Tag
+}
+
 // TaskDefDeleteInput encapsulates a request to delete a taskdef with optional recursion
 type TaskDefDeleteInput struct {
 	Cluster        string
@@ -51,6 +69,8 @@ type TaskDefShowOutput struct {
 	TaskDefinition *ecs.TaskDefinition
 	Tags           []*ecs.Tag
 }
+
+type TaskDefRunOrchestrationInput *ecs.RunTaskInput
 
 // CreateTask orchestrates the creation of a task.  It creates a cluster, creates repository credrentials in
 // secretsmanager, and then creates the task definition.
@@ -79,26 +99,86 @@ func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOr
 
 	output := &TaskDefCreateOrchestrationOutput{}
 
-	cluster, rbfunc, err := o.processTaskCluster(ctx, input)
+	cluster, rbfunc, err := o.processTaskDefCluster(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Cluster = cluster
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	creds, rbfunc, err := o.processTaskRepositoryCredentialsCreate(ctx, input)
+	creds, rbfunc, err := o.processTaskDefRepositoryCredentialsCreate(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.Credentials = creds
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
-	td, rbfunc, err := o.processTaskTaskDefinitionCreate(ctx, input)
+	td, rbfunc, err := o.processTaskDefTaskDefinitionCreate(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 	output.TaskDefinition = td
 	rollBackTasks = append(rollBackTasks, rbfunc)
+
+	return output, nil
+}
+
+// UpdateTaskDef takes the task definition update input and orchestrates the update for a task definition and related resources
+func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string, input *TaskDefUpdateOrchestrationInput) (*TaskDefUpdateOrchestrationOutput, error) {
+	output := &TaskDefUpdateOrchestrationOutput{}
+
+	clu, err := o.ECS.GetCluster(ctx, aws.String(cluster))
+	if err != nil {
+		return nil, err
+	}
+	input.ClusterName = cluster
+	output.Cluster = clu
+
+	taskdef, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), true)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("got task definition %+v", taskdef)
+
+	output.TaskDefinition = taskdef
+
+	if input.TaskDefinition != nil {
+		// if the tags are empty for the task definition, apply the existing tags
+		if input.TaskDefinition.Tags == nil {
+			input.TaskDefinition.Tags = tags
+		}
+
+		// updates active Credentials
+		if err := o.processTaskDefRepositoryCredentialsUpdate(ctx, input, output); err != nil {
+			return nil, err
+		}
+
+		// updates taskDefinition
+		if err := o.processTaskDefTaskDefinitionUpdate(ctx, input, output); err != nil {
+			return nil, err
+		}
+	}
+
+	// if the input tags are passed, clean them and use them, otherwise set to the active tags
+	if input.Tags != nil {
+		ct, err := cleanTags(o.Org, cluster, input.Tags)
+		if err != nil {
+			return nil, err
+		}
+		input.Tags = ct
+	} else {
+		inputTags := make([]*Tag, len(tags))
+		for i, t := range tags {
+			inputTags[i] = &Tag{Key: t.Key, Value: t.Value}
+		}
+		input.Tags = inputTags
+	}
+
+	// updates active.Tags
+	if err := o.processTaskDefTagsUpdate(ctx, output, input.Tags); err != nil {
+		return nil, err
+	}
 
 	return output, nil
 }
@@ -109,7 +189,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 		TaskDefinition: input.TaskDefinition,
 	}
 
-	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition), false)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +236,7 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 // of deleted secrets through the deleteCredentials map
 func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revision string, deletedCredentials map[string]struct{}) []error {
 	var errors []error
-	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision))
+	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(revision), false)
 	if err != nil {
 		log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 		return []error{err}
@@ -193,6 +273,7 @@ func (o *Orchestrator) deleteTaskDefinitionRevision(ctx context.Context, revisio
 	return errors
 }
 
+// ListTaskDefs gets a list of task definitions in a cluster using tags
 func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]string, error) {
 	log.Infof("listing task definitions in cluster '%s'", cluster)
 
@@ -247,6 +328,7 @@ func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]stri
 	return taskDefinitionFamilies, nil
 }
 
+// GetTaskDef gets the details about a task definition
 func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (*TaskDefShowOutput, error) {
 	if cluster == "" || family == "" {
 		return nil, errors.New("cluster and task def family are required")
@@ -259,7 +341,7 @@ func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (
 		return nil, err
 	}
 
-	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family))
+	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), true)
 	if err != nil {
 		return nil, err
 	}
@@ -269,4 +351,118 @@ func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (
 		TaskDefinition: tdOutput,
 		Tags:           tags,
 	}, nil
+}
+
+func (o *Orchestrator) processTaskDefTagsUpdate(ctx context.Context, active *TaskDefUpdateOrchestrationOutput, tags []*Tag) error {
+	log.Debugf("processing tags update with tags list %s", awsutil.Prettify(tags))
+
+	// tag all of our resources
+	taskDefTags := make([]*ecs.Tag, 0, len(tags))
+	smTags := make([]*secretsmanager.Tag, 0, len(tags))
+	clusterTags := []*ecs.Tag{}
+	roleTags := []*iam.Tag{}
+	for _, t := range tags {
+		taskDefTags = append(taskDefTags, &ecs.Tag{Key: t.Key, Value: t.Value})
+		smTags = append(smTags, &secretsmanager.Tag{Key: t.Key, Value: t.Value})
+
+		// some services shouldn't be categorized
+		if aws.StringValue(t.Key) != "spinup:category" {
+			clusterTags = append(clusterTags, &ecs.Tag{Key: t.Key, Value: t.Value})
+			roleTags = append(roleTags, &iam.Tag{Key: t.Key, Value: t.Value})
+		}
+	}
+
+	// tag task definition
+	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: active.TaskDefinition.TaskDefinitionArn,
+		Tags:        taskDefTags,
+	}); err != nil {
+		return err
+	}
+
+	// tag cluster
+	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
+		ResourceArn: active.Cluster.ClusterArn,
+		Tags:        clusterTags,
+	}); err != nil {
+		return err
+	}
+
+	// tag secrets
+	for _, containerDef := range active.TaskDefinition.ContainerDefinitions {
+		repositoryCredentials := containerDef.RepositoryCredentials
+		if repositoryCredentials != nil && repositoryCredentials.CredentialsParameter != nil {
+			credentialsArn := aws.StringValue(repositoryCredentials.CredentialsParameter)
+			if err := o.SecretsManager.UpdateSecretTags(ctx, credentialsArn, smTags); err != nil {
+				return err
+			}
+		}
+	}
+
+	// get the ecs task execution role arn from the active task definition
+	ecsTaskExecutionRoleArn, err := arn.Parse(aws.StringValue(active.TaskDefinition.ExecutionRoleArn))
+	if err != nil {
+		return err
+	}
+
+	// determine the ecs task execution role name from the arn
+	ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
+
+	// tag the ecs task execution role
+	if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, roleTags); err != nil {
+		return err
+	}
+
+	// set the active tasks to the input tasks for output
+	active.Tags = tags
+	// end tagging
+
+	return err
+}
+
+func (o *Orchestrator) RunTaskDef(ctx context.Context, cluster, family string, input TaskDefRunOrchestrationInput) (*TaskOutput, error) {
+	clu, err := o.ECS.GetCluster(ctx, aws.String(cluster))
+	if err != nil {
+		return nil, err
+	}
+	input.Cluster = clu.ClusterArn
+
+	taskdef, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), false)
+	if err != nil {
+		return nil, err
+	}
+	input.TaskDefinition = taskdef.TaskDefinitionArn
+
+	log.Debugf("got task definition %+v", taskdef)
+
+	input.EnableECSManagedTags = aws.Bool(true)
+
+	if input.CapacityProviderStrategy == nil {
+		input.LaunchType = aws.String("FARGATE")
+	}
+
+	if input.NetworkConfiguration == nil {
+		input.NetworkConfiguration = &ecs.NetworkConfiguration{
+			AwsvpcConfiguration: &ecs.AwsVpcConfiguration{
+				AssignPublicIp: aws.String(o.DefaultPublic),
+				SecurityGroups: aws.StringSlice(o.DefaultSecurityGroups),
+				Subnets:        aws.StringSlice(o.DefaultSubnets),
+			},
+		}
+	}
+
+	input.PropagateTags = aws.String("TASK_DEFINITION")
+
+	in := ecs.RunTaskInput(*input)
+	out, err := o.ECS.RunTask(ctx, &in)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := toTaskOutput(out.Tasks, out.Failures)
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
 }

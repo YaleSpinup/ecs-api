@@ -85,7 +85,7 @@ func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *S
 	return taskDefinition, rbfunc, nil
 }
 
-func (o *Orchestrator) processTaskTaskDefinitionCreate(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
+func (o *Orchestrator) processTaskDefTaskDefinitionCreate(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.TaskDefinition, rollbackFunc, error) {
 	rbfunc := defaultRbfunc("processTaskTaskDefinitionCreate")
 
 	if input == nil || input.TaskDefinition == nil {
@@ -217,6 +217,56 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 
 	// apply new task definition ARN to the service update
 	input.Service.TaskDefinition = active.TaskDefinition.TaskDefinitionArn
+
+	return nil
+}
+
+func (o *Orchestrator) processTaskDefTaskDefinitionUpdate(ctx context.Context, input *TaskDefUpdateOrchestrationInput, active *TaskDefUpdateOrchestrationOutput) error {
+	if input == nil || input.TaskDefinition == nil {
+		return apierror.New(apierror.ErrBadRequest, "task definition cannot be nil", nil)
+	}
+
+	log.Debugf("processing task definition update for a task %+v", input.TaskDefinition)
+
+	// path is org/clustername
+	path := fmt.Sprintf("%s/%s", o.Org, input.ClusterName)
+
+	// role name is clustername-ecsTaskExecution
+	roleName := fmt.Sprintf("%s-ecsTaskExecution", input.ClusterName)
+
+	roleARN, err := o.DefaultTaskExecutionRole(ctx, path, roleName, input.Tags)
+	if err != nil {
+		return err
+	}
+
+	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
+	input.TaskDefinition.NetworkMode = DefaultNetworkMode
+
+	tags := input.Tags
+	if tags == nil {
+		et := make([]*Tag, len(input.TaskDefinition.Tags))
+		for i, t := range input.TaskDefinition.Tags {
+			et[i] = &Tag{Key: t.Key, Value: t.Value}
+		}
+		tags = et
+	}
+
+	logConfiguration, err := o.defaultLogConfiguration(ctx, input.ClusterName, aws.StringValue(input.TaskDefinition.Family), tags)
+	if err != nil {
+		return err
+	}
+
+	for _, cd := range input.TaskDefinition.ContainerDefinitions {
+		cd.SetLogConfiguration(logConfiguration)
+	}
+
+	taskDefinition, err := o.ECS.CreateTaskDefinition(ctx, input.TaskDefinition)
+	if err != nil {
+		return err
+	}
+
+	active.TaskDefinition = taskDefinition
 
 	return nil
 }

@@ -195,10 +195,10 @@ func TestProcessCluster(t *testing.T) {
 	}
 }
 
-func TestProcessTaskCluster(t *testing.T) {
+func TestProcessTaskDefCluster(t *testing.T) {
 	orchestrator := newMockOrchestrator(t, "myorg", nil, nil, nil, nil, nil, nil)
 
-	if _, _, err := orchestrator.processTaskCluster(context.TODO(), &TaskDefCreateOrchestrationInput{}); err == nil {
+	if _, _, err := orchestrator.processTaskDefCluster(context.TODO(), &TaskDefCreateOrchestrationInput{}); err == nil {
 		t.Error("expected error for missing cluster, got nil")
 	}
 
@@ -212,7 +212,7 @@ func TestProcessTaskCluster(t *testing.T) {
 			},
 		}
 
-		out, _, err := orchestrator.processTaskCluster(context.TODO(), &input)
+		out, _, err := orchestrator.processTaskDefCluster(context.TODO(), &input)
 		if err != nil {
 			t.Errorf("expected nil error, got %s", err)
 		}
@@ -232,7 +232,7 @@ func TestProcessTaskCluster(t *testing.T) {
 			ClusterName: aws.String("cluster0"),
 		},
 	}
-	if _, _, err := orchestrator.processTaskCluster(context.TODO(), &input); err == nil {
+	if _, _, err := orchestrator.processTaskDefCluster(context.TODO(), &input); err == nil {
 		t.Error("expected error, got nil")
 	}
 }

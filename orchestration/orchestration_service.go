@@ -213,7 +213,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 			}
 
 			// get the active task definition to find the task definition family
-			taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition)
+			taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, service.TaskDefinition, false)
 			if err != nil {
 				log.Errorf("failed to get active task definition '%s': %s", aws.StringValue(service.TaskDefinition), err)
 			} else {
@@ -224,7 +224,7 @@ func (o *Orchestrator) DeleteService(ctx context.Context, input *ServiceDeleteIn
 				} else {
 					for _, revision := range taskDefinitionRevisions {
 
-						taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision))
+						taskDefinition, _, err := o.ECS.GetTaskDefinition(cleanupCtx, aws.String(revision), false)
 						if err != nil {
 							log.Errorf("failed to get task definition revisions '%s' to delete: %s", revision, err)
 							continue
@@ -293,7 +293,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	active.Service = svc
 
 	// get the active task def
-	tdef, _, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition)
+	tdef, _, err := o.ECS.GetTaskDefinition(ctx, active.Service.TaskDefinition, false)
 	if err != nil {
 		return nil, err
 	}
@@ -339,24 +339,30 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 	}
 
 	// updates active.Tags
-	if err := o.processTagsUpdate(ctx, active, input.Tags); err != nil {
+	if err := o.processServiceTagsUpdate(ctx, active, input.Tags); err != nil {
 		return nil, err
 	}
 
 	return active, nil
 }
 
-func (o *Orchestrator) processTagsUpdate(ctx context.Context, active *ServiceOrchestrationUpdateOutput, tags []*Tag) error {
+func (o *Orchestrator) processServiceTagsUpdate(ctx context.Context, active *ServiceOrchestrationUpdateOutput, tags []*Tag) error {
 	log.Debugf("processing tags update with tags list %s", awsutil.Prettify(tags))
 
 	// tag all of our resources
 	ecsTags := make([]*ecs.Tag, len(tags))
-	iamTags := make([]*iam.Tag, len(tags))
+	clusterTags := make([]*ecs.Tag, len(tags))
+	roleTags := make([]*iam.Tag, len(tags))
 	smTags := make([]*secretsmanager.Tag, len(tags))
 	for i, t := range tags {
 		ecsTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
-		iamTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
 		smTags[i] = &secretsmanager.Tag{Key: t.Key, Value: t.Value}
+
+		// some services shouldn't be categorized
+		if aws.StringValue(t.Key) != "spinup:category" {
+			clusterTags[i] = &ecs.Tag{Key: t.Key, Value: t.Value}
+			roleTags[i] = &iam.Tag{Key: t.Key, Value: t.Value}
+		}
 	}
 
 	// tag service
@@ -378,7 +384,7 @@ func (o *Orchestrator) processTagsUpdate(ctx context.Context, active *ServiceOrc
 	// tag cluster
 	if err := o.ECS.TagResource(ctx, &ecs.TagResourceInput{
 		ResourceArn: active.Service.ClusterArn,
-		Tags:        ecsTags,
+		Tags:        clusterTags,
 	}); err != nil {
 		return err
 	}
@@ -404,7 +410,7 @@ func (o *Orchestrator) processTagsUpdate(ctx context.Context, active *ServiceOrc
 	ecsTaskExecutionRoleName := ecsTaskExecutionRoleArn.Resource[strings.LastIndex(ecsTaskExecutionRoleArn.Resource, "/")+1:]
 
 	// tag the ecs task execution role
-	if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, iamTags); err != nil {
+	if err := o.IAM.TagRole(ctx, ecsTaskExecutionRoleName, roleTags); err != nil {
 		return err
 	}
 

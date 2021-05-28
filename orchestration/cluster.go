@@ -29,8 +29,8 @@ func (o *Orchestrator) processServiceCluster(ctx context.Context, input *Service
 	return cluster, rbfunc, nil
 }
 
-// processTaskCluster ensures the cluster exists for a task definition
-func (o *Orchestrator) processTaskCluster(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.Cluster, rollbackFunc, error) {
+// processTaskDefCluster ensures the cluster exists for a task definition
+func (o *Orchestrator) processTaskDefCluster(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*ecs.Cluster, rollbackFunc, error) {
 	if input.Cluster == nil {
 		return nil, defaultRbfunc("processTaskCluster"), apierror.New(apierror.ErrBadRequest, "cluster cannot be empty", nil)
 	}

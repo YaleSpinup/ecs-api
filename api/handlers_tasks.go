@@ -2,13 +2,8 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
-	"github.com/YaleSpinup/apierror"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/gorilla/mux"
 )
 
@@ -20,22 +15,13 @@ func (s *server) TaskShowHandler(w http.ResponseWriter, r *http.Request) {
 	cluster := vars["cluster"]
 	task := vars["task"]
 
-	ecsService, ok := s.ecsServices[account]
-	if !ok {
-		msg := fmt.Sprintf("ecs service not found for account: %s", account)
-		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
 		return
 	}
 
-	if task == "" {
-		handleError(w, apierror.New(apierror.ErrBadRequest, "task cannot be empty", nil))
-		return
-	}
-
-	output, err := ecsService.GetTasks(r.Context(), &ecs.DescribeTasksInput{
-		Cluster: aws.String(cluster),
-		Tasks:   aws.StringSlice([]string{task}),
-	})
+	output, err := orchestrator.GetTask(r.Context(), cluster, task)
 	if err != nil {
 		handleError(w, err)
 		return
