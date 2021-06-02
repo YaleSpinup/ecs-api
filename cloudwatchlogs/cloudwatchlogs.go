@@ -2,6 +2,7 @@ package cloudwatchlogs
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/common"
@@ -76,4 +77,29 @@ func (c *CloudWatchLogs) UpdateRetention(ctx context.Context, input *cloudwatchl
 	}
 
 	return nil
+}
+
+// GetLogGroup gets the details about a log groupu using the prefix (which should be unique in our case)
+func (c *CloudWatchLogs) GetLogGroup(ctx context.Context, prefix string) (*cloudwatchlogs.LogGroup, error) {
+	if prefix == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("getting details about log group %s", prefix)
+
+	out, err := c.Service.DescribeLogGroupsWithContext(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
+		LogGroupNamePrefix: aws.String(prefix),
+	})
+	if err != nil {
+		return nil, ErrCode("failed describing log groups", err)
+	}
+
+	log.Debugf("got output from describe log groups: %+v", out)
+
+	if len(out.LogGroups) != 1 {
+		msg := fmt.Sprintf("unexpected number of log groups returned (%d)", len(out.LogGroups))
+		return nil, apierror.New(apierror.ErrBadRequest, msg, nil)
+	}
+
+	return out.LogGroups[0], nil
 }
