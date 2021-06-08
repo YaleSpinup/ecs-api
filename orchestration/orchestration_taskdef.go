@@ -405,3 +405,31 @@ func (o *Orchestrator) RunTaskDef(ctx context.Context, cluster, family string, i
 
 	return output, nil
 }
+
+func (o *Orchestrator) ListTaskDefTasks(ctx context.Context, cluster, taskdef, startedBy string, status []string) ([]string, error) {
+	input := ecs.ListTasksInput{
+		MaxResults: aws.Int64(100),
+		Cluster:    aws.String(cluster),
+	}
+
+	if startedBy != "" {
+		input.StartedBy = aws.String(startedBy)
+	} else {
+		input.Family = aws.String(taskdef)
+	}
+
+	tasks := []*string{}
+	for _, s := range status {
+		input.DesiredStatus = aws.String(s)
+
+		out, err := o.ECS.ListTasks(ctx, &input)
+		if err != nil {
+			return nil, err
+		}
+
+		tasks = append(tasks, out...)
+
+	}
+
+	return aws.StringValueSlice(tasks), nil
+}

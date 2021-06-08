@@ -1,12 +1,11 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
 
 	"github.com/gorilla/mux"
@@ -27,15 +26,9 @@ func (s *server) TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := ioutil.ReadAll(r.Body)
-
-	log.Debugf("new taskdef orchestration request body:\n%s", body)
-
 	var req orchestration.TaskDefCreateOrchestrationInput
-	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
-		log.Error("cannot Decode body into create taskdef input")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode json into input", err))
 		return
 	}
 
@@ -43,16 +36,13 @@ func (s *server) TaskDefCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	output, err := orchestrator.CreateTaskDef(r.Context(), &req)
 	if err != nil {
-		log.Errorf("error in creating taskdef orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -90,16 +80,13 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		Recursive:      recursive,
 	})
 	if err != nil {
-		log.Errorf("error in taskdef delete orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -125,16 +112,13 @@ func (s *server) TaskDefListHandler(w http.ResponseWriter, r *http.Request) {
 
 	output, err := orchestrator.ListTaskDefs(r.Context(), cluster)
 	if err != nil {
-		log.Errorf("error in taskdef list orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -161,16 +145,13 @@ func (s *server) TaskDefShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	output, err := orchestrator.GetTaskDef(r.Context(), cluster, taskdef)
 	if err != nil {
-		log.Errorf("error in taskdef get orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -195,15 +176,9 @@ func (s *server) TaskDefUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := ioutil.ReadAll(r.Body)
-
-	log.Debugf("update taskdef orchestration request body: %s", body)
-
 	var req orchestration.TaskDefUpdateOrchestrationInput
-	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
-		log.Error("cannot Decode body into update taskdef input")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode json into input", err))
 		return
 	}
 
@@ -211,16 +186,13 @@ func (s *server) TaskDefUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	output, err := orchestrator.UpdateTaskDef(r.Context(), cluster, taskdef, &req)
 	if err != nil {
-		log.Errorf("error in creating taskdef orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -242,15 +214,9 @@ func (s *server) TaskDefRunHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := ioutil.ReadAll(r.Body)
-
-	log.Debugf("run taskdef orchestration request body:\n%s", body)
-
 	var req orchestration.TaskDefRunOrchestrationInput
-	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
-		log.Error("cannot Decode body into create taskdef input")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode json into input", err))
 		return
 	}
 
@@ -258,16 +224,55 @@ func (s *server) TaskDefRunHandler(w http.ResponseWriter, r *http.Request) {
 
 	output, err := orchestrator.RunTaskDef(r.Context(), cluster, taskdef, req)
 	if err != nil {
-		log.Errorf("error in creating taskdef orchestration: %s", err)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, err)
 		return
 	}
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+func (s *server) TaskDefTaskListHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	cluster := vars["cluster"]
+	taskdef := vars["taskdef"]
+
+	queries := r.URL.Query()
+
+	var startedBy string
+	if s, ok := queries["startedBy"]; ok {
+		startedBy = s[0]
+	}
+
+	status := []string{"RUNNING"}
+	if s, ok := queries["status"]; ok {
+		status = s
+	}
+
+	orchestrator, err := s.newOrchestrator(account)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	output, err := orchestrator.ListTaskDefTasks(r.Context(), cluster, taskdef, startedBy, status)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	j, err := json.Marshal(output)
+	if err != nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
