@@ -12,45 +12,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ListTasks collects all of the task ids for a service in a cluster with the given status(s)ß
-func (e *ECS) ListTasks(ctx context.Context, cluster, service string, status []string) ([]*string, error) {
-	if cluster == "" || service == "" {
+// ListTasks lists the tasks with standard ECS input
+func (e *ECS) ListTasks(ctx context.Context, input *ecs.ListTasksInput) ([]*string, error) {
+	if input == nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	// default to "RUNNING" status
-	if status == nil {
-		status = []string{"RUNNING"}
+	log.Info("listing tasks")
+
+	output, err := e.Service.ListTasksWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed listing tasks", err)
 	}
 
-	log.Infof("listing tasks in %s/%s with status %s", cluster, service, strings.Join(status, ","))
-
 	tasks := []*string{}
-	for _, s := range status {
-		output, err := e.Service.ListTasksWithContext(ctx, &ecs.ListTasksInput{
-			Cluster:       aws.String(cluster),
-			ServiceName:   aws.String(service),
-			LaunchType:    aws.String("FARGATE"),
-			DesiredStatus: aws.String(s),
-		})
+	for _, t := range output.TaskArns {
+		a := aws.StringValue(t)
 
+		log.Debugf("parsing arn %s", a)
+
+		taskArn, err := arn.Parse(a)
 		if err != nil {
-			msg := fmt.Sprintf("failed listing tasks for cluster %s, service %s with status %s", cluster, service, s)
+			msg := fmt.Sprintf("failed to parse '%s'", a)
 			return tasks, ErrCode(msg, err)
 		}
 
-		for _, t := range output.TaskArns {
-			taskArn, err := arn.Parse(aws.StringValue(t))
-			if err != nil {
-				msg := fmt.Sprintf("failed to parse '%s'", aws.StringValue(t))
-				return tasks, ErrCode(msg, err)
-			}
-
-			// task resource is the form task/xxxxxxxxxxxxx
-			r := strings.SplitN(taskArn.Resource, "/", 2)
-			tasks = append(tasks, aws.String(r[1]))
-		}
-
+		// task resource is the form task/xxxxxxxxxxxxx
+		r := strings.SplitN(taskArn.Resource, "/", 2)
+		tasks = append(tasks, aws.String(r[1]))
 	}
 
 	return tasks, nil

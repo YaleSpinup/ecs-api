@@ -46,36 +46,42 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
     - [Run a managed task definition in a cluster](#run-a-managed-task-definition-in-a-cluster)
       - [Request](#request-7)
       - [Response](#response-7)
-  - [SSM Parameters](#ssm-parameters-1)
-    - [Create a param](#create-a-param)
+    - [Get a list of task definition tasks](#get-a-list-of-task-definition-tasks)
       - [Request](#request-8)
       - [Response](#response-8)
-    - [List parameters](#list-parameters)
-      - [Response](#response-9)
-    - [Show a parameter](#show-a-parameter)
-      - [Response](#response-10)
-    - [Delete a parameter](#delete-a-parameter)
-      - [Response](#response-11)
-    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
-      - [Response](#response-12)
-    - [Update a parameter](#update-a-parameter)
+    - [Get a details of task definition task](#get-a-details-of-task-definition-task)
       - [Request](#request-9)
+      - [Response](#response-9)
+  - [SSM Parameters](#ssm-parameters-1)
+    - [Create a param](#create-a-param)
+      - [Request](#request-10)
+      - [Response](#response-10)
+    - [List parameters](#list-parameters)
+      - [Response](#response-11)
+    - [Show a parameter](#show-a-parameter)
+      - [Response](#response-12)
+    - [Delete a parameter](#delete-a-parameter)
       - [Response](#response-13)
+    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
+      - [Response](#response-14)
+    - [Update a parameter](#update-a-parameter)
+      - [Request](#request-11)
+      - [Response](#response-15)
   - [Secrets](#secrets)
     - [Create a secret](#create-a-secret)
-      - [Request](#request-10)
-      - [Response](#response-14)
-    - [List secrets](#list-secrets)
-      - [Response](#response-15)
-    - [Show a secret](#show-a-secret)
+      - [Request](#request-12)
       - [Response](#response-16)
-    - [Delete a secret](#delete-a-secret)
+    - [List secrets](#list-secrets)
       - [Response](#response-17)
-    - [Update a secret](#update-a-secret)
-      - [Request](#request-11)
+    - [Show a secret](#show-a-secret)
       - [Response](#response-18)
-    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+    - [Delete a secret](#delete-a-secret)
       - [Response](#response-19)
+    - [Update a secret](#update-a-secret)
+      - [Request](#request-13)
+      - [Response](#response-20)
+    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+      - [Response](#response-21)
   - [Development](#development)
   - [Author](#author)
   - [License](#license)
@@ -109,6 +115,8 @@ GET /v1/ecs/{account}/clusters/{cluster}/taskdefs
 DELETE /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
 POST /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
+GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
+GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks/{task}
 
 // Secrets handlers
 GET /v1/ecs/{account}/secrets
@@ -277,7 +285,7 @@ Example request body of new service with existing resources:
         "taskdefinition": "mytaskdef:1",
         "serviceregistries": [
             {
-                "registryarn": "arn:aws:servicediscovery:us-east-1:12345678910:service/srv-tvtbgvkkxtts3qlf"
+                "registryarn": "arn:aws:servicediscovery:us-east-1:001122334455:service/srv-tvtbgvkkxtts3qlf"
             }
         ]
     }
@@ -409,7 +417,7 @@ credential exists in the `credentials` map, the container definition will be upd
                 "name": "privateapi",
                 "image": "myorg/privateapi:latest",
                 "repositorycredentials": {
-                    "credentialsparameter": "arn:aws:secretsmanager:us-east-1:12345678:secret:privateapi-cred-1-Ol7mhU"
+                    "credentialsparameter": "arn:aws:secretsmanager:us-east-1:001122334455:secret:privateapi-cred-1-Ol7mhU"
                 }
             }
         ]
@@ -493,7 +501,7 @@ POST /v1/ecs/{account}/taskdefs
         "clustername": "myclu"
     },
     "taskdefinition": {
-        "family": "supercool-service",
+        "family": "supercool",
         "cpu": "256",
         "memory": "512",
         "containerdefinitions": [
@@ -578,7 +586,7 @@ The response is the service body.
 
 ```json
 [
-    "supercool-service"
+    "supercool"
 ]
 ```
 
@@ -625,9 +633,12 @@ The input for running a task uses the RunTaskInput and overrides with our standa
 
 [RunTaskInput](https://docs.aws.amazon.com/sdk-for-go/api/service/ecs/#RunTaskInput)
 
+The `startedBy` parameter is *optional* and can be used to group tasks started by the same process.
+
 ```json
 {
-    "Count": 1
+    "Count": 1,
+    "StartedBy": "camden"
 }
 ```
 
@@ -645,6 +656,198 @@ TODO
 | **400 Bad Request**           | badly formed request                     |
 | **404 Not Found**             | account, cluster or taskdef wasn't found |
 | **500 Internal Server Error** | a server error occurred                  |
+
+### Get a list of task definition tasks
+
+#### Request
+
+GET  /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}/tasks[?status=RUNNING][&status=STOPPED][&startedBy=foobar]
+
+#### Response
+
+The response is the tasks list
+
+```json
+[
+    "myclu/55a94cb97c234fe8a5af3b64cb14d3ff",
+    "myclu/7ee0e0566a234a4eaa2baca61e73c9d6",
+    "myclu/acb41329b6cf4a3db06d23d477b386ee"
+]
+```
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 OK**                    | okay                                     |
+| **400 Bad Request**           | badly formed request                     |
+| **404 Not Found**             | account, cluster wasn't found            |
+| **500 Internal Server Error** | a server error occurred                  |
+
+### Get a details of task definition task
+
+#### Request
+
+GET  /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}/tasks/{task}
+
+#### Response
+
+The response is the tasks list.
+
+```json
+{
+    "Tasks": [
+        {
+            "Attachments": [
+                {
+                    "Details": [
+                        {
+                            "Name": "subnetId",
+                            "Value": "subnet-aaaaaaa"
+                        },
+                        {
+                            "Name": "networkInterfaceId",
+                            "Value": "eni-vvvvvvvvvvvv"
+                        },
+                        {
+                            "Name": "macAddress",
+                            "Value": "12:89:50:8d:21:a7"
+                        },
+                        {
+                            "Name": "privateDnsName",
+                            "Value": "ip-10-1-2-3.ec2.internal"
+                        },
+                        {
+                            "Name": "privateIPv4Address",
+                            "Value": "10.1.2.3"
+                        }
+                    ],
+                    "Id": "69403df1-ca83-480d-8fb2-80891ab065b8",
+                    "Status": "DELETED",
+                    "Type": "ElasticNetworkInterface"
+                }
+            ],
+            "Attributes": null,
+            "AvailabilityZone": "us-east-1d",
+            "CapacityProviderName": null,
+            "ClusterArn": "arn:aws:ecs:us-east-1:001122334455:cluster/myclu",
+            "Connectivity": "CONNECTED",
+            "ConnectivityAt": "2021-06-02T16:15:08.273Z",
+            "ContainerInstanceArn": null,
+            "Containers": [
+                {
+                    "ContainerArn": "arn:aws:ecs:us-east-1:001122334455:container/myclu/25cb8e5435b04a0396c1fea4db587b8b/6fd8e73b-ccea-4a54-b52d-8f64fafb1f92",
+                    "Cpu": "0",
+                    "ExitCode": 0,
+                    "GpuIds": null,
+                    "HealthStatus": "UNKNOWN",
+                    "Image": "busybox",
+                    "ImageDigest": null,
+                    "LastStatus": "STOPPED",
+                    "Memory": null,
+                    "MemoryReservation": null,
+                    "Name": "sleeper",
+                    "NetworkBindings": [],
+                    "NetworkInterfaces": [
+                        {
+                            "AttachmentId": "69403df1-ca83-480d-8fb2-80891ab065b8",
+                            "Ipv6Address": null,
+                            "PrivateIpv4Address": "10.1.2.3"
+                        }
+                    ],
+                    "Reason": null,
+                    "RuntimeId": "25cb8e5435b04a0396c1fea4db587b8b-1634946175",
+                    "TaskArn": "arn:aws:ecs:us-east-1:001122334455:task/myclu/25cb8e5435b04a0396c1fea4db587b8b"
+                },
+                {
+                    "ContainerArn": "arn:aws:ecs:us-east-1:001122334455:container/myclu/25cb8e5435b04a0396c1fea4db587b8b/bd3ec6ff-0cff-4d06-bfa9-843ba9195b85",
+                    "Cpu": "0",
+                    "ExitCode": 2,
+                    "GpuIds": null,
+                    "HealthStatus": "UNKNOWN",
+                    "Image": "something/testapi",
+                    "ImageDigest": null,
+                    "LastStatus": "STOPPED",
+                    "Memory": null,
+                    "MemoryReservation": null,
+                    "Name": "api",
+                    "NetworkBindings": [],
+                    "NetworkInterfaces": [
+                        {
+                            "AttachmentId": "69403df1-ca83-480d-8fb2-80891ab065b8",
+                            "Ipv6Address": null,
+                            "PrivateIpv4Address": "10.1.2.3"
+                        }
+                    ],
+                    "Reason": null,
+                    "RuntimeId": "25cb8e5435b04a0396c1fea4db587b8b-946514567",
+                    "TaskArn": "arn:aws:ecs:us-east-1:001122334455:task/myclu/25cb8e5435b04a0396c1fea4db587b8b"
+                }
+            ],
+            "Cpu": "256",
+            "CreatedAt": "2021-06-02T16:15:04.391Z",
+            "DesiredStatus": "STOPPED",
+            "ExecutionStoppedAt": "2021-06-02T16:16:48.968Z",
+            "Group": "family:supercool",
+            "HealthStatus": "UNKNOWN",
+            "InferenceAccelerators": null,
+            "LastStatus": "STOPPED",
+            "LaunchType": "FARGATE",
+            "Memory": "512",
+            "Overrides": {
+                "ContainerOverrides": [
+                    {
+                        "Command": null,
+                        "Cpu": null,
+                        "Environment": null,
+                        "EnvironmentFiles": null,
+                        "Memory": null,
+                        "MemoryReservation": null,
+                        "Name": "sleeper",
+                        "ResourceRequirements": null
+                    },
+                    {
+                        "Command": null,
+                        "Cpu": null,
+                        "Environment": null,
+                        "EnvironmentFiles": null,
+                        "Memory": null,
+                        "MemoryReservation": null,
+                        "Name": "api",
+                        "ResourceRequirements": null
+                    }
+                ],
+                "Cpu": null,
+                "ExecutionRoleArn": null,
+                "InferenceAcceleratorOverrides": [],
+                "Memory": null,
+                "TaskRoleArn": null
+            },
+            "PlatformVersion": "1.4.0",
+            "PullStartedAt": "2021-06-02T16:15:29.45Z",
+            "PullStoppedAt": "2021-06-02T16:16:26.565Z",
+            "StartedAt": "2021-06-02T16:16:29.066Z",
+            "StartedBy": null,
+            "StopCode": "EssentialContainerExited",
+            "StoppedAt": "2021-06-02T16:17:24.104Z",
+            "StoppedReason": "Essential container in task exited",
+            "StoppingAt": "2021-06-02T16:17:10.101Z",
+            "Tags": [],
+            "TaskArn": "arn:aws:ecs:us-east-1:001122334455:task/myclu/25cb8e5435b04a0396c1fea4db587b8b",
+            "TaskDefinitionArn": "arn:aws:ecs:us-east-1:001122334455:task-definition/supercool:43",
+            "Version": 5,
+            "Revision": 43
+        }
+    ],
+    "Failures": []
+}
+```
+
+| Response Code                 | Definition                               |
+| ----------------------------- | -----------------------------------------|
+| **200 OK**                    | okay                                     |
+| **400 Bad Request**           | badly formed request                     |
+| **404 Not Found**             | account, cluster or taskdef wasn't found |
+| **500 Internal Server Error** | a server error occurred                  |
+
 
 
 ## SSM Parameters
@@ -720,10 +923,10 @@ GET `/v1/ecs/{account}/params/{prefix}/{param}`
 
 ```json
 {
-    "ARN": "arn:aws:ssm:us-east-1:1234567890:parameter/myorg/someprefix/newsecret123",
+    "ARN": "arn:aws:ssm:us-east-1:001122334455:parameter/myorg/someprefix/newsecret123",
     "Name": "newsecret123",
     "Description": "a test secret shhhhhh! 123",
-    "KeyId": "arn:aws:kms:us-east-1:1234567890:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee",
+    "KeyId": "arn:aws:kms:us-east-1:001122334455:key/aaaaaaa-bbbb-cccc-dddd-eeeeeeeeeee",
     "Type": "SecureString",
     "Tags": [
         {
@@ -840,7 +1043,7 @@ POST `/v1/ecs/{account}/secrets`
 
 ```json
 {
-    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:sshhhhh-Z8CxfW",
+    "ARN": "arn:aws:secretsmanager:us-east-1:001122334455:secret:sshhhhh-Z8CxfW",
     "Name": "sshhhhh",
     "VersionId": "592CEFAE-7B74-4A22-B1C9-55F958531579"
 }
@@ -863,8 +1066,8 @@ GET `/v1/ecs/{account}/secrets[?key1=value1[&key2=value2&key3=value3]]`
 
 ```json
 [
-    "arn:aws:secretsmanager:us-east-1:012345678901:secret:TopSekritPassword-rJ93nm",
-    "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco"
+    "arn:aws:secretsmanager:us-east-1:001122334455:secret:TopSekritPassword-rJ93nm",
+    "arn:aws:secretsmanager:us-east-1:001122334455:secret:ShhhDontTellAnyone-123-BFyDco"
 ]
 ```
 
@@ -884,7 +1087,7 @@ GET `/v1/ecs/{account}/secret/{secret}`
 
 ```json
 {
-    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "ARN": "arn:aws:secretsmanager:us-east-1:001122334455:secret:ShhhDontTellAnyone-123-BFyDco",
     "DeletedDate": null,
     "Description": null,
     "KmsKeyId": null,
@@ -927,7 +1130,7 @@ DELETE `/v1/ecs/{account}/secret/{secret}[?window=[0|7-30]]`
 
 ```json
 {
-    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "ARN": "arn:aws:secretsmanager:us-east-1:001122334455:secret:ShhhDontTellAnyone-123-BFyDco",
     "DeletionDate": "2019-07-13T11:18:33Z",
     "Name": "ShhhDontTellAnyone"
 }
@@ -967,7 +1170,7 @@ When only updating tags, you will get an empty response on success. When updatin
 
 ```json
 {
-    "ARN": "arn:aws:secretsmanager:us-east-1:012345678901:secret:ShhhDontTellAnyone-123-BFyDco",
+    "ARN": "arn:aws:secretsmanager:us-east-1:001122334455:secret:ShhhDontTellAnyone-123-BFyDco",
     "Name": "ShhhDontTellAnyone",
     "VersionId": "AWSCURRENT"
 }
@@ -988,8 +1191,8 @@ GET `/v1/ecs/{account}/lbs?space={space}`
 
 ```json
 {
-    "test-tg-1": "arn:aws:elasticloadbalancing:us-east-1:1234567890:targetgroup/test-tg-1/0987654321",
-    "test-tg-2": "arn:aws:elasticloadbalancing:us-east-1:1234567890:targetgroup/test-tg-2/0987654321"
+    "test-tg-1": "arn:aws:elasticloadbalancing:us-east-1:001122334455:targetgroup/test-tg-1/0987654321",
+    "test-tg-2": "arn:aws:elasticloadbalancing:us-east-1:001122334455:targetgroup/test-tg-2/0987654321"
 }
 ```
 

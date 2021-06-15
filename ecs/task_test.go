@@ -17,8 +17,8 @@ import (
 
 type taskListTest struct {
 	// input
-	cluster, service string
-	status           []string
+	cluster, service, family string
+	status                   []string
 	// output
 	expected []*string
 	err      error
@@ -154,17 +154,37 @@ func (m *mockECSClient) ListTasksWithContext(ctx aws.Context, input *ecs.ListTas
 	cluster := aws.StringValue(input.Cluster)
 	service := aws.StringValue(input.ServiceName)
 	status := aws.StringValue(input.DesiredStatus)
+	family := aws.StringValue(input.Family)
 
 	output := []*string{}
 	for _, taskTest := range taskListTests {
-		if cluster == taskTest.cluster && service == taskTest.service {
-			for taskArn, taskStatus := range taskTest.tasks {
-				if status == taskStatus {
-					output = append(output, aws.String(taskArn))
-				}
+		if cluster != "" && cluster != taskTest.cluster {
+			m.t.Logf("input cluster %s doesn't match %s", cluster, taskTest.cluster)
+			continue
+		}
+		m.t.Logf("input cluster %s matches %s", cluster, taskTest.cluster)
+
+		if service != "" && service != taskTest.service {
+			m.t.Logf("input service %s doesn't match %s", service, taskTest.service)
+			continue
+		}
+		m.t.Logf("input service %s matches %s", service, taskTest.service)
+
+		if family != "" && family != taskTest.family {
+			m.t.Logf("input family %s doesn't match %s", family, taskTest.family)
+			continue
+		}
+		m.t.Logf("input family %s matches %s", family, taskTest.family)
+
+		for taskArn, taskStatus := range taskTest.tasks {
+			if status != "" && status != taskStatus {
+				continue
 			}
+			output = append(output, aws.String(taskArn))
 		}
 	}
+
+	m.t.Logf("returning task arns %+v", output)
 
 	return &ecs.ListTasksOutput{TaskArns: output}, nil
 }
@@ -187,28 +207,6 @@ func (m *mockECSClient) RunTaskWithContext(ctx context.Context, input *ecs.RunTa
 	return &ecs.RunTaskOutput{
 		Tasks: testTasks,
 	}, nil
-}
-
-func TestListTasks(t *testing.T) {
-	for _, test := range taskListTests {
-		client := ECS{Service: &mockECSClient{t: t, err: test.awsErr}}
-		out, err := client.ListTasks(context.TODO(), test.cluster, test.service, test.status)
-		if test.err == nil && err == nil {
-			if !reflect.DeepEqual(out, test.expected) {
-				t.Errorf("expected output %+v, got %+v", aws.StringValueSlice(test.expected), aws.StringValueSlice(out))
-			}
-		} else if test.err != nil && err == nil {
-			t.Errorf("expected error %s, got nil", test.err)
-		} else if err != nil && test.err == nil {
-			t.Errorf("expected nil error, got %s", err)
-		} else {
-			if aerr, ok := errors.Cause(err).(apierror.Error); ok {
-				t.Logf("got apierror '%s'", aerr)
-			} else {
-				t.Errorf("expected error to be an apierror.Error, got %s", err)
-			}
-		}
-	}
 }
 
 func TestGetTasks(t *testing.T) {
@@ -304,6 +302,87 @@ func TestECS_RunTask(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ECS.RunTask() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestECS_ListTasks(t *testing.T) {
+	type fields struct {
+		Service        ecsiface.ECSAPI
+		DefaultSgs     []string
+		DefaultSubnets []string
+	}
+	type args struct {
+		ctx   context.Context
+		input *ecs.ListTasksInput
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []*string
+		wantErr bool
+	}{
+		{
+			name: "nil input",
+			fields: fields{
+				Service: &mockECSClient{t: t},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "error from aws",
+			fields: fields{
+				Service: &mockECSClient{
+					t:   t,
+					err: awserr.New(ecs.ErrCodePlatformUnknownException, "bad platform", nil),
+				},
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecs.ListTasksInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "match service",
+			fields: fields{
+				Service: &mockECSClient{t: t},
+			},
+			args: args{
+				ctx: context.TODO(),
+				input: &ecs.ListTasksInput{
+					Cluster:     aws.String("clu0"),
+					ServiceName: aws.String("svc0"),
+				},
+			},
+			want: aws.StringSlice([]string{
+				"task1:1",
+				"task2:2",
+				"task3:3",
+				"task4:4",
+				"task5:5",
+			}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECS{
+				Service:        tt.fields.Service,
+				DefaultSgs:     tt.fields.DefaultSgs,
+				DefaultSubnets: tt.fields.DefaultSubnets,
+			}
+			got, err := e.ListTasks(tt.args.ctx, tt.args.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECS.ListTasks() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECS.ListTasks() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -79,7 +79,7 @@ func (c *CloudWatchLogs) UpdateRetention(ctx context.Context, input *cloudwatchl
 	return nil
 }
 
-// GetLogGroup gets the details about a log groupu using the prefix (which should be unique in our case)
+// GetLogGroup gets the details about a log group using the prefix (which should be unique in our case)
 func (c *CloudWatchLogs) GetLogGroup(ctx context.Context, prefix string) (*cloudwatchlogs.LogGroup, error) {
 	if prefix == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)

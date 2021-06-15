@@ -10,7 +10,6 @@ import (
 
 	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/orchestration"
-	"github.com/pkg/errors"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
@@ -41,11 +40,10 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req orchestration.ServiceOrchestrationInput
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
-		log.Error("cannot Decode body into create service input")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(err.Error()))
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode json into input", err))
 		return
 	}
+
 	log.Debugf("decoded request into service orchestration request:\n%+v", req)
 
 	output, err := orchestrator.CreateService(r.Context(), &req)
@@ -104,8 +102,7 @@ func (s *server) ServiceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		log.Errorf("cannot marshal response (%v) into JSON: %s", output, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -127,7 +124,7 @@ func (s *server) ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	var req orchestration.ServiceOrchestrationUpdateInput
 	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&req); err != nil {
-		handleError(w, errors.Wrap(err, "cannot decode body into update service input"))
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to decode json into input", err))
 		return
 	}
 
@@ -147,7 +144,7 @@ func (s *server) ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		handleError(w, errors.Wrap(err, "cannot decode output into update service input"))
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -178,7 +175,7 @@ func (s *server) ServiceListHandler(w http.ResponseWriter, r *http.Request) {
 
 	j, err := json.Marshal(output)
 	if err != nil {
-		handleError(w, errors.Wrap(err, "unable to marshal response from the ssm service"))
+		handleError(w, apierror.New(apierror.ErrBadRequest, "unable to marshal response to json", err))
 		return
 	}
 
@@ -245,10 +242,20 @@ func (s *server) ServiceShowHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		tasks, err := ecsService.ListTasks(r.Context(), cluster, service, []string{"STOPPED", "RUNNING"})
-		if err != nil {
-			handleError(w, err)
-			return
+		tasks := []*string{}
+		for _, s := range []string{"STOPPED", "RUNNING"} {
+			out, err := ecsService.ListTasks(r.Context(), &ecs.ListTasksInput{
+				MaxResults:    aws.Int64(100),
+				Cluster:       aws.String(cluster),
+				ServiceName:   aws.String(service),
+				LaunchType:    aws.String("FARGATE"),
+				DesiredStatus: aws.String(s),
+			})
+			if err != nil {
+				handleError(w, err)
+			}
+
+			tasks = append(tasks, out...)
 		}
 
 		var serviceDiscoveryEndpoint *string

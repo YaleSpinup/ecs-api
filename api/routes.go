@@ -38,6 +38,8 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/clusters/{cluster}/taskdefs/{taskdef}", s.TaskDefShowHandler).Methods(http.MethodGet)
 
 	api.HandleFunc("/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks", s.TaskDefRunHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks", s.TaskDefTaskListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks/{task}", s.TaskShowHandler).Methods(http.MethodGet)
 
 	// Secrets handlers
 	api.HandleFunc("/{account}/secrets", s.SecretListHandler).Methods(http.MethodGet)
