@@ -690,7 +690,7 @@ GET  /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}/tasks/{task}
 
 #### Response
 
-The response is the tasks list
+The response is the tasks list.
 
 ```json
 {

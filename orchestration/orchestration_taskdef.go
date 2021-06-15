@@ -428,7 +428,6 @@ func (o *Orchestrator) ListTaskDefTasks(ctx context.Context, cluster, taskdef, s
 		}
 
 		tasks = append(tasks, out...)
-
 	}
 
 	return aws.StringValueSlice(tasks), nil
