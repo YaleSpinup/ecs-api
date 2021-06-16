@@ -3,6 +3,9 @@ package ecs
 import (
 	"context"
 	"reflect"
+	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/YaleSpinup/apierror"
@@ -180,9 +183,23 @@ func (m *mockECSClient) ListTasksWithContext(ctx aws.Context, input *ecs.ListTas
 			if status != "" && status != taskStatus {
 				continue
 			}
+
+			m.t.Logf("appending task arn %s", taskArn)
+
 			output = append(output, aws.String(taskArn))
 		}
 	}
+
+	// map order isn't guarenteed so sort the resulting slice to be sure out tests are consistent
+	sort.Slice(output, func(i, j int) bool {
+		a1s := strings.Split(aws.StringValue(output[i]), ":")
+		a1v, _ := strconv.Atoi(a1s[len(a1s)-1])
+
+		a2s := strings.Split(aws.StringValue(output[j]), ":")
+		a2v, _ := strconv.Atoi(a2s[len(a2s)-1])
+
+		return a1v < a2v
+	})
 
 	m.t.Logf("returning task arns %+v", output)
 
@@ -360,13 +377,13 @@ func TestECS_ListTasks(t *testing.T) {
 					ServiceName: aws.String("svc0"),
 				},
 			},
-			want: aws.StringSlice([]string{
-				"task1:1",
-				"task2:2",
-				"task3:3",
-				"task4:4",
-				"task5:5",
-			}),
+			want: []*string{
+				aws.String("task1:1"),
+				aws.String("task2:2"),
+				aws.String("task3:3"),
+				aws.String("task4:4"),
+				aws.String("task5:5"),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -382,7 +399,7 @@ func TestECS_ListTasks(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ECS.ListTasks() = %v, want %v", got, tt.want)
+				t.Errorf("ECS.ListTasks() = %v, want %v", awsutil.Prettify(got), awsutil.Prettify(tt.want))
 			}
 		})
 	}
