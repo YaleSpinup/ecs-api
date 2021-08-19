@@ -116,6 +116,16 @@ func (o *Orchestrator) deleteCluster(ctx context.Context, arn *string) (bool, er
 		return false, nil
 	}
 
+	tasks, err := o.ListTaskDefs(ctx, aws.StringValue(cluster.ClusterName))
+	if err != nil {
+		return false, err
+	}
+
+	if l := len(tasks); l > 0 {
+		log.Debugf("cluster has %d taskdefs defined, not deleting", l)
+		return false, nil
+	}
+
 	cluCtx, cluCancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cluCancel()
 

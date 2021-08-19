@@ -32,12 +32,6 @@ func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *S
 
 	log.Debugf("processing task definition create for a service %+v", input.TaskDefinition)
 
-	// task definition gets a special tag denoting it as defined for a service
-	input.TaskDefinition.Tags = append(ecsTags(input.Tags), &ecs.Tag{
-		Key:   aws.String("spinup:category"),
-		Value: aws.String("container-service"),
-	})
-
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
 
@@ -97,12 +91,6 @@ func (o *Orchestrator) processTaskDefTaskDefinitionCreate(ctx context.Context, i
 	}
 
 	log.Debugf("processing task definition create for a task %+v", input.TaskDefinition)
-
-	// task definition gets a special tag denoting it as defined as a task definition
-	input.TaskDefinition.Tags = append(ecsTags(input.Tags), &ecs.Tag{
-		Key:   aws.String("spinup:category"),
-		Value: aws.String("container-taskdef"),
-	})
 
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))

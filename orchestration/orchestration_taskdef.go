@@ -81,7 +81,7 @@ func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOr
 
 	spaceid := aws.StringValue(input.Cluster.ClusterName)
 
-	ct, err := cleanTags(o.Org, spaceid, input.Tags)
+	ct, err := cleanTags(o.Org, spaceid, "container", "task", input.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string
 
 	// if the input tags are passed, clean them and use them, otherwise set to the active tags
 	if input.Tags != nil {
-		ct, err := cleanTags(o.Org, cluster, input.Tags)
+		ct, err := cleanTags(o.Org, cluster, "container", "service", input.Tags)
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +233,14 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 		}(taskDefinitionRevisions[1:])
 	}
 
-	// TODO cleanup cluster
+	deletedCluster, err := o.deleteCluster(ctx, &input.Cluster)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete cluster: %s", err)
+	}
+
+	if deletedCluster {
+		log.Infof("deleted cluster %s", input.Cluster)
+	}
 
 	return &output, nil
 }
@@ -289,8 +296,12 @@ func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]stri
 			Value: []string{o.Org},
 		},
 		{
-			Key:   "spinup:category",
-			Value: []string{"container-taskdef"},
+			Key:   "spinup:type",
+			Value: []string{"container"},
+		},
+		{
+			Key:   "spinup:flavor",
+			Value: []string{"task"},
 		},
 	}
 

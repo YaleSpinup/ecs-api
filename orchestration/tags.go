@@ -33,7 +33,7 @@ func secretsmanagerTags(tags []*Tag) []*secretsmanager.Tag {
 }
 
 // cleanTags cleanses the tags input and ensures spinup:org and spinup:spaceid are set correctly
-func cleanTags(org, spaceid string, tags []*Tag) ([]*Tag, error) {
+func cleanTags(org, spaceid, stype, flavor string, tags []*Tag) ([]*Tag, error) {
 	cleanTags := []*Tag{
 		{
 			Key:   aws.String("spinup:org"),
@@ -43,19 +43,27 @@ func cleanTags(org, spaceid string, tags []*Tag) ([]*Tag, error) {
 			Key:   aws.String("spinup:spaceid"),
 			Value: aws.String(spaceid),
 		},
+		{
+			Key:   aws.String("spinup:type"),
+			Value: aws.String(stype),
+		},
+		{
+			Key:   aws.String("spinup:flavor"),
+			Value: aws.String(flavor),
+		},
 	}
 
 	for _, t := range tags {
-		if aws.StringValue(t.Key) != "spinup:org" && aws.StringValue(t.Key) != "yale:org" && aws.StringValue(t.Key) != "spinup:spaceid" {
-			cleanTags = append(cleanTags, &Tag{Key: t.Key, Value: t.Value})
-			continue
-		}
-
-		if aws.StringValue(t.Key) == "spinup:org" || aws.StringValue(t.Key) == "yale:org" {
+		switch aws.StringValue(t.Key) {
+		case "spinup:org", "yale:org":
 			if aws.StringValue(t.Value) != org {
 				msg := fmt.Sprintf("not a part of our org (%s)", org)
 				return nil, errors.New(msg)
 			}
+		case "spinup:spaceid", "spinup:type", "spinup:flavor":
+			log.Debugf("skipping api controlled tag %s", aws.StringValue(t.Key))
+		default:
+			cleanTags = append(cleanTags, &Tag{Key: t.Key, Value: t.Value})
 		}
 	}
 
