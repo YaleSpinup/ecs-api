@@ -32,6 +32,8 @@ func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *S
 
 	log.Debugf("processing task definition create for a service %+v", input.TaskDefinition)
 
+	input.TaskDefinition.Tags = ecsTags(input.Tags)
+
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))
 
@@ -91,6 +93,8 @@ func (o *Orchestrator) processTaskDefTaskDefinitionCreate(ctx context.Context, i
 	}
 
 	log.Debugf("processing task definition create for a task %+v", input.TaskDefinition)
+
+	input.TaskDefinition.Tags = ecsTags(input.Tags)
 
 	// path is org/clustername
 	path := fmt.Sprintf("%s/%s", o.Org, aws.StringValue(input.Cluster.ClusterName))

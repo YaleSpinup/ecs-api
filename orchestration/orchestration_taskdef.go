@@ -240,6 +240,13 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 
 	if deletedCluster {
 		log.Infof("deleted cluster %s", input.Cluster)
+
+		executionRoleName := fmt.Sprintf("%s-ecsTaskExecution", input.Cluster)
+		if err := o.deleteDefaultTaskExecutionRole(ctx, executionRoleName); err != nil {
+			log.Errorf("failed to cleanup default task execution role: %s", err)
+		}
+
+		log.Infof("deleted default task execution role: %s", executionRoleName)
 	}
 
 	return &output, nil
