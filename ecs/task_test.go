@@ -226,6 +226,16 @@ func (m *mockECSClient) RunTaskWithContext(ctx context.Context, input *ecs.RunTa
 	}, nil
 }
 
+func (m *mockECSClient) StopTaskWithContext(ctx context.Context, input *ecs.StopTaskInput, opts ...request.Option) (*ecs.StopTaskOutput, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	return &ecs.StopTaskOutput{
+		Task: testTasks[0],
+	}, nil
+}
+
 func TestGetTasks(t *testing.T) {
 	client := ECS{Service: &mockECSClient{t: t}}
 
@@ -400,6 +410,84 @@ func TestECS_ListTasks(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ECS.ListTasks() = %v, want %v", awsutil.Prettify(got), awsutil.Prettify(tt.want))
+			}
+		})
+	}
+}
+
+func TestECS_StopTask(t *testing.T) {
+	type fields struct {
+		Service        ecsiface.ECSAPI
+		DefaultSgs     []string
+		DefaultSubnets []string
+	}
+	type args struct {
+		ctx   context.Context
+		input *ecs.StopTaskInput
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    *ecs.Task
+		wantErr bool
+	}{
+		{
+			name: "nil input",
+			fields: fields{
+				Service: &mockECSClient{t: t},
+			},
+			args: args{
+				ctx: context.TODO(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "error from aws",
+			fields: fields{
+				Service: &mockECSClient{
+					t:   t,
+					err: awserr.New(ecs.ErrCodePlatformUnknownException, "bad platform", nil),
+				},
+			},
+			args: args{
+				ctx:   context.TODO(),
+				input: &ecs.StopTaskInput{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "test task",
+			fields: fields{
+				Service: &mockECSClient{
+					t:   t,
+					err: awserr.New(ecs.ErrCodePlatformUnknownException, "bad platform", nil),
+				},
+			},
+			args: args{
+				ctx: context.TODO(),
+				input: &ecs.StopTaskInput{
+					Task:    aws.String("task1"),
+					Cluster: aws.String("clu0"),
+				},
+			},
+			want: testTasks[0],
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &ECS{
+				Service:        tt.fields.Service,
+				DefaultSgs:     tt.fields.DefaultSgs,
+				DefaultSubnets: tt.fields.DefaultSubnets,
+			}
+			got, err := e.StopTask(tt.args.ctx, tt.args.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ECS.StopTask() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ECS.StopTask() = %v, want %v", got, tt.want)
 			}
 		})
 	}
