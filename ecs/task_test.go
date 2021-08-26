@@ -459,10 +459,7 @@ func TestECS_StopTask(t *testing.T) {
 		{
 			name: "test task",
 			fields: fields{
-				Service: &mockECSClient{
-					t:   t,
-					err: awserr.New(ecs.ErrCodePlatformUnknownException, "bad platform", nil),
-				},
+				Service: &mockECSClient{t: t},
 			},
 			args: args{
 				ctx: context.TODO(),
