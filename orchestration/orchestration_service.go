@@ -96,7 +96,7 @@ func (o *Orchestrator) CreateService(ctx context.Context, input *ServiceOrchestr
 
 	spaceid := aws.StringValue(input.Cluster.ClusterName)
 
-	ct, err := cleanTags(o.Org, spaceid, input.Tags)
+	ct, err := cleanTags(o.Org, spaceid, "container", "service", input.Tags)
 	if err != nil {
 		return nil, err
 	}
@@ -335,7 +335,7 @@ func (o *Orchestrator) UpdateService(ctx context.Context, cluster, service strin
 
 	// if the input tags are passed, clean them and use them, otherwise set to the active service tags
 	if input.Tags != nil {
-		ct, err := cleanTags(o.Org, cluster, input.Tags)
+		ct, err := cleanTags(o.Org, cluster, "container", "service", input.Tags)
 		if err != nil {
 			return nil, err
 		}
