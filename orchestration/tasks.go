@@ -76,3 +76,24 @@ func toTaskOutput(tasks []*ecs.Task, failures []*ecs.Failure) (*TaskOutput, erro
 
 	return output, nil
 }
+
+func (o *Orchestrator) StopTask(ctx context.Context, cluster, task, reason string) error {
+	if cluster == "" || task == "" {
+		return apierror.New(apierror.ErrBadRequest, "cluster and task are required", nil)
+	}
+
+	input := ecs.StopTaskInput{
+		Cluster: aws.String(cluster),
+		Task:    aws.String(task),
+	}
+
+	if reason != "" {
+		input.SetReason(reason)
+	}
+
+	if _, err := o.ECS.StopTask(ctx, &input); err != nil {
+		return err
+	}
+
+	return nil
+}

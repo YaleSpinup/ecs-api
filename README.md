@@ -31,6 +31,7 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
     - [Get logs for a task](#get-logs-for-a-task)
       - [Request](#request-2)
         - [Examples](#examples)
+  - [Managed Task Definitions](#managed-task-definitions)
     - [Create a managed task definition](#create-a-managed-task-definition)
       - [Request](#request-3)
       - [Response](#response-3)
@@ -52,36 +53,39 @@ This API provides simple restful API access to Amazon's ECS Fargate service.
     - [Get a details of task definition task](#get-a-details-of-task-definition-task)
       - [Request](#request-9)
       - [Response](#response-9)
-  - [SSM Parameters](#ssm-parameters-1)
-    - [Create a param](#create-a-param)
+    - [Stop a task definition task](#stop-a-task-definition-task)
       - [Request](#request-10)
       - [Response](#response-10)
-    - [List parameters](#list-parameters)
-      - [Response](#response-11)
-    - [Show a parameter](#show-a-parameter)
-      - [Response](#response-12)
-    - [Delete a parameter](#delete-a-parameter)
-      - [Response](#response-13)
-    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
-      - [Response](#response-14)
-    - [Update a parameter](#update-a-parameter)
+  - [SSM Parameters](#ssm-parameters-1)
+    - [Create a param](#create-a-param)
       - [Request](#request-11)
+      - [Response](#response-11)
+    - [List parameters](#list-parameters)
+      - [Response](#response-12)
+    - [Show a parameter](#show-a-parameter)
+      - [Response](#response-13)
+    - [Delete a parameter](#delete-a-parameter)
+      - [Response](#response-14)
+    - [Delete all parameters in a prefix](#delete-all-parameters-in-a-prefix)
       - [Response](#response-15)
-  - [Secrets](#secrets)
-    - [Create a secret](#create-a-secret)
+    - [Update a parameter](#update-a-parameter)
       - [Request](#request-12)
       - [Response](#response-16)
-    - [List secrets](#list-secrets)
-      - [Response](#response-17)
-    - [Show a secret](#show-a-secret)
-      - [Response](#response-18)
-    - [Delete a secret](#delete-a-secret)
-      - [Response](#response-19)
-    - [Update a secret](#update-a-secret)
+  - [Secrets](#secrets)
+    - [Create a secret](#create-a-secret)
       - [Request](#request-13)
+      - [Response](#response-17)
+    - [List secrets](#list-secrets)
+      - [Response](#response-18)
+    - [Show a secret](#show-a-secret)
+      - [Response](#response-19)
+    - [Delete a secret](#delete-a-secret)
       - [Response](#response-20)
-    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+    - [Update a secret](#update-a-secret)
+      - [Request](#request-14)
       - [Response](#response-21)
+    - [List load balancers (target groups) for a space](#list-load-balancers-target-groups-for-a-space)
+      - [Response](#response-22)
   - [Development](#development)
   - [Author](#author)
   - [License](#license)
@@ -108,6 +112,7 @@ GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="{task}"&c
 
 // Tasks handlers
 GET /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
+DELETE /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
 
 // TaskDef handlers
 POST /v1/ecs/{account}/taskdefs
@@ -117,6 +122,7 @@ GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
 POST /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks/{task}
+DELETE /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks/{task}[?reason={reason}]
 
 // Secrets handlers
 GET /v1/ecs/{account}/secrets
@@ -296,10 +302,10 @@ Example request body of new service with existing resources:
 
 Service update orchestration currently supports:
 
-* updating tags
-* forcing a redeployment without changing the service
-* updating the task definition and redeploying
-* updating the service parameters (like replica count, or capacity provider strategy)
+- updating tags
+- forcing a redeployment without changing the service
+- updating the task definition and redeploying
+- updating the service parameters (like replica count, or capacity provider strategy)
 
 #### Request
 
@@ -486,6 +492,8 @@ GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&cont
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"
 GET /v1/ecs/{account}/clusters/{cluster}/services/{service}/logs?task="foo"&container="bar"&start="1583504305223"&end="1583527860973"&limit="30"&seq="f/35313851203912372440587619261645128276299525300062978048"
 ```
+
+## Managed Task Definitions
 
 ### Create a managed task definition
 
@@ -849,6 +857,26 @@ The response is the tasks list.
 | **500 Internal Server Error** | a server error occurred                  |
 
 
+### Stop a task definition task
+
+#### Request
+
+DELETE  /v1/ecs/{account}/cluster/{cluster}/taskdefs/{taskdef}/tasks/{task}
+
+#### Response
+
+The response is the tasks list.
+
+```json
+"OK"
+```
+
+| Response Code                 | Definition                                 |
+| ----------------------------- | -------------------------------------------|
+| **200 OK**                    | okay                                       |
+| **400 Bad Request**           | badly formed request                       |
+| **404 Not Found**             | account, cluster, def or task wasn't found |
+| **500 Internal Server Error** | a server error occurred                    |
 
 ## SSM Parameters
 

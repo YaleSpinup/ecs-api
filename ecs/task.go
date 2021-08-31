@@ -79,3 +79,21 @@ func (e *ECS) RunTask(ctx context.Context, input *ecs.RunTaskInput) (*ecs.RunTas
 
 	return out, nil
 }
+
+// StopTask stops a task in the given cluster
+func (e *ECS) StopTask(ctx context.Context, input *ecs.StopTaskInput) (*ecs.Task, error) {
+	if input == nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("stopping cluster %s tasks %s: %s", aws.StringValue(input.Cluster), aws.StringValue(input.Task), aws.StringValue(input.Reason))
+
+	out, err := e.Service.StopTaskWithContext(ctx, input)
+	if err != nil {
+		return nil, ErrCode("failed to describe tasks", err)
+	}
+
+	log.Debugf("output from stopping task %s/%+v: %+v", aws.StringValue(input.Cluster), aws.StringValue(input.Task), out)
+
+	return out.Task, nil
+}
