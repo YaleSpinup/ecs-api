@@ -4,6 +4,7 @@ package orchestration
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/YaleSpinup/ecs-api/cloudwatchlogs"
@@ -103,4 +104,31 @@ func defaultRbfunc(name string) rollbackFunc {
 		log.Infof("%s rollback, nothing to do", name)
 		return nil
 	}
+}
+
+type stop struct {
+	error
+}
+
+// retry is stolen from https://upgear.io/blog/simple-golang-retry-function/
+func retry(attempts int, sleep time.Duration, f func() error) error {
+	if err := f(); err != nil {
+		if s, ok := err.(stop); ok {
+			// Return the original error for later checking
+			return s.error
+		}
+
+		if attempts--; attempts > 0 {
+			// Add some randomness to prevent creating a Thundering Herd
+			jitter := time.Duration(rand.Int63n(int64(sleep)))
+			sleep = sleep + jitter/2
+
+			log.Debugf("sleeping for %s", sleep.String())
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep, f)
+		}
+		return err
+	}
+
+	return nil
 }

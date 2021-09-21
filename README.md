@@ -117,7 +117,7 @@ DELETE /v1/ecs/{account}/clusters/{cluster}/tasks/{task}
 // TaskDef handlers
 POST /v1/ecs/{account}/taskdefs
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs
-DELETE /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
+DELETE /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}[?recursive=true][&force=true]
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}
 POST /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
 GET /v1/ecs/{account}/clusters/{cluster}/taskdefs/{taskdef}/tasks
@@ -575,7 +575,7 @@ The response is the service body.
 
 | Response Code                 | Definition                               |
 | ----------------------------- | -----------------------------------------|
-| **200 OK**                    | okay                                     |
+| **202 Accepted**              | okay                                     |
 | **400 Bad Request**           | badly formed request                     |
 | **404 Not Found**             | account, cluster or taskdef wasn't found |
 | **500 Internal Server Error** | a server error occurred                  |

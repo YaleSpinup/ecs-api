@@ -66,6 +66,12 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		recursive = b
 	}
 
+	force := false
+	f, err := strconv.ParseBool(r.URL.Query().Get("force"))
+	if err == nil {
+		force = f
+	}
+
 	log.Debugf("request to delete account %s cluster %s taskdef %s (recursive: %t)", account, cluster, taskdef, recursive)
 
 	orchestrator, err := s.newOrchestrator(account)
@@ -78,6 +84,7 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		Cluster:        cluster,
 		TaskDefinition: taskdef,
 		Recursive:      recursive,
+		Force:          force,
 	})
 	if err != nil {
 		handleError(w, err)
@@ -91,7 +98,7 @@ func (s *server) TaskDefDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusAccepted)
 	w.Write(j)
 }
 

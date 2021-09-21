@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/YaleSpinup/apierror"
 	"github.com/YaleSpinup/ecs-api/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/arn"
@@ -50,17 +52,20 @@ type TaskDefUpdateOrchestrationOutput struct {
 	Tags                []*Tag
 }
 
-// TaskDefDeleteInput encapsulates a request to delete a taskdef with optional recursion
+// TaskDefDeleteInput encapsulates a request to delete a taskdef with optional recursion.  If force is
+// truthy, running tasks will be stopped before deleting, otherwise running tasks will result in an error.
 type TaskDefDeleteInput struct {
 	Cluster        string
 	TaskDefinition string
 	Recursive      bool
+	Force          bool
 }
 
 // TaskDefDeleteOutput is the orchestration response for taskdef deletion
 type TaskDefDeleteOutput struct {
 	Cluster        string
 	TaskDefinition string
+	Tasks          []string
 }
 
 type TaskDefShowOutput struct {
@@ -189,6 +194,7 @@ func (o *Orchestrator) UpdateTaskDef(ctx context.Context, cluster, family string
 	return output, nil
 }
 
+// DeleteTaskDef deletes all task definition revisions and related resources.
 func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteInput) (*TaskDefDeleteOutput, error) {
 	output := TaskDefDeleteOutput{
 		Cluster:        input.Cluster,
@@ -198,6 +204,16 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 	taskDefinition, _, err := o.ECS.GetTaskDefinition(ctx, aws.String(input.TaskDefinition), false)
 	if err != nil {
 		return nil, err
+	}
+
+	runningTasks, err := o.ListTaskDefTasks(ctx, input.Cluster, *taskDefinition.Family, "", []string{"RUNNING"})
+	if err != nil {
+		return nil, err
+	}
+
+	if l := len(runningTasks); l > 0 && !input.Force {
+		msg := fmt.Sprintf("running tasks > 0 (%d) and 'force' is not set", l)
+		return nil, apierror.New(apierror.ErrBadRequest, msg, nil)
 	}
 
 	// list all of the revisions in the task definition family
@@ -233,21 +249,81 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 		}(taskDefinitionRevisions[1:])
 	}
 
-	deletedCluster, err := o.deleteCluster(ctx, &input.Cluster)
-	if err != nil {
-		return nil, fmt.Errorf("failed to delete cluster: %s", err)
-	}
+	// stop the running tasks and cleanup in the background
+	go func() {
 
-	if deletedCluster {
-		log.Infof("deleted cluster %s", input.Cluster)
+		// create a new context for the cleanup
+		cleanupCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		executionRoleName := fmt.Sprintf("%s-ecsTaskExecution", input.Cluster)
-		if err := o.deleteDefaultTaskExecutionRole(ctx, executionRoleName); err != nil {
-			log.Errorf("failed to cleanup default task execution role: %s", err)
+		if l := len(runningTasks); l > 0 {
+			taskIds := make([]string, len(runningTasks))
+			reason := fmt.Sprintf("Deleting task definition %s", input.TaskDefinition)
+
+			// set desired status for all tasks to STOPPED
+			for i, t := range runningTasks {
+				splitTask := strings.SplitN(t, "/", 2)
+				taskIds[i] = splitTask[1]
+
+				if _, err := o.ECS.StopTask(cleanupCtx, &ecs.StopTaskInput{
+					Cluster: aws.String(input.Cluster),
+					Reason:  aws.String(reason),
+					Task:    aws.String(splitTask[1]),
+				}); err != nil {
+					log.Errorf("failed calling StopTask for %s", t)
+					return
+				}
+			}
+
+			// wait for tasks to become STOPPED
+			if err := retry(10, 10*time.Second, func() error {
+				log.Infof("waiting for tasks %s to be stopped...", strings.Join(taskIds, ","))
+
+				out, err := o.ECS.GetTasks(cleanupCtx, &ecs.DescribeTasksInput{
+					Cluster: &input.Cluster,
+					Tasks:   aws.StringSlice(taskIds),
+				})
+				if err != nil {
+					return err
+				}
+
+				pending := []string{}
+				for _, t := range out.Tasks {
+					if status := aws.StringValue(t.LastStatus); status != "STOPPED" {
+						pending = append(pending, status)
+					}
+				}
+
+				if len(pending) > 0 {
+					return fmt.Errorf("%s still running", strings.Join(pending, ","))
+				}
+
+				return nil
+			}); err != nil {
+				log.Errorf("failed to stop tasks %s: %s", strings.Join(taskIds, ","), err)
+				return
+			}
 		}
 
-		log.Infof("deleted default task execution role: %s", executionRoleName)
-	}
+		if input.Recursive {
+			deletedCluster, err := o.deleteCluster(cleanupCtx, &input.Cluster)
+			if err != nil {
+				log.Errorf("failed to delete cluster: %s", err)
+				return
+			}
+
+			if deletedCluster {
+				log.Infof("deleted cluster %s", input.Cluster)
+
+				executionRoleName := fmt.Sprintf("%s-ecsTaskExecution", input.Cluster)
+				if err := o.deleteDefaultTaskExecutionRole(cleanupCtx, executionRoleName); err != nil {
+					log.Errorf("failed to cleanup default task execution role: %s", err)
+				}
+
+				log.Infof("deleted default task execution role: %s", executionRoleName)
+			}
+		}
+	}()
 
 	return &output, nil
 }
@@ -428,12 +504,11 @@ func (o *Orchestrator) ListTaskDefTasks(ctx context.Context, cluster, taskdef, s
 	input := ecs.ListTasksInput{
 		MaxResults: aws.Int64(100),
 		Cluster:    aws.String(cluster),
+		Family:     aws.String(taskdef),
 	}
 
 	if startedBy != "" {
 		input.StartedBy = aws.String(startedBy)
-	} else {
-		input.Family = aws.String(taskdef)
 	}
 
 	tasks := []*string{}
