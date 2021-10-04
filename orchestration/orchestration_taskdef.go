@@ -251,7 +251,6 @@ func (o *Orchestrator) DeleteTaskDef(ctx context.Context, input *TaskDefDeleteIn
 
 	// stop the running tasks and cleanup in the background
 	go func() {
-
 		// create a new context for the cleanup
 		cleanupCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
