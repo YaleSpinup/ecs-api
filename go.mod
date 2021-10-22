@@ -1,6 +1,6 @@
 module github.com/YaleSpinup/ecs-api
 
-go 1.13
+go 1.17
 
 require (
 	github.com/YaleSpinup/apierror v0.1.0
@@ -19,8 +19,18 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	github.com/stretchr/testify v1.6.1 // indirect
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20201021035429-f5854403a974 // indirect
 	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
+)
+
+require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.1 // indirect
+	github.com/felixge/httpsnoop v1.0.1 // indirect
+	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/jmespath/go-jmespath v0.3.0 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/prometheus/procfs v0.1.3 // indirect
 )
