@@ -2,7 +2,6 @@ package orchestration
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -81,7 +80,7 @@ type TaskDefRunOrchestrationInput *ecs.RunTaskInput
 func (o *Orchestrator) CreateTaskDef(ctx context.Context, input *TaskDefCreateOrchestrationInput) (*TaskDefCreateOrchestrationOutput, error) {
 	log.Debugf("got create task orchestration input object:\n %+v", input.TaskDefinition)
 	if input.TaskDefinition == nil {
-		return nil, errors.New("task definition is required")
+		return nil, apierror.New(apierror.ErrBadRequest, "task definition is required", nil)
 	}
 
 	spaceid := aws.StringValue(input.Cluster.ClusterName)
@@ -430,7 +429,7 @@ func (o *Orchestrator) ListTaskDefs(ctx context.Context, cluster string) ([]stri
 // GetTaskDef gets the details about a task definition
 func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (*TaskDefShowOutput, error) {
 	if cluster == "" || family == "" {
-		return nil, errors.New("cluster and task def family are required")
+		return nil, apierror.New(apierror.ErrBadRequest, "cluster and task def family are required", nil)
 	}
 
 	log.Debugf("getting task definition for %s/%s", cluster, family)
@@ -443,6 +442,18 @@ func (o *Orchestrator) GetTaskDef(ctx context.Context, cluster, family string) (
 	tdOutput, tags, err := o.ECS.GetTaskDefinition(ctx, aws.String(family), true)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, t := range tags {
+		if aws.StringValue(t.Key) != "spinup:spaceid" {
+			continue
+		}
+
+		if aws.StringValue(t.Value) != cluster {
+			return nil, apierror.New(apierror.ErrNotFound, "taskdef not found in cluster", nil)
+		}
+
+		break
 	}
 
 	return &TaskDefShowOutput{
