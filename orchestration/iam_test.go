@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	yiam "github.com/YaleSpinup/aws-go/services/iam"
 	im "github.com/YaleSpinup/ecs-api/iam"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -27,9 +28,9 @@ var (
 	testTime   = time.Now()
 )
 
-var defaultPolicyDoc = im.PolicyDoc{
+var defaultPolicyDoc = yiam.PolicyDocument{
 	Version: "2012-10-17",
-	Statement: []im.PolicyStatement{
+	Statement: []yiam.StatementEntry{
 		{
 			Effect: "Allow",
 			Action: []string{
@@ -56,9 +57,9 @@ var defaultPolicyDoc = im.PolicyDoc{
 	},
 }
 
-var outdatedPolicyDoc = im.PolicyDoc{
+var outdatedPolicyDoc = yiam.PolicyDocument{
 	Version: "2012-10-17",
-	Statement: []im.PolicyStatement{
+	Statement: []yiam.StatementEntry{
 		{
 			Effect: "Allow",
 			Action: []string{
@@ -157,12 +158,12 @@ func (m *mockIAMClient) GetRolePolicyWithContext(ctx context.Context, input *iam
 
 	if aws.StringValue(input.RoleName) == "badpolicy-ecsTaskExecution" {
 		return &iam.GetRolePolicyOutput{
-			PolicyDocument: aws.String("{}"),
+			PolicyDocument: aws.String("{"),
 			RoleName:       input.RoleName,
 		}, nil
 	}
 
-	var p im.PolicyDoc
+	var p yiam.PolicyDocument
 	if aws.StringValue(input.RoleName) == "super-why-ecsTaskExecution" {
 		p = defaultPolicyDoc
 	} else if aws.StringValue(input.RoleName) == "mr-rogers-ecsTaskExecution" {
@@ -197,40 +198,43 @@ func (m *mockIAMClient) PutRolePolicyWithContext(ctx context.Context, input *iam
 	return output, nil
 }
 
-func TestOrchestrator_DefaultTaskExecutionPolicy(t *testing.T) {
-	type fields struct {
-		IAM im.IAM
-	}
+func Test_defaultTaskExecutionPolicy(t *testing.T) {
 	type args struct {
-		pathPrefix string
+		path string
+		kms  string
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   im.PolicyDoc
+		name           string
+		args           args
+		want           yiam.PolicyDocument
+		wantMarshalled string
 	}{
 		{
 			name: "test example",
-			fields: fields{
-				IAM: im.IAM{
-					DefaultKmsKeyID: "123",
-				},
-			},
 			args: args{
-				pathPrefix: pathPrefix,
+				path: pathPrefix,
+				kms:  "",
 			},
-			want: defaultPolicyDoc,
+			want:           defaultPolicyDoc,
+			wantMarshalled: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["ecr:GetAuthorizationToken","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":["*"]},{"Effect":"Allow","Action":["secretsmanager:GetSecretValue","ssm:GetParameters","kms:Decrypt"],"Resource":["arn:aws:secretsmanager:*:*:secret:spinup/org/super-why/*","arn:aws:ssm:*:*:parameter/org/super-why/*","arn:aws:kms:*:*:key/123"]}]}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := &Orchestrator{
-				IAM: tt.fields.IAM,
-			}
-			if got := o.DefaultTaskExecutionPolicy(tt.args.pathPrefix); !reflect.DeepEqual(got, tt.want) {
+			got := defaultTaskExecutionPolicy(tt.args.path, tt.args.kms)
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Orchestrator.DefaultTaskExecutionPolicy() = %v, want %v", got, tt.want)
 			}
+
+			gotMarshalled, err := json.Marshal(got)
+			if err != nil {
+				t.Errorf("Orchestrator.DefaultTaskExecutionPolicy() got error %s", err)
+			}
+
+			if string(gotMarshalled) != tt.wantMarshalled {
+				t.Errorf("Orchestrator.DefaultTaskExecutionPolicy() marshalled = %v, want %v", string(gotMarshalled), tt.wantMarshalled)
+			}
+
 		})
 	}
 }
@@ -342,7 +346,7 @@ func TestOrchestrator_DefaultTaskExecutionRole(t *testing.T) {
 			want: "arn:aws:iam::12345678910:role/missingpolicy-ecsTaskExecution",
 		},
 		{
-			name: "existing role, invalid pollicy document",
+			name: "existing role, invalid policy document",
 			fields: fields{
 				IAM: im.IAM{
 					Service:         newMockIAMClient(t, nil),
@@ -476,7 +480,7 @@ func Test_assumeRolePolicy(t *testing.T) {
 	}{
 		{
 			name: "assume role policy document",
-			want: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["sts:AssumeRole"],"Principal":{"Service":["ecs-tasks.amazonaws.com"]}}]}`,
+			want: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":["ecs-tasks.amazonaws.com"]},"Action":["sts:AssumeRole"]}]}`,
 		},
 	}
 	for _, tt := range tests {

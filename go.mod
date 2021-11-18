@@ -4,7 +4,8 @@ go 1.17
 
 require (
 	github.com/YaleSpinup/apierror v0.1.0
-	github.com/aws/aws-sdk-go v1.41.8
+	github.com/YaleSpinup/aws-go v0.1.0
+	github.com/aws/aws-sdk-go v1.42.7
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.2

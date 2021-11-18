@@ -6,23 +6,22 @@ import (
 	"fmt"
 
 	"github.com/YaleSpinup/apierror"
-	im "github.com/YaleSpinup/ecs-api/iam"
+	yiam "github.com/YaleSpinup/aws-go/services/iam"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awsutil"
 	"github.com/aws/aws-sdk-go/service/iam"
 	log "github.com/sirupsen/logrus"
 )
 
 var assumeRolePolicyDoc []byte
 
-// DefaultTaskExecutionPolicy generates the default policy for ECS task execution
-func (o *Orchestrator) DefaultTaskExecutionPolicy(path string) im.PolicyDoc {
+// defaultTaskExecutionPolicy generates the default policy for ECS task execution
+func defaultTaskExecutionPolicy(path, kms string) yiam.PolicyDocument {
 	log.Debugf("generating default task execution policy for %s", path)
 
-	return im.PolicyDoc{
+	return yiam.PolicyDocument{
 		Version: "2012-10-17",
-		Statement: []im.PolicyStatement{
+		Statement: []yiam.StatementEntry{
 			{
 				Effect: "Allow",
 				Action: []string{
@@ -43,7 +42,29 @@ func (o *Orchestrator) DefaultTaskExecutionPolicy(path string) im.PolicyDoc {
 				Resource: []string{
 					fmt.Sprintf("arn:aws:secretsmanager:*:*:secret:spinup/%s/*", path),
 					fmt.Sprintf("arn:aws:ssm:*:*:parameter/%s/*", path),
-					fmt.Sprintf("arn:aws:kms:*:*:key/%s", o.IAM.DefaultKmsKeyID),
+					fmt.Sprintf("arn:aws:kms:*:*:key/%s", kms),
+				},
+			},
+			{
+				Effect: "Allow",
+				Action: []string{
+					"elasticfilesystem:ClientRootAccess",
+					"elasticfilesystem:ClientWrite",
+					"elasticfilesystem:ClientMount",
+				},
+				Resource: []string{"*"},
+				Condition: yiam.Condition{
+					"Bool": yiam.ConditionStatement{
+						"elasticfilesystem:AccessedViaMountTarget": []string{"true"},
+					},
+					"StringEqualsIgnoreCase": yiam.ConditionStatement{
+						"aws:ResourceTag/spinup:org": []string{
+							"${aws:PrincipalTag/spinup:org}",
+						},
+						"aws:ResourceTag/spinup:spaceid": []string{
+							"${aws:PrincipalTag/spinup:spaceid}",
+						},
+					},
 				},
 			},
 		},
@@ -56,9 +77,9 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 		return "", apierror.New(apierror.ErrBadRequest, "invalid path", nil)
 	}
 
-	log.Infof("generating default task execution role %s/%s", path, role)
+	log.Infof("generating default task execution role %s/%s if it doesn't exist ", path, role)
 
-	defaultPolicy := o.DefaultTaskExecutionPolicy(path)
+	defaultPolicy := defaultTaskExecutionPolicy(path, o.IAM.DefaultKmsKeyID)
 
 	var roleArn string
 	if out, err := o.IAM.GetRole(ctx, role); err != nil {
@@ -66,7 +87,7 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 			return "", err
 		}
 
-		log.Debugf("unable to find role %s, creating", role)
+		log.Debugf("unable to find role %s/%s, creating", path, role)
 
 		output, err := o.createDefaultTaskExecutionRole(ctx, path, role)
 		if err != nil {
@@ -75,7 +96,7 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 
 		roleArn = output
 
-		log.Infof("created role %s with ARN: %s", role, roleArn)
+		log.Infof("created role %s/%s with ARN: %s", path, role, roleArn)
 	} else {
 		roleArn = aws.StringValue(out.Arn)
 
@@ -87,27 +108,28 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 				return "", err
 			}
 
-			log.Infof("inline policy for role %s is not found, updating", role)
+			log.Infof("inline policy for role %s/%s is not found, updating", path, role)
 
 		} else {
-			currentPolicy, err := im.PolicyFromDocument(currentDoc)
-			if err != nil {
+			var currentPolicy yiam.PolicyDocument
+			if err := json.Unmarshal([]byte(currentDoc), &currentPolicy); err != nil {
+				log.Errorf("failed to unmarhsall policy from document: %s", err)
 				return "", err
 			}
 
 			// if the current policy matches the generated (default) policy, return
 			// the role ARN otherwise, keep going and update the policy doc
-			if awsutil.DeepEqual(defaultPolicy, currentPolicy) {
-				log.Debugf("inline policy for role %s is up to date", role)
+			if yiam.PolicyDeepEqual(defaultPolicy, currentPolicy) {
+				log.Debugf("inline policy for role %s/%s is up to date", path, role)
 				return roleArn, nil
 			}
 
-			log.Infof("inline policy for role %s is out of date, updating", role)
+			log.Infof("inline policy for role %s/%s is out of date, updating", path, role)
 		}
 
 	}
 
-	defaultPolicyDoc, err := im.DocumentFromPolicy(&defaultPolicy)
+	defaultPolicyDoc, err := json.Marshal(defaultPolicy)
 	if err != nil {
 		log.Errorf("failed creating default IAM task execution policy for %s: %s", path, err.Error())
 		return "", err
@@ -115,7 +137,7 @@ func (o *Orchestrator) DefaultTaskExecutionRole(ctx context.Context, path, role 
 
 	// attach default role policy to the role
 	err = o.IAM.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
-		PolicyDocument: aws.String(defaultPolicyDoc),
+		PolicyDocument: aws.String(string(defaultPolicyDoc)),
 		PolicyName:     aws.String("ECSTaskAccessPolicy"),
 		RoleName:       aws.String(role),
 	})
@@ -175,15 +197,15 @@ func assumeRolePolicy() (string, error) {
 		return string(assumeRolePolicyDoc), nil
 	}
 
-	policyDoc, err := json.Marshal(im.PolicyDoc{
+	policyDoc, err := json.Marshal(yiam.PolicyDocument{
 		Version: "2012-10-17",
-		Statement: []im.PolicyStatement{
+		Statement: []yiam.StatementEntry{
 			{
 				Effect: "Allow",
 				Action: []string{
 					"sts:AssumeRole",
 				},
-				Principal: map[string][]string{
+				Principal: yiam.Principal{
 					"Service": {"ecs-tasks.amazonaws.com"},
 				},
 			},
