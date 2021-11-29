@@ -45,7 +45,8 @@ func (o *Orchestrator) processTaskDefinitionCreate(ctx context.Context, input *S
 		return nil, rbfunc, err
 	}
 
-	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	input.TaskDefinition.TaskRoleArn = aws.String(roleARN)
 	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
 	input.TaskDefinition.NetworkMode = DefaultNetworkMode
 
@@ -107,7 +108,8 @@ func (o *Orchestrator) processTaskDefTaskDefinitionCreate(ctx context.Context, i
 		return nil, rbfunc, err
 	}
 
-	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	input.TaskDefinition.TaskRoleArn = aws.String(roleARN)
 	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
 	input.TaskDefinition.NetworkMode = DefaultNetworkMode
 
@@ -166,6 +168,7 @@ func (o *Orchestrator) processTaskDefinitionUpdate(ctx context.Context, input *S
 
 	log.Debugf("setting roleARN: %s", roleARN)
 	input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	input.TaskDefinition.TaskRoleArn = aws.String(roleARN)
 
 	if len(input.TaskDefinition.RequiresCompatibilities) == 0 {
 		log.Debugf("setting default compatabilities: %+v", DefaultCompatabilities)
@@ -231,7 +234,8 @@ func (o *Orchestrator) processTaskDefTaskDefinitionUpdate(ctx context.Context, i
 		return err
 	}
 
-	input.TaskDefinition.ExecutionRoleArn = &roleARN
+	input.TaskDefinition.ExecutionRoleArn = aws.String(roleARN)
+	input.TaskDefinition.TaskRoleArn = aws.String(roleARN)
 	input.TaskDefinition.RequiresCompatibilities = DefaultCompatabilities
 	input.TaskDefinition.NetworkMode = DefaultNetworkMode
 

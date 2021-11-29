@@ -179,6 +179,7 @@ func TestOrchestrator_processTaskDefinitionCreate(t *testing.T) {
 				Revision:                aws.Int64(1),
 				Status:                  aws.String("ACTIVE"),
 				TaskDefinitionArn:       aws.String("arn:aws:ecs:us-east-1:0123456789:task-definition/datfam:1"),
+				TaskRoleArn:             aws.String("arn:aws:iam::12345678910:role/clu1-ecsTaskExecution"),
 			},
 		},
 	}
@@ -321,6 +322,7 @@ func TestOrchestrator_processTaskDefTaskDefinitionCreate(t *testing.T) {
 				Revision:                aws.Int64(1),
 				Status:                  aws.String("ACTIVE"),
 				TaskDefinitionArn:       aws.String("arn:aws:ecs:us-east-1:0123456789:task-definition/datfam:1"),
+				TaskRoleArn:             aws.String("arn:aws:iam::12345678910:role/clu1-ecsTaskExecution"),
 			},
 		},
 	}
@@ -453,6 +455,7 @@ func TestOrchestrator_processTaskDefinitionUpdate(t *testing.T) {
 					Memory:                  aws.String("512"),
 					NetworkMode:             aws.String("awsvpc"),
 					RequiresCompatibilities: aws.StringSlice([]string{"FARGATE"}),
+					TaskRoleArn:             aws.String("arn:aws:iam::12345678910:role/clu1-ecsTaskExecution"),
 				},
 				Tags: []*Tag{
 					{
