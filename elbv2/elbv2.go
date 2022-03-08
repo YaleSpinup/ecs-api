@@ -30,6 +30,63 @@ func NewSession(account common.Account) ELBV2API {
 	return s
 }
 
+func (e *ELBV2API) GetListeners(ctx context.Context, arn string) ([]*elbv2.Listener, error) {
+	if arn == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("describing listeners for load balancer %s", arn)
+
+	out, err := e.Service.DescribeListenersWithContext(ctx, &elbv2.DescribeListenersInput{
+		LoadBalancerArn: aws.String(arn),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("got output from describe listeners %+v", out)
+
+	return out.Listeners, nil
+}
+
+func (e *ELBV2API) GetLoadBalancers(ctx context.Context, arns []string) ([]*elbv2.LoadBalancer, error) {
+	if len(arns) == 0 {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("describing load balancers with arns %+v", arns)
+
+	out, err := e.Service.DescribeLoadBalancersWithContext(ctx, &elbv2.DescribeLoadBalancersInput{
+		LoadBalancerArns: aws.StringSlice(arns),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("got output from describe target groups %+v", out)
+
+	return out.LoadBalancers, nil
+}
+
+func (e *ELBV2API) GetRules(ctx context.Context, arn string) ([]*elbv2.Rule, error) {
+	if arn == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("describing rules for listener %s", arn)
+
+	out, err := e.Service.DescribeRulesWithContext(ctx, &elbv2.DescribeRulesInput{
+		ListenerArn: aws.String(arn),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("got output from describe rules %+v", out)
+
+	return out.Rules, nil
+}
+
 func (e *ELBV2API) GetTargetGroups(ctx context.Context, arns []string) ([]*elbv2.TargetGroup, error) {
 	if len(arns) == 0 {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
@@ -47,4 +104,23 @@ func (e *ELBV2API) GetTargetGroups(ctx context.Context, arns []string) ([]*elbv2
 	log.Debugf("got output from describe target groups %+v", out)
 
 	return out.TargetGroups, nil
+}
+
+func (e *ELBV2API) GetTargetHealth(ctx context.Context, arn string) ([]*elbv2.TargetHealthDescription, error) {
+	if arn == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Infof("describing target health for target group %+v", arn)
+
+	out, err := e.Service.DescribeTargetHealthWithContext(ctx, &elbv2.DescribeTargetHealthInput{
+		TargetGroupArn: aws.String(arn),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("got output from describe target health %+v", out)
+
+	return out.TargetHealthDescriptions, nil
 }

@@ -60,4 +60,5 @@ func (s *server) routes() {
 
 	// ALB/NLB Target group handlers
 	api.HandleFunc("/{account}/lbs", s.LoadBalancerListHandler).Methods(http.MethodGet).Queries("space", "{space}")
+	api.HandleFunc("/{account}/lbs/{space}", s.LoadBalancerDescribeHandler).Methods(http.MethodGet)
 }
