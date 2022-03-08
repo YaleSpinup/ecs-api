@@ -1211,7 +1211,7 @@ When only updating tags, you will get an empty response on success. When updatin
 | **404 Not Found**             | secret wasn't found in the org  |
 | **500 Internal Server Error** | a server error occurred         |
 
-### List load balancers (target groups) for a space
+### List load balancer target groups for a space
 
 GET `/v1/ecs/{account}/lbs?space={space}`
 
@@ -1222,6 +1222,76 @@ GET `/v1/ecs/{account}/lbs?space={space}`
     "test-tg-1": "arn:aws:elasticloadbalancing:us-east-1:001122334455:targetgroup/test-tg-1/0987654321",
     "test-tg-2": "arn:aws:elasticloadbalancing:us-east-1:001122334455:targetgroup/test-tg-2/0987654321"
 }
+```
+
+| Response Code                 | Definition                            |
+| ----------------------------- | --------------------------------------|
+| **200 OK**                    | okay                                  |
+| **400 Bad Request**           | badly formed request                  |
+| **500 Internal Server Error** | a server error occurred               |
+
+### Describe load balancers in a space
+
+Returns a list of load balancers in a given space. For each load balancer we also get a list of configured listeners and their rules, as well as any associated target groups and the health status of their targets.
+
+GET `/v1/ecs/{account}/lbs/{space}`
+
+#### Response
+
+```json
+[
+    {
+        "LoadBalancerArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:loadbalancer/app/zee-special-alb/1b12a9c2316583d9",
+        "LoadBalancerName": "zee-special-alb",
+        "LoadBalancerType": "application",
+        "DNSName": "internal-zee-special-alb-123456789.us-east-1.elb.amazonaws.com",
+        "Listeners": [
+            {
+                "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:listener/app/zee-special-alb/1b12a9c2316583d9/64e675c6f7554ed1",
+                "ListenerName": "HTTP:80",
+                "Rules": [
+                    {
+                        "RuleArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:listener-rule/app/zee-special-alb/1b12a9c2316583d9/64e675c6f7554ed1/8980e764316b7e1b",
+                        "If": "Default",
+                        "Then": "redirect to HTTPS://#{host}:443/#{path}?#{query}"
+                    }
+                ]
+            },
+            {
+                "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:listener/app/zee-special-alb/1b12a9c2316583d9/998b8bb49534c4c7",
+                "ListenerName": "HTTPS:443",
+                "SslPolicy": "ELBSecurityPolicy-TLS-1-2-2017-01",
+                "Rules": [
+                    {
+                        "RuleArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:listener-rule/app/zee-special-alb/1b12a9c2316583d9/998b8bb49534c4c7/1c75ae42a6a1e567",
+                        "If": "host-header: special.internal.example.com",
+                        "Then": "forward to tf-20211109200946929800000001",
+                        "TargetGroups": [
+                            {
+                                "TargetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:targetgroup/tf-20211109200946929800000001/60cd460879687ff5",
+                                "TargetGroupName": "tf-20211109200946929800000001",
+                                "TargetType": "ip",
+                                "Targets": [
+                                    {
+                                        "Id": "10.20.30.40",
+                                        "Port": "443",
+                                        "State": "healthy",
+                                        "Reason": ""
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "RuleArn": "arn:aws:elasticloadbalancing:us-east-1:012345678901:listener-rule/app/zee-special-alb/1b12a9c2316583d9/998b8bb49534c4c7/89e4837fe23d18c3",
+                        "If": "Default",
+                        "Then": "fixed response: status code 412"
+                    }
+                ]
+            }
+        ]
+    }
+]
 ```
 
 | Response Code                 | Definition                            |
@@ -1247,4 +1317,4 @@ E Camden Fisher <camden.fisher@yale.edu>
 ## License
 
 GNU Affero General Public License v3.0 (GNU AGPLv3)
-Copyright (c) 2019-2021 Yale University
+Copyright (c) 2019-2022 Yale University
