@@ -292,11 +292,17 @@ func getListenerRules(ctx context.Context, svc elbv2.ELBV2API, arn string) ([]Li
 							}
 
 							for _, t := range targetsOut {
+								// a reason and description should be provided if state is not healthy
+								reason := aws.StringValue(t.TargetHealth.Reason)
+								if t.TargetHealth.Description != nil {
+									reason += fmt.Sprintf(" (%s)", aws.StringValue(t.TargetHealth.Description))
+								}
+
 								targets = append(targets, Target{
 									Id:     aws.StringValue(t.Target.Id),
 									Port:   strconv.Itoa(int(aws.Int64Value(t.Target.Port))),
 									State:  aws.StringValue(t.TargetHealth.State),
-									Reason: aws.StringValue(t.TargetHealth.Reason),
+									Reason: reason,
 								})
 							}
 
