@@ -7,7 +7,6 @@ require (
 	github.com/YaleSpinup/aws-go v0.2.0
 	github.com/aws/aws-sdk-go v1.43.18
 	github.com/docker/distribution v2.8.1+incompatible
-	github.com/google/go-cmp v0.5.5 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
@@ -21,7 +20,6 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	golang.org/x/crypto v0.0.0-20220314234724-5d542ad81a58
 	golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 )
 
