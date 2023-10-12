@@ -1,5 +1,5 @@
 # build stage
-FROM golang:alpine AS build-env
+FROM golang:alpine3.18 AS build-env
 
 ARG version="0.0.0"
 ARG prerelease=""
