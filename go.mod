@@ -6,7 +6,7 @@ require (
 	github.com/YaleSpinup/apierror v0.1.0
 	github.com/YaleSpinup/aws-go v0.2.0
 	github.com/aws/aws-sdk-go v1.44.98
-	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
