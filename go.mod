@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.45.25
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/google/uuid v1.3.1
-	github.com/gorilla/handlers v1.5.1
+  github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1
