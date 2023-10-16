@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -17,7 +17,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,7 +34,7 @@ func (s *server) ServiceCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := io.ReadAll(r.Body)
 
 	log.Debugf("new service orchestration request body:\n%s", body)
 
@@ -119,7 +119,7 @@ func (s *server) ServiceUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	cluster := vars["cluster"]
 	service := vars["service"]
 
-	body, _ := ioutil.ReadAll(r.Body)
+	body, _ := io.ReadAll(r.Body)
 	log.Debugf("update service (%s/%s) orchestration request body: %s", cluster, service, body)
 
 	var req orchestration.ServiceOrchestrationUpdateInput
@@ -345,7 +345,7 @@ func (s server) newOrchestrator(account string) (*orchestration.Orchestrator, er
 		DefaultSecurityGroups:    ecsService.DefaultSgs,
 		DefaultSubnets:           ecsService.DefaultSubnets,
 		DefaultPublic:            "DISABLED",
-		Token:                    uuid.NewV4().String(),
+		Token:                    uuid.New().String(),
 		Org:                      s.org,
 	}, nil
 }
