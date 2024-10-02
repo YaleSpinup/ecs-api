@@ -4,3 +4,5 @@ k8s/k8s-config.yaml
 vendor
 .vscode
 
+.idea
+tmp
