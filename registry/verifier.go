@@ -102,7 +102,7 @@ func (v *Verifier) Verify(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err, "unable to create new request for "+url)
 	}
-	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+	req.Header.Set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.index.v1+json")
 
 	if creds := v.Credentials; creds != nil {
 		log.Debugf("setting basic auth for initial request (username: %s)", creds.Username)
