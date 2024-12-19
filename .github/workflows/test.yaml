@@ -1,7 +1,9 @@
 name: Tests
+permissions:
+  contents: read
+  pull-requests: write
 on:
   push:
-
 jobs:
   tests-off:
     name: ${{ matrix.os }} - Go v${{ matrix.go-version }}
@@ -12,15 +14,13 @@ jobs:
           - "1.18.x"
         os:
           - "ubuntu-latest"
-
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Go ${{ matrix.go }}
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
-
       - name: Test
         run: |
           go mod tidy -v
