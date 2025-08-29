@@ -25,7 +25,6 @@ func defaultTaskExecutionPolicy(path, kms string) yiam.PolicyDocument {
 			{
 				Effect: "Allow",
 				Action: []string{
-					"ecr:GetAuthorizationToken",
 					"logs:CreateLogGroup",
 					"logs:CreateLogStream",
 					"logs:PutLogEvents",
