@@ -51,7 +51,7 @@ func toTaskOutput(tasks []*ecs.Task, failures []*ecs.Failure) (*TaskOutput, erro
 		revision := int64(0)
 		tdArn, err := arn.Parse(aws.StringValue(t.TaskDefinitionArn))
 		if err != nil {
-			log.Errorf("failed to parse taskdefinition ARN: '%s': %s", aws.StringValue(t.TaskDefinitionArn), err)
+			log.Debugf("failed to parse taskdefinition ARN: '%s': %s", aws.StringValue(t.TaskDefinitionArn), err)
 		} else {
 			log.Debugf("splitting task def arn resource %s", tdArn.Resource)
 			ss := strings.Split(tdArn.Resource, ":")

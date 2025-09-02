@@ -34,10 +34,13 @@ var defaultPolicyDoc = yiam.PolicyDocument{
 		{
 			Effect: "Allow",
 			Action: []string{
-				"ecr:GetAuthorizationToken",
 				"logs:CreateLogGroup",
 				"logs:CreateLogStream",
 				"logs:PutLogEvents",
+				"ecr:GetAuthorizationToken",
+				"ecr:BatchCheckLayerAvailability",
+				"ecr:GetDownloadUrlForLayer",
+				"ecr:BatchGetImage",
 			},
 			Resource: []string{"*"},
 		},
@@ -238,7 +241,7 @@ func Test_defaultTaskExecutionPolicy(t *testing.T) {
 				kms:  "123",
 			},
 			want:           defaultPolicyDoc,
-			wantMarshalled: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["ecr:GetAuthorizationToken","logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents"],"Resource":["*"]},{"Effect":"Allow","Action":["secretsmanager:GetSecretValue","ssm:GetParameters","kms:Decrypt"],"Resource":["arn:aws:secretsmanager:*:*:secret:spinup/org/super-why/*","arn:aws:ssm:*:*:parameter/org/super-why/*","arn:aws:kms:*:*:key/123"]},{"Effect":"Allow","Action":["elasticfilesystem:ClientRootAccess","elasticfilesystem:ClientWrite","elasticfilesystem:ClientMount"],"Resource":["*"],"Condition":{"Bool":{"elasticfilesystem:AccessedViaMountTarget":["true"]},"StringEqualsIgnoreCase":{"aws:ResourceTag/spinup:org":["${aws:PrincipalTag/spinup:org}"],"aws:ResourceTag/spinup:spaceid":["${aws:PrincipalTag/spinup:spaceid}"]}}}]}`,
+			wantMarshalled: `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":["logs:CreateLogGroup","logs:CreateLogStream","logs:PutLogEvents","ecr:GetAuthorizationToken","ecr:BatchCheckLayerAvailability","ecr:GetDownloadUrlForLayer","ecr:BatchGetImage"],"Resource":["*"]},{"Effect":"Allow","Action":["secretsmanager:GetSecretValue","ssm:GetParameters","kms:Decrypt"],"Resource":["arn:aws:secretsmanager:*:*:secret:spinup/org/super-why/*","arn:aws:ssm:*:*:parameter/org/super-why/*","arn:aws:kms:*:*:key/123"]},{"Effect":"Allow","Action":["elasticfilesystem:ClientRootAccess","elasticfilesystem:ClientWrite","elasticfilesystem:ClientMount"],"Resource":["*"],"Condition":{"Bool":{"elasticfilesystem:AccessedViaMountTarget":["true"]},"StringEqualsIgnoreCase":{"aws:ResourceTag/spinup:org":["${aws:PrincipalTag/spinup:org}"],"aws:ResourceTag/spinup:spaceid":["${aws:PrincipalTag/spinup:spaceid}"]}}}]}`,
 		},
 	}
 	for _, tt := range tests {
