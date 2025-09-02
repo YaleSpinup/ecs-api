@@ -56,6 +56,23 @@ func Test_toTaskOutput(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multiple bad arn inputs should not fail",
+			args: args{
+				tasks: []*ecs.Task{
+					{TaskDefinitionArn: aws.String("invalid-arn-1")},
+					{TaskDefinitionArn: aws.String("not-an-arn-either")},
+					{TaskDefinitionArn: aws.String("arn:aws:ecs:us-east-1:1234567890:task-definition/valid:1")},
+				},
+			},
+			want: &TaskOutput{
+				Tasks: []*Task{
+					{&ecs.Task{TaskDefinitionArn: aws.String("invalid-arn-1")}, 0},
+					{&ecs.Task{TaskDefinitionArn: aws.String("not-an-arn-either")}, 0},
+					{&ecs.Task{TaskDefinitionArn: aws.String("arn:aws:ecs:us-east-1:1234567890:task-definition/valid:1")}, 1},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
