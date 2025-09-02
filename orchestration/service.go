@@ -67,6 +67,7 @@ func (o *Orchestrator) processService(ctx context.Context, input *ServiceOrchest
 // processServiceUpdate processes the service update input.  It normalizes inputs and updates and/or redeploys the service.
 func (o *Orchestrator) processServiceUpdate(ctx context.Context, input *ServiceOrchestrationUpdateInput, active *ServiceOrchestrationUpdateOutput) error {
 	if input.Service != nil {
+		
 		// set cluster and service, disallow assigning public IP, default to active service network config
 		u := input.Service
 		u.Cluster = active.Service.ClusterArn
@@ -89,11 +90,17 @@ func (o *Orchestrator) processServiceUpdate(ctx context.Context, input *ServiceO
 			}
 		}
 
+		// if capacity provider strategy is empty, set it to nil so AWS uses the service's original launch type
+		if len(input.Service.CapacityProviderStrategy) == 0 {
+			u.CapacityProviderStrategy = nil
+		}
+		
 		// if we pass in a new capacityproviderstrategy, we must force a new deployment
 		if input.ForceNewDeployment || len(input.Service.CapacityProviderStrategy) > 0 {
 			u.ForceNewDeployment = aws.Bool(true)
 		}
 
+		log.Debugf("About to call ECS.UpdateService with: %+v", u)
 		out, err := o.ECS.UpdateService(ctx, u)
 		if err != nil {
 			return err
