@@ -1,6 +1,6 @@
 module github.com/YaleSpinup/ecs-api
 
-go 1.18
+go 1.24.0
 
 require (
 	github.com/YaleSpinup/apierror v0.1.0
@@ -17,8 +17,8 @@ require (
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/crypto v0.35.0
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/crypto v0.45.0
+	golang.org/x/sys v0.38.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 )
 
